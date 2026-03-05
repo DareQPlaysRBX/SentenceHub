@@ -1,6 +1,6 @@
 --[[
 ╔═══════════════════════════════════════════════════════════╗
-║  NEXUS UI · OG Sentence Edition                           ║
+║  Sentence GUI Library · OG Sentence Edition                           ║
 ║  Wersja: 2.0 (Przepisana)                                 ║
 ╚═══════════════════════════════════════════════════════════╝
 --]]
