@@ -1,11 +1,11 @@
 --[[
 ╔═══════════════════════════════════════════════════════════╗
-║  Sentence GUI Library · OG Sentence Edition                           ║
+║  SENTENCE GUI · OG Sentence Edition                           ║
 ║  Wersja: 2.0 (Przepisana)                                 ║
 ╚═══════════════════════════════════════════════════════════╝
 --]]
 
-local Nexus = {
+local Sentence = {
     Version = "2.0",
     Flags   = {},
     Options = {},
@@ -119,8 +119,8 @@ local function merge(d, t)
     for k, v in pairs(d) do if t[k] == nil then t[k] = v end end
     return t
 end
-local function track(c) table.insert(Nexus._conns, c); return c end
-local function safe(cb, ...) local ok, e = pcall(cb, ...); if not ok then warn("NEXUS: "..tostring(e)) end end
+local function track(c) table.insert(Sentence._conns, c); return c end
+local function safe(cb, ...) local ok, e = pcall(cb, ...); if not ok then warn("SENTENCE: "..tostring(e)) end end
 
 local ICONS = {
     close  = "rbxassetid://6031094678",
@@ -304,7 +304,7 @@ end
 -- ══════════════════════════════════════════════════════════════════════════════
 -- SYSTEM NOTYFIKACJI
 -- ══════════════════════════════════════════════════════════════════════════════
-function Nexus:Notify(data)
+function Sentence:Notify(data)
     task.spawn(function()
         data = merge({ Title="Notice", Content="", Icon="info", Type="Info", Duration=4 }, data)
         local ac = NotifColors[data.Type] or Theme.AccentColor
@@ -362,16 +362,16 @@ end
 -- ══════════════════════════════════════════════════════════════════════════════
 -- CREATE WINDOW
 -- ══════════════════════════════════════════════════════════════════════════════
-function Nexus:CreateWindow(cfg)
+function Sentence:CreateWindow(cfg)
     cfg = merge({
-        Name            = "NEXUS",
+        Name            = "SENTENCE",
         Subtitle        = "",
         Icon            = "",
         ToggleBind      = Enum.KeyCode.RightControl,
         LoadingEnabled  = true,
-        LoadingTitle    = "NEXUS",
+        LoadingTitle    = "SENTENCE",
         LoadingSubtitle = "INITIALISING",
-        ConfigurationSaving = { Enabled=false, FolderName="Nexus", FileName="config" },
+        ConfigurationSaving = { Enabled=false, FolderName="Sentence", FileName="config" },
     }, cfg)
 
     local vp   = Cam.ViewportSize
@@ -479,7 +479,7 @@ function Nexus:CreateWindow(cfg)
     local nameOffX = cfg.Icon ~= "" and (ICON_X_POS + ICON_SIZE + 6) or ICON_X_POS
 
     local nameLabel = Txt({ T=cfg.Name, Sz=UDim2.new(0,220,0,16), Pos=UDim2.new(0,nameOffX,0,7),  Font=Enum.Font.GothamBold, TS=13, Col=Theme.TextPrimary,   Alpha=1, Z=5, Par=titleBar })
-    local subLabel  = Txt({ T=cfg.Subtitle~="" and ("/ "..cfg.Subtitle) or ("/ v"..Nexus.Version), Sz=UDim2.new(0,200,0,12), Pos=UDim2.new(0,nameOffX,0,24), Font=Enum.Font.Gotham, TS=10, Col=Theme.TextSecondary, Alpha=1, Z=5, Par=titleBar })
+    local subLabel  = Txt({ T=cfg.Subtitle~="" and ("/ "..cfg.Subtitle) or ("/ v"..Sentence.Version), Sz=UDim2.new(0,200,0,12), Pos=UDim2.new(0,nameOffX,0,24), Font=Enum.Font.Gotham, TS=10, Col=Theme.TextSecondary, Alpha=1, Z=5, Par=titleBar })
 
     local statBar = Box({ Name="StatBar", Sz=UDim2.new(0,130,0,24), Pos=UDim2.new(1,-8,0.5,0), AP=Vector2.new(1,0.5), Bg=Theme.SecondaryBackground, BgA=0, R=4, Z=5, Par=titleBar })
     local pingL   = Txt({ T="— ms", Sz=UDim2.new(0,60,1,0), Pos=UDim2.new(0,0,0,0),  Font=Enum.Font.Code, TS=10, Col=Theme.TextSecondary, AX=Enum.TextXAlignment.Right, Z=6, Par=statBar })
@@ -627,9 +627,9 @@ function Nexus:CreateWindow(cfg)
         tw(win, { Size = W._minimized and MINI or FULL }, TI_SLOW)
     end
 
-    ctrlBtns["X"].click.MouseButton1Click:Connect(function() Nexus:Destroy() end)
+    ctrlBtns["X"].click.MouseButton1Click:Connect(function() Sentence:Destroy() end)
     ctrlBtns["·"].click.MouseButton1Click:Connect(function()
-        Nexus:Notify({ Title="Hidden", Content="Press "..cfg.ToggleBind.Name.." to restore.", Type="Info" })
+        Sentence:Notify({ Title="Hidden", Content="Press "..cfg.ToggleBind.Name.." to restore.", Type="Info" })
         HideW()
     end)
     ctrlBtns["−"].click.MouseButton1Click:Connect(function()
@@ -980,7 +980,7 @@ function Nexus:CreateWindow(cfg)
                     safe(tc.Callback, TV.CurrentValue)
                 end)
                 function TV:Set(v) TV.CurrentValue = v; upd(); safe(tc.Callback, v) end
-                if tc.Flag then Nexus.Flags[tc.Flag] = TV; Nexus.Options[tc.Flag] = TV end
+                if tc.Flag then Sentence.Flags[tc.Flag] = TV; Sentence.Options[tc.Flag] = TV end
                 return TV
             end
 
@@ -1046,7 +1046,7 @@ function Nexus:CreateWindow(cfg)
 
                 HoverEffect(f)
                 function SV:Set(v) setV(v); safe(sc.Callback, SV.CurrentValue) end
-                if sc.Flag then Nexus.Flags[sc.Flag] = SV; Nexus.Options[sc.Flag] = SV end
+                if sc.Flag then Sentence.Flags[sc.Flag] = SV; Sentence.Options[sc.Flag] = SV end
                 return SV
             end
 
@@ -1078,7 +1078,7 @@ function Nexus:CreateWindow(cfg)
 end
 
 -- ── Destroy ──────────────────────────────────────────────────────────────────
-function Nexus:Destroy()
+function Sentence:Destroy()
     for _, c in ipairs(self._conns) do pcall(function() c:Disconnect() end) end
     self._conns = {}
     if self._notifHolder and self._notifHolder.Parent then
@@ -1088,4 +1088,4 @@ function Nexus:Destroy()
     self.Options = {}
 end
 
-return Nexus
+return Sentence
