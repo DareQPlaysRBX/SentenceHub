@@ -1,11 +1,11 @@
 --[[
 ╔═══════════════════════════════════════════════════════════╗
-║  SENTENCE GUI · OG Sentence Edition  v2.3                 ║
+║  SENTENCE GUI · OG Sentence Edition  v2.4                 ║
 ╚═══════════════════════════════════════════════════════════╝
 --]]
 
 local Sentence = {
-    Version = "2.3",
+    Version = "2.4",
     Flags   = {},
     Options = {},
     _conns  = {},
@@ -223,7 +223,7 @@ function Sentence:Notify(data)
         local card = Box({
             Name="NCard",
             Sz=UDim2.new(0,300,0,0),
-            Pos=UDim2.new(1,320,1,0),
+            Pos=UDim2.new(-1.1,0,1,0),
             AP=Vector2.new(0,1),
             Bg=T.BG1,
             BgA=0,
@@ -328,9 +328,9 @@ function Sentence:Notify(data)
         iconRing.Position = UDim2.new(0,14,0, cardH/2 - 15)
 
         card.Size = UDim2.new(0,300,0,cardH)
-        card.Position = UDim2.new(1,320,1,0)
+        card.Position = UDim2.new(-1.1,0,1,0)
 
-        -- Wjazd z prawej
+        -- Wjazd z lewej
         tw(card,{BackgroundTransparency=0,Position=UDim2.new(0,0,1,0)},TI_CIRC)
         tw(bgFill,{BackgroundTransparency=0},TI_FAST)
         tw(cardStroke,{Transparency=0.55},TI_MED)
@@ -363,7 +363,7 @@ function Sentence:Notify(data)
         tw(pFill,{BackgroundTransparency=1},TI_FAST); tw(pTrack,{BackgroundTransparency=1},TI_FAST)
         tw(accentBar,{BackgroundTransparency=1},TI_FAST); tw(bgFill,{BackgroundTransparency=1},TI_FAST)
         tw(cardStroke,{Transparency=1},TI_FAST)
-        tw(card,{BackgroundTransparency=1,Position=UDim2.new(1,320,1,0)},TI_CIRC)
+        tw(card,{BackgroundTransparency=1,Position=UDim2.new(-1.1,0,1,0)},TI_CIRC)
         task.wait(0.28)
         tw(card,{Size=UDim2.new(0,300,0,0)},TI_MED,function() card:Destroy() end)
     end)
@@ -397,51 +397,6 @@ function Sentence:CreateWindow(cfg)
     elseif syn and syn.protect_gui then syn.protect_gui(gui);gui.Parent=CG
     elseif not IsStudio then gui.Parent=CG
     else gui.Parent=LP:WaitForChild("PlayerGui") end
-
-    -- ══════════════════════════════════════════════════════════════════════════
-    -- HUD: Ping / Players widget — górny prawy róg ekranu
-    -- ══════════════════════════════════════════════════════════════════════════
-    local hudWidget = Box({
-        Name="HudWidget",
-        Sz=UDim2.new(0,0,0,28),
-        Pos=UDim2.new(1,-12,0,12),
-        AP=Vector2.new(1,0),
-        Bg=T.BG1,
-        BgA=0,
-        R=6,
-        AutoX=true,
-        Z=100,
-        Par=gui,
-    })
-    hudWidget.AutomaticSize=Enum.AutomaticSize.X
-    Pad(hudWidget,0,0,10,10)
-    local hudStroke=Instance.new("UIStroke"); hudStroke.Color=T.Accent; hudStroke.Thickness=1; hudStroke.Transparency=0.72; hudStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; hudStroke.Parent=hudWidget
-
-    local hudRow=Instance.new("Frame"); hudRow.Size=UDim2.new(0,0,1,0); hudRow.AutomaticSize=Enum.AutomaticSize.X
-    hudRow.BackgroundTransparency=1; hudRow.BorderSizePixel=0; hudRow.ZIndex=101; hudRow.Parent=hudWidget
-    List(hudRow,8,Enum.FillDirection.Horizontal,nil,Enum.VerticalAlignment.Center)
-
-    local hudPingDot=Box({Sz=UDim2.new(0,6,0,6),Bg=T.Success,BgA=0,R=3,Z=102,Par=hudRow})
-    local hudPingL=Txt({T="—ms",Sz=UDim2.new(0,0,1,0),Font=Enum.Font.Code,TS=13,Col=T.TextMid,AX=Enum.TextXAlignment.Left,Alpha=1,AutoX=true,Z=102,Par=hudRow})
-    local hudSep=Txt({T="·",Sz=UDim2.new(0,8,1,0),Font=Enum.Font.Gotham,TS=12,Col=T.TextLo,AX=Enum.TextXAlignment.Center,Z=102,Par=hudRow})
-    local hudPlrsL=Txt({T="—/—",Sz=UDim2.new(0,0,1,0),Font=Enum.Font.Code,TS=13,Col=T.TextMid,AX=Enum.TextXAlignment.Left,Alpha=1,AutoX=true,Z=102,Par=hudRow})
-
-    task.spawn(function()
-        task.wait(0.5)
-        -- Wjazd HUD
-        hudWidget.BackgroundTransparency=1
-        tw(hudWidget,{BackgroundTransparency=0},TI_MED)
-        while task.wait(1.5) do
-            if not gui or not gui.Parent then break end
-            pcall(function()
-                local ms=math.floor(LP:GetNetworkPing()*1000)
-                hudPingL.Text=ms.."ms"
-                local col=ms<80 and T.Success or ms<150 and T.Warning or T.Error
-                hudPingL.TextColor3=col; hudPingDot.BackgroundColor3=col
-                hudPlrsL.Text=#Plrs:GetPlayers().."/"..Plrs.MaxPlayers
-            end)
-        end
-    end)
 
     -- ══════════════════════════════════════════════════════════════════════════
     -- SPLASH SCREEN
@@ -669,10 +624,10 @@ function Sentence:CreateWindow(cfg)
 
     -- ── Notif Holder ─────────────────────────────────────────────────────────
     local notifHolder=Instance.new("Frame"); notifHolder.Name="Notifs"
-    notifHolder.Size=UDim2.new(0,320,1,-16); notifHolder.Position=UDim2.new(1,-10,0,8)
-    notifHolder.AnchorPoint=Vector2.new(1,0)
+    notifHolder.Size=UDim2.new(0,310,1,-16); notifHolder.Position=UDim2.new(0,10,1,-8)
+    notifHolder.AnchorPoint=Vector2.new(0,1)
     notifHolder.BackgroundTransparency=1; notifHolder.ZIndex=200; notifHolder.Parent=gui
-    local nList=List(notifHolder,6); nList.VerticalAlignment=Enum.VerticalAlignment.Top
+    local nList=List(notifHolder,6); nList.VerticalAlignment=Enum.VerticalAlignment.Bottom
     self._notifHolder=notifHolder
 
     -- ══════════════════════════════════════════════════════════════════════════
@@ -706,24 +661,28 @@ function Sentence:CreateWindow(cfg)
         ColorSequenceKeypoint.new(1,T.Border)}
     tbLineG.Parent=tbLine
 
-    -- ── Przyciski sterowania — PRAWA STRONA, nowy styl ────────────────────────
-    -- X: czerwony kwadrat z ikoną
-    -- −: szary z ikoną minus
-    -- ·: szary z ikoną oka / hide
+    -- ── Przyciski sterowania — PRAWA STRONA: [Minimize] [Hide] [Exit] ─────────
+    -- Minimize: ikona minus/dash
+    -- Hide: ikona oka
+    -- Exit: ikona X (przy samej prawej ścianie)
     local ctrlBtns={}
+    local CBTN_W=26; local CBTN_GAP=5; local CBTN_MARGIN=10
+    -- kolejność od lewej do prawej: Minimize, Hide, Exit
+    -- Exit jest ostatni (skrajnie prawy)
     local CTRL_DEFS={
-        {key="X",  lbl="×",  hoverBg=T.Error,   hoverTxt=T.TextHi},
-        {key="−",  lbl="−",  hoverBg=T.AccentDim,hoverTxt=T.TextHi},
-        {key="·",  lbl="⊙",  hoverBg=T.BG4,     hoverTxt=T.Accent},
+        -- key, icon id, hoverBg, hoverIconCol
+        {key="−", ico="rbxassetid://6031094687", hoverBg=T.AccentDim, hoverCol=T.TextHi},  -- Minimize (dash/arrow-down)
+        {key="·", ico="rbxassetid://6031075929", hoverBg=T.BG4,       hoverCol=T.Accent},  -- Hide (eye)
+        {key="X", ico="rbxassetid://6031094678", hoverBg=T.Error,      hoverCol=T.TextHi}, -- Exit (close X)
     }
-    -- rozmieszczenie od prawej: 3 przyciski po 28px z marginesem 6px między nimi, margin prawej=10
-    local CBTN_W=28; local CBTN_GAP=5; local CBTN_MARGIN=10
     for idx,cd in ipairs(CTRL_DEFS) do
-        local xp = CBTN_MARGIN + (3-idx)*(CBTN_W+CBTN_GAP)
+        -- pozycja: Exit (idx=3) przy prawej ścianie z marginem 10
+        -- każdy kolejny w lewo o (CBTN_W+CBTN_GAP)
+        local fromRight = CBTN_MARGIN + (3-idx)*(CBTN_W+CBTN_GAP)
         local cb=Box({
             Name=cd.key,
             Sz=UDim2.new(0,CBTN_W,0,CBTN_W),
-            Pos=UDim2.new(1,-xp-CBTN_W,0.5,0),
+            Pos=UDim2.new(1,-fromRight-CBTN_W,0.5,0),
             AP=Vector2.new(0,0.5),
             Bg=T.BG3,
             BgA=0,
@@ -731,44 +690,42 @@ function Sentence:CreateWindow(cfg)
             Z=5,
             Par=titleBar
         })
-        -- Obwódka
-        local cbStroke=Instance.new("UIStroke"); cbStroke.Color=T.Border; cbStroke.Thickness=1; cbStroke.Transparency=0.4; cbStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; cbStroke.Parent=cb
-        -- Etykieta tekstowa (czytelna, proporcjonalna)
-        local cbL=Instance.new("TextLabel"); cbL.Text=cd.lbl
-        cbL.Size=UDim2.new(1,0,1,0); cbL.BackgroundTransparency=1
-        cbL.Font=Enum.Font.GothamBold; cbL.TextSize=15
-        cbL.TextColor3=T.TextLo; cbL.TextXAlignment=Enum.TextXAlignment.Center
-        cbL.TextYAlignment=Enum.TextYAlignment.Center; cbL.ZIndex=6; cbL.BorderSizePixel=0
-        cbL.RichText=false; cbL.Parent=cb
+        local cbStroke=Instance.new("UIStroke"); cbStroke.Color=T.Border; cbStroke.Thickness=1; cbStroke.Transparency=0.45; cbStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; cbStroke.Parent=cb
+        local cbIco=Img({Ico=cd.ico,Sz=UDim2.new(0,12,0,12),Col=T.TextLo,IA=0,Z=6,Par=cb})
+        task.spawn(function() tw(cbIco,{ImageTransparency=0},TI_MED) end)
         local cl=Btn(cb,7)
         cb.MouseEnter:Connect(function()
             tw(cb,{BackgroundColor3=cd.hoverBg,BackgroundTransparency=0},TI_FAST)
-            tw(cbL,{TextColor3=cd.hoverTxt},TI_FAST)
-            tw(cbStroke,{Color=cd.hoverBg,Transparency=0.5},TI_FAST)
+            tw(cbIco,{ImageColor3=cd.hoverCol},TI_FAST)
+            tw(cbStroke,{Color=cd.hoverBg,Transparency=0.4},TI_FAST)
         end)
         cb.MouseLeave:Connect(function()
             tw(cb,{BackgroundColor3=T.BG3,BackgroundTransparency=0},TI_FAST)
-            tw(cbL,{TextColor3=T.TextLo},TI_FAST)
-            tw(cbStroke,{Color=T.Border,Transparency=0.4},TI_FAST)
+            tw(cbIco,{ImageColor3=T.TextLo},TI_FAST)
+            tw(cbStroke,{Color=T.Border,Transparency=0.45},TI_FAST)
         end)
-        ctrlBtns[cd.key]={frame=cb,click=cl,label=cbL}
+        ctrlBtns[cd.key]={frame=cb,click=cl,ico=cbIco}
     end
 
-    -- ── Logo + tytuł — po lewej, logo na samej prawej ─────────────────────────
-    -- Tytuł i subtitle — od lewej (po sidebars)
-    local IX=108
-    local IS=22
+    -- ── Logo — lewa strona 32x32, tytuł i subtitle obok ──────────────────────
+    local LOGO_MARGIN = 14   -- margines od lewej
+    local LOGO_SIZE   = 32
+    local LOGO_GAP    = 10   -- odstęp między logo a tekstem
 
-    -- Logo — na samej prawej z marginem 3, przed przyciskami ctrl
-    local ctrlTotalW = 3*(CBTN_W+CBTN_GAP)+CBTN_MARGIN
-    local logoPos = UDim2.new(1, -(ctrlTotalW + IS + 3), 0.5, 0)
-    Img({Ico=cfg.Icon,Sz=UDim2.new(0,IS,0,IS),Pos=logoPos,AP=Vector2.new(1,0.5),Col=T.TextHi,Z=5,Par=titleBar})
+    -- Logo jako ImageLabel z zaokrąglonymi rogami
+    local logoImg=Instance.new("ImageLabel")
+    logoImg.Name="LogoImg"; logoImg.Size=UDim2.new(0,LOGO_SIZE,0,LOGO_SIZE)
+    logoImg.Position=UDim2.new(0,LOGO_MARGIN,0.5,0); logoImg.AnchorPoint=Vector2.new(0,0.5)
+    logoImg.BackgroundTransparency=1; logoImg.Image=cfg.Icon~="" and ico(cfg.Icon) or LOGO
+    logoImg.ScaleType=Enum.ScaleType.Fit; logoImg.ImageTransparency=1
+    logoImg.ZIndex=5; logoImg.Parent=titleBar
+    Instance.new("UICorner",logoImg).CornerRadius=UDim.new(0,5)
+    task.spawn(function() tw(logoImg,{ImageTransparency=0},TI_MED) end)
 
-    local nOff = cfg.Icon~="" and (IX+IS+6) or IX
-    local nameLabel=Txt({T=cfg.Name,Sz=UDim2.new(0,220,0,20),Pos=UDim2.new(0,nOff,0,4),Font=Enum.Font.GothamBold,TS=17,Col=T.TextHi,Alpha=1,Z=5,Par=titleBar})
-    -- Subtitle bez "/" — bezpośrednio tekst
+    local txtX = LOGO_MARGIN + LOGO_SIZE + LOGO_GAP
+    local nameLabel=Txt({T=cfg.Name,Sz=UDim2.new(0,220,0,20),Pos=UDim2.new(0,txtX,0,5),Font=Enum.Font.GothamBold,TS=16,Col=T.TextHi,Alpha=1,Z=5,Par=titleBar})
     local subText = cfg.Subtitle~="" and cfg.Subtitle or "v"..Sentence.Version
-    local subLabel=Txt({T=subText,Sz=UDim2.new(0,200,0,13),Pos=UDim2.new(0,nOff,0,26),Font=Enum.Font.Gotham,TS=13,Col=T.TextLo,Alpha=1,Z=5,Par=titleBar})
+    local subLabel=Txt({T=subText,Sz=UDim2.new(0,200,0,13),Pos=UDim2.new(0,txtX,0,26),Font=Enum.Font.Gotham,TS=12,Col=T.TextLo,Alpha=1,Z=5,Par=titleBar})
 
     -- ── Sidebar ───────────────────────────────────────────────────────────────
     local SW=50
