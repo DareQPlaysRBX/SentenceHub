@@ -1,11 +1,11 @@
 --[[
 ╔═══════════════════════════════════════════════════════════╗
-║  SENTENCE GUI · OG Sentence Edition  v2.7                 ║
+║  SENTENCE GUI · OG Sentence Edition  v2.8                 ║
 ╚═══════════════════════════════════════════════════════════╝
 --]]
 
 local Sentence = {
-    Version = "2.7",
+    Version = "2.8",
     Flags   = {},
     Options = {},
     _conns  = {},
@@ -773,7 +773,7 @@ function Sentence:CreateWindow(cfg)
     blurHost.Size=UDim2.new(1,-SW-1,1,-TB_H-2)
     blurHost.Position=UDim2.new(0,SW+1,0,TB_H+2)
     blurHost.BackgroundColor3=T.BG1
-    blurHost.BackgroundTransparency=0.32
+    blurHost.BackgroundTransparency=0.9
     blurHost.BorderSizePixel=0
     blurHost.ZIndex=2
     blurHost.ClipsDescendants=false
@@ -783,7 +783,7 @@ function Sentence:CreateWindow(cfg)
     local glassBase=Instance.new("Frame")
     glassBase.Size=UDim2.new(1,0,1,0)
     glassBase.BackgroundColor3=T.BG0
-    glassBase.BackgroundTransparency=0.55
+    glassBase.BackgroundTransparency=0.88
     glassBase.BorderSizePixel=0; glassBase.ZIndex=2; glassBase.Parent=blurHost
 
     -- Warstwa 2: niebieski tint (glass color tint)
