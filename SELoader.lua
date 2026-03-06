@@ -1,6 +1,3 @@
--- ════════════════════════════════════════════════════════════
--- LIBRARY
--- ════════════════════════════════════════════════════════════
 local Lib = loadstring(game:HttpGet(
     "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/SentenceLibTest.lua"
 ))()
@@ -14,23 +11,13 @@ local RepStorage = game:GetService("ReplicatedStorage")
 local LP         = Players.LocalPlayer
 
 -- ════════════════════════════════════════════════════════════
--- GAME REGISTRY  (PlaceId → script URL)
+-- GAME REGISTRY
 -- ════════════════════════════════════════════════════════════
 local SUPPORTED_GAMES = {
-    [2753915549] = {
-        name   = "Blox Fruits",
-        url    = "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/Games/BloxFruits.lua",
-        config = "bloxfruits",
-    },
-    [142823291]  = {
-        name   = "Murder Mystery 2",
-        url    = "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/Games/MurderMystery2.lua",
-        config = "mm2",
-    },
-    [1962086868] = {
-        name   = "Pet Simulator X",
-        url    = "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/Games/PetSimX.lua",
-        config = "petsimx",
+    [85896571713843] = {
+        name   = "Bubble Gum Simulator INFINITY",
+        url    = "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/Games/Bubblegumsimulatorinfinity.lua",
+        config = "bgs-infinity",
     },
 }
 
@@ -88,10 +75,10 @@ S_CL:CreateLabel({ Name = "v1.0 — Initial universal release." })
 
 -- Credits section
 local S_Cred = Home:CreateSection("Credits")
-S_Cred:CreateLabel({ Name = "Developer:   DareQPlaysRBX",           Style = 2 })
-S_Cred:CreateLabel({ Name = "Library:       SentenceLib  v2.6"                })
-S_Cred:CreateLabel({ Name = "GitHub:        DareQPlaysRBX/SentenceHub"        })
-S_Cred:CreateLabel({ Name = "Discord:       discord.gg/gQt5WeS5kn"            })
+S_Cred:CreateLabel({ Name = "Developer: DareQPlaysRBX",           Style = 2 })
+S_Cred:CreateLabel({ Name = "Library: SentenceLib  v2.6"                })
+S_Cred:CreateLabel({ Name = "GitHub: DareQPlaysRBX/SentenceHub"        })
+S_Cred:CreateLabel({ Name = "Discord: discord.gg/gQt5WeS5kn"            })
 
 -- ════════════════════════════════════════════════════════════
 -- GAME-SPECIFIC SCRIPT LOADER
@@ -100,9 +87,17 @@ if isSupported then
     -- ── Supported game: load dedicated script ──────────────
     print("[ SENTENCE ] Detected supported game: " .. GAME_NAME .. " (PlaceId: " .. placeId .. ")")
 
+    -- Expose Window and Lib via _G so game scripts can reference them
+    _G.Window = Window
+    _G.Lib    = Lib
+
     local success, err = pcall(function()
         loadstring(game:HttpGet(gameData.url))()
     end)
+
+    -- Clean up globals after the game script has finished loading
+    _G.Window = nil
+    _G.Lib    = nil
 
     if not success then
         warn("[ SENTENCE ] Failed to load game script for " .. GAME_NAME .. ": " .. tostring(err))
@@ -122,11 +117,8 @@ else
     -- ── Unsupported game: Universal tab ───────────────────
     print("[ SENTENCE ] Unsupported game (PlaceId: " .. placeId .. ") — Universal mode.")
 
-    local TabMain = Window:CreateTab({ Name = "Auto Farm", Icon = "rbxassetid://6031280882", ShowTitle = true })
+    local TabMain = Window:CreateTab({ Name = "Main", Icon = "rbxassetid://6031280882", ShowTitle = true })
 
-    -- You can add universal features here, e.g.:
-    -- local S_Movement = TabMain:CreateSection("Movement")
-    -- S_Movement:CreateToggle({ Name = "Infinite Jump", ... })
 end
 
 -- ════════════════════════════════════════════════════════════
