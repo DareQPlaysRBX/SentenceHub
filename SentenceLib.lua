@@ -194,7 +194,7 @@ local function Txt(p)
     l.TextXAlignment         = p.AX    or Enum.TextXAlignment.Left
     l.TextYAlignment         = p.AY    or Enum.TextYAlignment.Center
     l.TextWrapped            = p.Wrap  or false
-    l.RichText               = false   -- wyłączone globalnie
+    l.RichText               = false
     l.BackgroundTransparency = 1
     l.BorderSizePixel        = 0
     l.ZIndex                 = p.Z     or 2
@@ -327,8 +327,7 @@ function Sentence:Notify(data)
         local contentContainer = Box({ Name="Content", Sz=UDim2.new(1,0,0,0), BgA=1, AutoY=true, Par=card })
         Pad(contentContainer, 12, 12, 34, 12)
 
-        local strip = Box({ Sz=UDim2.new(0,3,1,0), Pos=UDim2.new(0,0,0,0), Bg=ac, BgA=1, R=0, Z=4, Par=card })
-
+        local strip   = Box({ Sz=UDim2.new(0,3,1,0), Pos=UDim2.new(0,0,0,0), Bg=ac, BgA=1, R=0, Z=4, Par=card })
         local iconImg = Img({ Ico=data.Icon, Sz=UDim2.new(0,14,0,14), Pos=UDim2.new(0,12,0,12), AP=Vector2.zero, Col=ac, IA=1, Z=4, Par=card })
 
         local ttl = Txt({ T=data.Title,   Sz=UDim2.new(1,0,0,16), Font=Enum.Font.GothamBold, TS=13, Col=Theme.NotificationPanelText, Alpha=1, Z=4, Par=contentContainer })
@@ -375,8 +374,9 @@ function Sentence:CreateWindow(cfg)
     }, cfg)
 
     local vp   = Cam.ViewportSize
-    local WW   = math.clamp(vp.X - 100, 560, 750)
-    local WH   = math.clamp(vp.Y - 80,  400, 500)
+    -- ── GUI +10% względem oryginału ──────────────────────────────────────────
+    local WW   = math.clamp(vp.X - 100, 616, 825)
+    local WH   = math.clamp(vp.Y - 80,  440, 550)
     local FULL = UDim2.fromOffset(WW, WH)
     local MINI = UDim2.fromOffset(WW, 40)
 
@@ -397,6 +397,309 @@ function Sentence:CreateWindow(cfg)
     else
         gui.Parent = LP:WaitForChild("PlayerGui")
     end
+
+    -- ══════════════════════════════════════════════════════════════════════════
+    -- SPLASH SCREEN · SENTENCE HUB
+    -- ══════════════════════════════════════════════════════════════════════════
+    task.spawn(function()
+        -- Tło fullscreen
+        local splash = Instance.new("Frame")
+        splash.Name                   = "SplashScreen"
+        splash.Size                   = UDim2.new(1, 0, 1, 0)
+        splash.Position               = UDim2.new(0, 0, 0, 0)
+        splash.BackgroundColor3       = HexToColor3("#0a0a0a")
+        splash.BackgroundTransparency = 1
+        splash.BorderSizePixel        = 0
+        splash.ZIndex                 = 1000
+        splash.Parent                 = gui
+
+        -- Gradient overlay (dekoracyjny)
+        local splashGrad = Instance.new("UIGradient")
+        splashGrad.Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0,  HexToColor3("#0d1117")),
+            ColorSequenceKeypoint.new(0.5, HexToColor3("#0a0a0a")),
+            ColorSequenceKeypoint.new(1,  HexToColor3("#0d1117")),
+        }
+        splashGrad.Rotation = 135
+        splashGrad.Parent   = splash
+
+        -- Świecąca plama akcentu w centrum
+        local glowBlob = Instance.new("Frame")
+        glowBlob.Name                   = "GlowBlob"
+        glowBlob.Size                   = UDim2.new(0, 600, 0, 300)
+        glowBlob.Position               = UDim2.new(0.5, 0, 0.5, 0)
+        glowBlob.AnchorPoint            = Vector2.new(0.5, 0.5)
+        glowBlob.BackgroundColor3       = Theme.AccentColor
+        glowBlob.BackgroundTransparency = 1
+        glowBlob.BorderSizePixel        = 0
+        glowBlob.ZIndex                 = 1001
+        glowBlob.Parent                 = splash
+        Instance.new("UICorner", glowBlob).CornerRadius = UDim.new(1, 0)
+        local blobGrad = Instance.new("UIGradient")
+        blobGrad.Transparency = NumberSequence.new{
+            NumberSequenceKeypoint.new(0, 0.72),
+            NumberSequenceKeypoint.new(1, 1),
+        }
+        blobGrad.Parent = glowBlob
+
+        -- ── Kontener centralny ────────────────────────────────────────────────
+        local center = Instance.new("Frame")
+        center.Name                   = "Center"
+        center.Size                   = UDim2.new(0, 0, 0, 0)
+        center.Position               = UDim2.new(0.5, 0, 0.5, 0)
+        center.AnchorPoint            = Vector2.new(0.5, 0.5)
+        center.BackgroundTransparency = 1
+        center.AutomaticSize          = Enum.AutomaticSize.XY
+        center.ZIndex                 = 1002
+        center.Parent                 = splash
+        local centerList = Instance.new("UIListLayout")
+        centerList.SortOrder              = Enum.SortOrder.LayoutOrder
+        centerList.FillDirection          = Enum.FillDirection.Vertical
+        centerList.HorizontalAlignment    = Enum.HorizontalAlignment.Center
+        centerList.VerticalAlignment      = Enum.VerticalAlignment.Center
+        centerList.Padding                = UDim.new(0, 0)
+        centerList.Parent                 = center
+
+        -- ── Linia górna (animowana) ────────────────────────────────────────────
+        local topBarWrap = Instance.new("Frame")
+        topBarWrap.Size                   = UDim2.new(0, 320, 0, 2)
+        topBarWrap.BackgroundTransparency = 1
+        topBarWrap.BorderSizePixel        = 0
+        topBarWrap.LayoutOrder            = 0
+        topBarWrap.ZIndex                 = 1003
+        topBarWrap.Parent                 = center
+
+        local topBar = Instance.new("Frame")
+        topBar.Size                   = UDim2.new(0, 0, 1, 0)
+        topBar.AnchorPoint            = Vector2.new(0.5, 0)
+        topBar.Position               = UDim2.new(0.5, 0, 0, 0)
+        topBar.BackgroundColor3       = Theme.AccentColor
+        topBar.BackgroundTransparency = 1
+        topBar.BorderSizePixel        = 0
+        topBar.ZIndex                 = 1004
+        topBar.Parent                 = topBarWrap
+        Instance.new("UICorner", topBar).CornerRadius = UDim.new(1, 0)
+        local topBarGrad = Instance.new("UIGradient")
+        topBarGrad.Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0,   HexToColor3("#4580C9")),
+            ColorSequenceKeypoint.new(0.5, HexToColor3("#5A9FE8")),
+            ColorSequenceKeypoint.new(1,   HexToColor3("#4580C9")),
+        }
+        topBarGrad.Parent = topBar
+
+        -- Odstęp przed napisem
+        local spacerTop = Instance.new("Frame")
+        spacerTop.Size                   = UDim2.new(0, 1, 0, 22)
+        spacerTop.BackgroundTransparency = 1
+        spacerTop.BorderSizePixel        = 0
+        spacerTop.LayoutOrder            = 1
+        spacerTop.Parent                 = center
+
+        -- ── "SENTENCE" ────────────────────────────────────────────────────────
+        local rowSentence = Instance.new("Frame")
+        rowSentence.Size                   = UDim2.new(0, 0, 0, 0)
+        rowSentence.AutomaticSize          = Enum.AutomaticSize.XY
+        rowSentence.BackgroundTransparency = 1
+        rowSentence.BorderSizePixel        = 0
+        rowSentence.LayoutOrder            = 2
+        rowSentence.ZIndex                 = 1003
+        rowSentence.Parent                 = center
+        local rowSentenceList = Instance.new("UIListLayout")
+        rowSentenceList.FillDirection       = Enum.FillDirection.Horizontal
+        rowSentenceList.HorizontalAlignment = Enum.HorizontalAlignment.Center
+        rowSentenceList.VerticalAlignment   = Enum.VerticalAlignment.Center
+        rowSentenceList.Padding             = UDim.new(0, 0)
+        rowSentenceList.SortOrder           = Enum.SortOrder.LayoutOrder
+        rowSentenceList.Parent              = rowSentence
+
+        local lblSentence = Instance.new("TextLabel")
+        lblSentence.Text                   = "SENTENCE"
+        lblSentence.Size                   = UDim2.new(0, 0, 0, 0)
+        lblSentence.AutomaticSize          = Enum.AutomaticSize.XY
+        lblSentence.Font                   = Enum.Font.GothamBold
+        lblSentence.TextSize               = 52
+        lblSentence.TextColor3             = Theme.TextPrimary
+        lblSentence.TextTransparency       = 1
+        lblSentence.BackgroundTransparency = 1
+        lblSentence.BorderSizePixel        = 0
+        lblSentence.ZIndex                 = 1004
+        lblSentence.LayoutOrder            = 0
+        lblSentence.RichText               = false
+        lblSentence.Parent                 = rowSentence
+
+        -- Spacja między "SENTENCE" i "HUB"
+        local spacerMid = Instance.new("Frame")
+        spacerMid.Size                   = UDim2.new(0, 14, 0, 1)
+        spacerMid.BackgroundTransparency = 1
+        spacerMid.BorderSizePixel        = 0
+        spacerMid.LayoutOrder            = 1
+        spacerMid.Parent                 = rowSentence
+
+        local lblHub = Instance.new("TextLabel")
+        lblHub.Text                   = "HUB"
+        lblHub.Size                   = UDim2.new(0, 0, 0, 0)
+        lblHub.AutomaticSize          = Enum.AutomaticSize.XY
+        lblHub.Font                   = Enum.Font.GothamBold
+        lblHub.TextSize               = 52
+        lblHub.TextColor3             = Theme.AccentColor
+        lblHub.TextTransparency       = 1
+        lblHub.BackgroundTransparency = 1
+        lblHub.BorderSizePixel        = 0
+        lblHub.ZIndex                 = 1004
+        lblHub.LayoutOrder            = 2
+        lblHub.RichText               = false
+        lblHub.Parent                 = rowSentence
+
+        -- ── Tagline ────────────────────────────────────────────────────────────
+        local spacerMid2 = Instance.new("Frame")
+        spacerMid2.Size                   = UDim2.new(0, 1, 0, 10)
+        spacerMid2.BackgroundTransparency = 1
+        spacerMid2.BorderSizePixel        = 0
+        spacerMid2.LayoutOrder            = 3
+        spacerMid2.Parent                 = center
+
+        local lblTag = Instance.new("TextLabel")
+        lblTag.Text                   = "LOADING ENVIRONMENT"
+        lblTag.Size                   = UDim2.new(0, 320, 0, 20)
+        lblTag.Font                   = Enum.Font.Code
+        lblTag.TextSize               = 11
+        lblTag.TextColor3             = Theme.TextSecondary
+        lblTag.TextTransparency       = 1
+        lblTag.BackgroundTransparency = 1
+        lblTag.BorderSizePixel        = 0
+        lblTag.ZIndex                 = 1003
+        lblTag.LayoutOrder            = 4
+        lblTag.TextXAlignment         = Enum.TextXAlignment.Center
+        lblTag.RichText               = false
+        lblTag.Parent                 = center
+
+        -- Odstęp przed dolnym elementem
+        local spacerBotA = Instance.new("Frame")
+        spacerBotA.Size                   = UDim2.new(0, 1, 0, 22)
+        spacerBotA.BackgroundTransparency = 1
+        spacerBotA.BorderSizePixel        = 0
+        spacerBotA.LayoutOrder            = 5
+        spacerBotA.Parent                 = center
+
+        -- ── Linia dolna (animowana) ────────────────────────────────────────────
+        local botBarWrap = Instance.new("Frame")
+        botBarWrap.Size                   = UDim2.new(0, 320, 0, 2)
+        botBarWrap.BackgroundTransparency = 1
+        botBarWrap.BorderSizePixel        = 0
+        botBarWrap.LayoutOrder            = 6
+        botBarWrap.ZIndex                 = 1003
+        botBarWrap.Parent                 = center
+
+        local botBar = Instance.new("Frame")
+        botBar.Size                   = UDim2.new(0, 0, 1, 0)
+        botBar.AnchorPoint            = Vector2.new(0.5, 0)
+        botBar.Position               = UDim2.new(0.5, 0, 0, 0)
+        botBar.BackgroundColor3       = Theme.AccentColor
+        botBar.BackgroundTransparency = 1
+        botBar.BorderSizePixel        = 0
+        botBar.ZIndex                 = 1004
+        botBar.Parent                 = botBarWrap
+        Instance.new("UICorner", botBar).CornerRadius = UDim.new(1, 0)
+        local botBarGrad = Instance.new("UIGradient")
+        botBarGrad.Color = ColorSequence.new{
+            ColorSequenceKeypoint.new(0,   HexToColor3("#4580C9")),
+            ColorSequenceKeypoint.new(0.5, HexToColor3("#5A9FE8")),
+            ColorSequenceKeypoint.new(1,   HexToColor3("#4580C9")),
+        }
+        botBarGrad.Parent = botBar
+
+        -- Odstęp pod paskiem
+        local spacerBotB = Instance.new("Frame")
+        spacerBotB.Size                   = UDim2.new(0, 1, 0, 16)
+        spacerBotB.BackgroundTransparency = 1
+        spacerBotB.BorderSizePixel        = 0
+        spacerBotB.LayoutOrder            = 7
+        spacerBotB.Parent                 = center
+
+        -- ── Pasek postępu ─────────────────────────────────────────────────────
+        local progressWrap = Instance.new("Frame")
+        progressWrap.Size                   = UDim2.new(0, 260, 0, 3)
+        progressWrap.BackgroundColor3       = HexToColor3("#1e1e1e")
+        progressWrap.BackgroundTransparency = 1
+        progressWrap.BorderSizePixel        = 0
+        progressWrap.LayoutOrder            = 8
+        progressWrap.ZIndex                 = 1003
+        progressWrap.Parent                 = center
+        Instance.new("UICorner", progressWrap).CornerRadius = UDim.new(1, 0)
+
+        local progressFill = Instance.new("Frame")
+        progressFill.Size                   = UDim2.new(0, 0, 1, 0)
+        progressFill.BackgroundColor3       = Theme.AccentColor
+        progressFill.BackgroundTransparency = 1
+        progressFill.BorderSizePixel        = 0
+        progressFill.ZIndex                 = 1004
+        progressFill.Parent                 = progressWrap
+        Instance.new("UICorner", progressFill).CornerRadius = UDim.new(1, 0)
+
+        -- ══════════════════════════════════════════════════════════════════════
+        -- ANIMACJA SPLASH
+        -- ══════════════════════════════════════════════════════════════════════
+
+        -- 1. Fade in tła
+        tw(splash, { BackgroundTransparency=0 }, TI(.35, Enum.EasingStyle.Quad))
+        task.wait(0.12)
+
+        -- 2. Glow blob pojawia się
+        tw(glowBlob, { BackgroundTransparency=0.72 }, TI(.6, Enum.EasingStyle.Quad))
+        task.wait(0.08)
+
+        -- 3. Paski wjeżdżają od środka na zewnątrz
+        tw(topBar, { Size=UDim2.new(1,0,1,0), BackgroundTransparency=0 }, TI(.5, Enum.EasingStyle.Exponential))
+        tw(botBar, { Size=UDim2.new(1,0,1,0), BackgroundTransparency=0 }, TI(.5, Enum.EasingStyle.Exponential))
+        task.wait(0.22)
+
+        -- 4. Pasek postępu pojawia się
+        tw(progressWrap, { BackgroundTransparency=0 }, TI_FAST)
+        tw(progressFill, { BackgroundTransparency=0 }, TI_FAST)
+        task.wait(0.08)
+
+        -- 5. "SENTENCE" wjeżdża z lewej + fade in
+        tw(lblSentence, { TextTransparency=0 }, TI(.45, Enum.EasingStyle.Exponential))
+        task.wait(0.12)
+
+        -- 6. "HUB" wjeżdża z prawej + fade in (z lekkim opóźnieniem)
+        tw(lblHub,      { TextTransparency=0 }, TI(.45, Enum.EasingStyle.Exponential))
+        task.wait(0.18)
+
+        -- 7. Tagline
+        tw(lblTag, { TextTransparency=0.25 }, TI(.5, Enum.EasingStyle.Quad))
+        task.wait(0.1)
+
+        -- 8. Pasek postępu wypełnia się
+        tw(progressFill, { Size=UDim2.new(1,0,1,0) }, TI(1.6, Enum.EasingStyle.Quad))
+
+        -- Animacja tagline – przepisuje napisy sekwencyjnie
+        task.wait(0.4)
+        local tagSteps = { "VERIFYING MODULES", "INJECTING ASSETS", "BUILDING INTERFACE", "READY" }
+        for _, step in ipairs(tagSteps) do
+            tw(lblTag, { TextTransparency=1 }, TI(.12, Enum.EasingStyle.Quad))
+            task.wait(0.14)
+            lblTag.Text = step
+            tw(lblTag, { TextTransparency=0.25 }, TI(.12, Enum.EasingStyle.Quad))
+            task.wait(step == "READY" and 0.3 or 0.28)
+        end
+
+        task.wait(0.3)
+
+        -- ── FADE OUT całego splash ─────────────────────────────────────────────
+        tw(lblSentence,  { TextTransparency=1 },        TI(.3, Enum.EasingStyle.Quad))
+        tw(lblHub,       { TextTransparency=1 },        TI(.3, Enum.EasingStyle.Quad))
+        tw(lblTag,       { TextTransparency=1 },        TI(.2, Enum.EasingStyle.Quad))
+        tw(topBar,       { BackgroundTransparency=1 },  TI(.3, Enum.EasingStyle.Quad))
+        tw(botBar,       { BackgroundTransparency=1 },  TI(.3, Enum.EasingStyle.Quad))
+        tw(progressFill, { BackgroundTransparency=1 },  TI(.25, Enum.EasingStyle.Quad))
+        tw(progressWrap, { BackgroundTransparency=1 },  TI(.25, Enum.EasingStyle.Quad))
+        tw(glowBlob,     { BackgroundTransparency=1 },  TI(.4, Enum.EasingStyle.Quad))
+        task.wait(0.2)
+        tw(splash, { BackgroundTransparency=1 }, TI(.45, Enum.EasingStyle.Quad), function()
+            splash:Destroy()
+        end)
+    end)
 
     -- ── Notif Holder ─────────────────────────────────────────────────────────
     local notifHolder = Instance.new("Frame")
@@ -463,8 +766,8 @@ function Sentence:CreateWindow(cfg)
         ctrlBtns[cd[1]] = { frame=cb, click=cCL }
     end
 
-    -- ── Ikona 32×32 ──────────────────────────────────────────────────────────
-    local ICON_SIZE  = 32
+    -- ── Ikona 24×24 ──────────────────────────────────────────────────────────
+    local ICON_SIZE  = 24  -- zmienione z 32 na 24
     local ICON_X_POS = 108
     local logoImg = Img({
         Ico = cfg.Icon,
@@ -478,12 +781,13 @@ function Sentence:CreateWindow(cfg)
     -- Pozycja tekstu uwzględnia szerokość ikony + 6px margines
     local nameOffX = cfg.Icon ~= "" and (ICON_X_POS + ICON_SIZE + 6) or ICON_X_POS
 
-    local nameLabel = Txt({ T=cfg.Name, Sz=UDim2.new(0,220,0,16), Pos=UDim2.new(0,nameOffX,0,7),  Font=Enum.Font.GothamBold, TS=13, Col=Theme.TextPrimary,   Alpha=1, Z=5, Par=titleBar })
-    local subLabel  = Txt({ T=cfg.Subtitle~="" and ("/ "..cfg.Subtitle) or ("/ v"..Sentence.Version), Sz=UDim2.new(0,200,0,12), Pos=UDim2.new(0,nameOffX,0,24), Font=Enum.Font.Gotham, TS=10, Col=Theme.TextSecondary, Alpha=1, Z=5, Par=titleBar })
+    -- ── Tytuł powiększony ────────────────────────────────────────────────────
+    local nameLabel = Txt({ T=cfg.Name, Sz=UDim2.new(0,220,0,18), Pos=UDim2.new(0,nameOffX,0,6),  Font=Enum.Font.GothamBold, TS=15, Col=Theme.TextPrimary,   Alpha=1, Z=5, Par=titleBar })
+    local subLabel  = Txt({ T=cfg.Subtitle~="" and ("/ "..cfg.Subtitle) or ("/ v"..Sentence.Version), Sz=UDim2.new(0,200,0,12), Pos=UDim2.new(0,nameOffX,0,26), Font=Enum.Font.Gotham, TS=11, Col=Theme.TextSecondary, Alpha=1, Z=5, Par=titleBar })
 
     local statBar = Box({ Name="StatBar", Sz=UDim2.new(0,130,0,24), Pos=UDim2.new(1,-8,0.5,0), AP=Vector2.new(1,0.5), Bg=Theme.SecondaryBackground, BgA=0, R=4, Z=5, Par=titleBar })
-    local pingL   = Txt({ T="— ms", Sz=UDim2.new(0,60,1,0), Pos=UDim2.new(0,0,0,0),  Font=Enum.Font.Code, TS=10, Col=Theme.TextSecondary, AX=Enum.TextXAlignment.Right, Z=6, Par=statBar })
-    local plrsL   = Txt({ T="—/—",  Sz=UDim2.new(0,55,1,0), Pos=UDim2.new(0,66,0,0), Font=Enum.Font.Code, TS=10, Col=Theme.TextSecondary, Z=6, Par=statBar })
+    local pingL   = Txt({ T="— ms", Sz=UDim2.new(0,60,1,0), Pos=UDim2.new(0,0,0,0),  Font=Enum.Font.Code, TS=11, Col=Theme.TextSecondary, AX=Enum.TextXAlignment.Right, Z=6, Par=statBar })
+    local plrsL   = Txt({ T="—/—",  Sz=UDim2.new(0,55,1,0), Pos=UDim2.new(0,66,0,0), Font=Enum.Font.Code, TS=11, Col=Theme.TextSecondary, Z=6, Par=statBar })
 
     task.spawn(function()
         while task.wait(1.5) do
@@ -532,7 +836,7 @@ function Sentence:CreateWindow(cfg)
     local tooltip = Box({ Name="Tooltip", Sz=UDim2.new(0,0,0,24), Pos=UDim2.new(0,SIDE_W+4,0,0), Bg=Theme.TertiaryBackground, R=4, Border=true, BorderCol=Theme.BorderColor, BorderA=0, Z=20, Vis=false, Par=win })
     tooltip.AutomaticSize = Enum.AutomaticSize.X
     Pad(tooltip, 0, 0, 8, 8)
-    local tooltipL = Txt({ T="", Sz=UDim2.new(0,0,1,0), Font=Enum.Font.GothamSemibold, TS=11, Col=Theme.TextPrimary, Z=21, Par=tooltip })
+    local tooltipL = Txt({ T="", Sz=UDim2.new(0,0,1,0), Font=Enum.Font.GothamSemibold, TS=12, Col=Theme.TextPrimary, Z=21, Par=tooltip })
     tooltipL.AutomaticSize = Enum.AutomaticSize.X
 
     local contentArea = Box({ Name="Content", Sz=UDim2.new(1,-SIDE_W-1,1,-TB_H-2), Pos=UDim2.new(0,SIDE_W+1,0,TB_H+2), Bg=Theme.PrimaryBackground, BgA=1, Clip=true, Z=2, Par=win })
@@ -572,11 +876,11 @@ function Sentence:CreateWindow(cfg)
         Instance.new("UICorner", lf).CornerRadius = UDim.new(0, 4)
 
         local lLogo  = Img({ Ico=cfg.Icon, Sz=UDim2.new(0,32,0,32), Pos=UDim2.new(0.5,0,0.5,-50), AP=Vector2.new(0.5,0.5), Col=Theme.TextPrimary, Z=51, Par=lf })
-        local lTitle = Txt({ T=cfg.LoadingTitle,    Sz=UDim2.new(1,0,0,24), Pos=UDim2.new(0.5,0,0.5,-14), AP=Vector2.new(0.5,0.5), Font=Enum.Font.GothamBold, TS=20, Col=Theme.TextPrimary,   AX=Enum.TextXAlignment.Center, Alpha=1, Z=51, Par=lf })
-        local lSub   = Txt({ T=cfg.LoadingSubtitle, Sz=UDim2.new(1,0,0,14), Pos=UDim2.new(0.5,0,0.5, 14), AP=Vector2.new(0.5,0.5), Font=Enum.Font.Code,       TS=11, Col=Theme.TextSecondary, AX=Enum.TextXAlignment.Center, Alpha=1, Z=51, Par=lf })
+        local lTitle = Txt({ T=cfg.LoadingTitle,    Sz=UDim2.new(1,0,0,24), Pos=UDim2.new(0.5,0,0.5,-14), AP=Vector2.new(0.5,0.5), Font=Enum.Font.GothamBold, TS=22, Col=Theme.TextPrimary,   AX=Enum.TextXAlignment.Center, Alpha=1, Z=51, Par=lf })
+        local lSub   = Txt({ T=cfg.LoadingSubtitle, Sz=UDim2.new(1,0,0,14), Pos=UDim2.new(0.5,0,0.5, 14), AP=Vector2.new(0.5,0.5), Font=Enum.Font.Code,       TS=12, Col=Theme.TextSecondary, AX=Enum.TextXAlignment.Center, Alpha=1, Z=51, Par=lf })
         local pTrack = Box({ Sz=UDim2.new(0.45,0,0,3), Pos=UDim2.new(0.5,0,0.5,42), AP=Vector2.new(0.5,0.5), Bg=Theme.TertiaryBackground, R=2, Z=51, Par=lf })
         local pFill  = Box({ Sz=UDim2.new(0,0,1,0), Bg=Theme.AccentColor, R=2, Z=52, Par=pTrack })
-        local pctL   = Txt({ T="0%", Sz=UDim2.new(1,0,0,14), Pos=UDim2.new(0.5,0,0.5,52), AP=Vector2.new(0.5,0.5), Font=Enum.Font.Code, TS=10, Col=Theme.AccentColor, AX=Enum.TextXAlignment.Center, Z=51, Par=lf })
+        local pctL   = Txt({ T="0%", Sz=UDim2.new(1,0,0,14), Pos=UDim2.new(0.5,0,0.5,52), AP=Vector2.new(0.5,0.5), Font=Enum.Font.Code, TS=11, Col=Theme.AccentColor, AX=Enum.TextXAlignment.Center, Z=51, Par=lf })
 
         tw(win, { Size=FULL }, TI_SLOW)
         task.wait(0.3)
@@ -699,15 +1003,14 @@ function Sentence:CreateWindow(cfg)
         pAS.Parent       = pAv
         pcall(function() pAv.Image = Plrs:GetUserThumbnailAsync(LP.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size150x150) end)
 
-        Txt({ T=LP.DisplayName, Sz=UDim2.new(1,-90,0,18), Pos=UDim2.new(0,76,0,16), Font=Enum.Font.GothamBold, TS=16, Col=Theme.TextPrimary,   Z=4, Par=pCard })
-        Txt({ T="@"..LP.Name,  Sz=UDim2.new(1,-90,0,13), Pos=UDim2.new(0,76,0,36), Font=Enum.Font.Code,       TS=11, Col=Theme.TextSecondary, Z=4, Par=pCard })
+        Txt({ T=LP.DisplayName, Sz=UDim2.new(1,-90,0,18), Pos=UDim2.new(0,76,0,16), Font=Enum.Font.GothamBold, TS=17, Col=Theme.TextPrimary,   Z=4, Par=pCard })
+        Txt({ T="@"..LP.Name,  Sz=UDim2.new(1,-90,0,13), Pos=UDim2.new(0,76,0,36), Font=Enum.Font.Code,       TS=12, Col=Theme.TextSecondary, Z=4, Par=pCard })
 
         -- Karta statystyk serwera
         local sCard = Box({ Name="SCard", Sz=UDim2.new(1,0,0,98), Bg=Theme.SecondaryBackground, BgA=0, R=4, Border=true, BorderCol=Theme.BorderColor, Z=3, Par=hPage })
 
-        -- Nagłówek podzielony na dwa TextLabel zamiast font-color tagów
-        Txt({ T="SRV",        Sz=UDim2.new(0,28,0,12),  Pos=UDim2.new(0,14,0,8), Font=Enum.Font.GothamBold, TS=9, Col=Theme.AccentColor,    Z=4, Par=sCard })
-        Txt({ T="STATISTICS", Sz=UDim2.new(1,-50,0,12), Pos=UDim2.new(0,44,0,8), Font=Enum.Font.GothamBold, TS=9, Col=Theme.TextSecondary,  Z=4, Par=sCard })
+        Txt({ T="SRV",        Sz=UDim2.new(0,28,0,12),  Pos=UDim2.new(0,14,0,8), Font=Enum.Font.GothamBold, TS=10, Col=Theme.AccentColor,    Z=4, Par=sCard })
+        Txt({ T="STATISTICS", Sz=UDim2.new(1,-50,0,12), Pos=UDim2.new(0,44,0,8), Font=Enum.Font.GothamBold, TS=10, Col=Theme.TextSecondary,  Z=4, Par=sCard })
 
         local statVals = {}
         local sData = { {"PLAYERS",""}, {"PING",""}, {"UPTIME",""}, {"REGION",""} }
@@ -717,8 +1020,8 @@ function Sentence:CreateWindow(cfg)
             local cW  = (WW - SIDE_W - 50) / 2
             local x   = 14 + col * cW
             local y   = 24 + row * 32
-            Txt({ T=sd[1], Sz=UDim2.new(0,120,0,11), Pos=UDim2.new(0,x,0,y),    Font=Enum.Font.GothamBold, TS=9,  Col=Theme.TextSecondary, Z=4, Par=sCard })
-            statVals[sd[1]] = Txt({ T="—", Sz=UDim2.new(0,160,0,15), Pos=UDim2.new(0,x,0,y+12), Font=Enum.Font.Code, TS=14, Col=Theme.TextPrimary, Z=4, Par=sCard })
+            Txt({ T=sd[1], Sz=UDim2.new(0,120,0,11), Pos=UDim2.new(0,x,0,y),    Font=Enum.Font.GothamBold, TS=10, Col=Theme.TextSecondary, Z=4, Par=sCard })
+            statVals[sd[1]] = Txt({ T="—", Sz=UDim2.new(0,160,0,15), Pos=UDim2.new(0,x,0,y+12), Font=Enum.Font.Code, TS=15, Col=Theme.TextPrimary, Z=4, Par=sCard })
         end
 
         task.spawn(function()
@@ -783,7 +1086,7 @@ function Sentence:CreateWindow(cfg)
         if tCfg.ShowTitle then
             local titleRow = Box({ Sz=UDim2.new(1,0,0,26), BgA=1, Z=3, Par=tPage })
             Img({ Ico=tCfg.Icon, Sz=UDim2.new(0,14,0,14), Pos=UDim2.new(0,0,0.5,0), AP=Vector2.new(0,0.5), Col=Theme.AccentColor, Z=4, Par=titleRow })
-            Txt({ T=tCfg.Name:upper(), Sz=UDim2.new(1,-22,0,16), Pos=UDim2.new(0,22,0.5,0), AP=Vector2.new(0,0.5), Font=Enum.Font.GothamBold, TS=15, Col=Theme.TextPrimary, Z=4, Par=titleRow })
+            Txt({ T=tCfg.Name:upper(), Sz=UDim2.new(1,-22,0,16), Pos=UDim2.new(0,22,0.5,0), AP=Vector2.new(0,0.5), Font=Enum.Font.GothamBold, TS=16, Col=Theme.TextPrimary, Z=4, Par=titleRow })
         end
 
         table.insert(W._tabs, { id=tabId, btn=tBox, page=tPage, activeBar=tBar, iconImg=tIco, bgBox=tBox })
@@ -818,7 +1121,6 @@ function Sentence:CreateWindow(cfg)
                 badge.AutomaticSize = Enum.AutomaticSize.X
                 Pad(badge, 0, 0, 0, 6)
 
-                -- Row contenera dla dwóch osobnych TextLabel zamiast font-color tagów
                 local badgeRow = Instance.new("Frame")
                 badgeRow.Size                   = UDim2.new(0, 0, 1, 0)
                 badgeRow.AutomaticSize          = Enum.AutomaticSize.X
@@ -827,13 +1129,12 @@ function Sentence:CreateWindow(cfg)
                 badgeRow.Parent                 = badge
                 List(badgeRow, 0, Enum.FillDirection.Horizontal, nil, Enum.VerticalAlignment.Center)
 
-                -- Numer sekcji w kolorze akcentu
                 local numL = Instance.new("TextLabel")
                 numL.Text                   = "#"..string.format("%02d", _secN).." "
                 numL.Size                   = UDim2.new(0, 0, 1, 0)
                 numL.AutomaticSize          = Enum.AutomaticSize.X
                 numL.Font                   = Enum.Font.GothamBold
-                numL.TextSize               = 9
+                numL.TextSize               = 10   -- +1 (było 9)
                 numL.TextColor3             = Theme.AccentColor
                 numL.BackgroundTransparency = 1
                 numL.BorderSizePixel        = 0
@@ -841,13 +1142,12 @@ function Sentence:CreateWindow(cfg)
                 numL.RichText               = false
                 numL.Parent                 = badgeRow
 
-                -- Nazwa sekcji w kolorze TextSecondary
                 local nameL = Instance.new("TextLabel")
                 nameL.Text                   = sName:upper()
                 nameL.Size                   = UDim2.new(0, 0, 1, 0)
                 nameL.AutomaticSize          = Enum.AutomaticSize.X
                 nameL.Font                   = Enum.Font.GothamBold
-                nameL.TextSize               = 9
+                nameL.TextSize               = 10   -- +1 (było 9)
                 nameL.TextColor3             = Theme.TextSecondary
                 nameL.BackgroundTransparency = 1
                 nameL.BorderSizePixel        = 0
@@ -886,7 +1186,7 @@ function Sentence:CreateWindow(cfg)
                 if lc.Style > 1 then
                     Box({ Sz=UDim2.new(0,3,0.7,0), Pos=UDim2.new(0,0,0.15,0), Bg=cMap[lc.Style], R=0, Z=4, Par=f })
                 end
-                local lb = Txt({ T=lc.Text, Sz=UDim2.new(1,-xo-6,0,13), Pos=UDim2.new(0,xo,0.5,0), AP=Vector2.new(0,0.5), Font=Enum.Font.GothamSemibold, TS=12, Col=cMap[lc.Style], Z=4, Par=f })
+                local lb = Txt({ T=lc.Text, Sz=UDim2.new(1,-xo-6,0,13), Pos=UDim2.new(0,xo,0.5,0), AP=Vector2.new(0,0.5), Font=Enum.Font.GothamSemibold, TS=13, Col=cMap[lc.Style], Z=4, Par=f })
                 return {
                     Set     = function(self, t) lb.Text = t end,
                     Destroy = function() f:Destroy() end,
@@ -899,8 +1199,8 @@ function Sentence:CreateWindow(cfg)
                 local f = Elem(0, true)
                 Pad(f, 10, 10, 12, 12)
                 List(f, 4)
-                local pt    = Txt({ T=pc.Title,   Sz=UDim2.new(1,0,0,15), Font=Enum.Font.GothamBold, TS=13, Col=Theme.TextPrimary,   Z=4, Par=f })
-                local pcont = Txt({ T=pc.Content, Sz=UDim2.new(1,0,0,0),  Font=Enum.Font.Gotham,     TS=12, Col=Theme.TextSecondary, Z=4, Wrap=true, AutoY=true, Par=f })
+                local pt    = Txt({ T=pc.Title,   Sz=UDim2.new(1,0,0,15), Font=Enum.Font.GothamBold, TS=14, Col=Theme.TextPrimary,   Z=4, Par=f })
+                local pcont = Txt({ T=pc.Content, Sz=UDim2.new(1,0,0,0),  Font=Enum.Font.Gotham,     TS=13, Col=Theme.TextSecondary, Z=4, Wrap=true, AutoY=true, Par=f })
                 return {
                     Set = function(self, s)
                         if s.Title   then pt.Text    = s.Title   end
@@ -919,9 +1219,9 @@ function Sentence:CreateWindow(cfg)
                 local chargeFill = Box({ Sz=UDim2.new(0,0,1,0), Bg=Theme.ButtonHoverBackground, BgA=0, R=0, Z=3, Par=f })
                 local pip        = Box({ Sz=UDim2.new(0,3,1,0), Pos=UDim2.new(0,0,0,0), Bg=Theme.AccentColor, BgA=1, R=0, Z=4, Par=f })
 
-                Txt({ T=bc.Name, Sz=UDim2.new(1,-44,0,15), Pos=UDim2.new(0,14,0,bc.Description and 9 or 11), Font=Enum.Font.GothamSemibold, TS=13, Col=Theme.TextPrimary, Z=4, Par=f })
+                Txt({ T=bc.Name, Sz=UDim2.new(1,-44,0,15), Pos=UDim2.new(0,14,0,bc.Description and 9 or 11), Font=Enum.Font.GothamSemibold, TS=14, Col=Theme.TextPrimary, Z=4, Par=f })
                 if bc.Description then
-                    Txt({ T=bc.Description, Sz=UDim2.new(1,-44,0,13), Pos=UDim2.new(0,14,0,28), Font=Enum.Font.Gotham, TS=11, Col=Theme.TextSecondary, Z=4, Par=f })
+                    Txt({ T=bc.Description, Sz=UDim2.new(1,-44,0,13), Pos=UDim2.new(0,14,0,28), Font=Enum.Font.Gotham, TS=12, Col=Theme.TextSecondary, Z=4, Par=f })
                 end
                 Img({ Ico="arr", Sz=UDim2.new(0,12,0,12), Pos=UDim2.new(1,-20,0.5,0), AP=Vector2.new(0,0.5), Col=Theme.AccentColor, IA=0.6, Z=5, Par=f })
 
@@ -950,9 +1250,9 @@ function Sentence:CreateWindow(cfg)
                 tc = merge({ Name="Toggle", Description=nil, CurrentValue=false, Flag=nil, Callback=function() end }, tc or {})
                 local f = Elem(tc.Description and 52 or 36)
 
-                Txt({ T=tc.Name, Sz=UDim2.new(1,-66,0,15), Pos=UDim2.new(0,14,0,tc.Description and 9 or 11), Font=Enum.Font.GothamSemibold, TS=13, Col=Theme.TextPrimary, Z=4, Par=f })
+                Txt({ T=tc.Name, Sz=UDim2.new(1,-66,0,15), Pos=UDim2.new(0,14,0,tc.Description and 9 or 11), Font=Enum.Font.GothamSemibold, TS=14, Col=Theme.TextPrimary, Z=4, Par=f })
                 if tc.Description then
-                    Txt({ T=tc.Description, Sz=UDim2.new(1,-66,0,13), Pos=UDim2.new(0,14,0,28), Font=Enum.Font.Gotham, TS=11, Col=Theme.TextSecondary, Z=4, Par=f })
+                    Txt({ T=tc.Description, Sz=UDim2.new(1,-66,0,13), Pos=UDim2.new(0,14,0,28), Font=Enum.Font.Gotham, TS=12, Col=Theme.TextSecondary, Z=4, Par=f })
                 end
 
                 local trk  = Box({ Sz=UDim2.new(0,40,0,20), Pos=UDim2.new(1,-52,0.5,0), AP=Vector2.new(0,0.5), Bg=Theme.TertiaryBackground, R=3, Border=true, BorderCol=Theme.BorderColor, Z=4, Par=f })
@@ -989,12 +1289,12 @@ function Sentence:CreateWindow(cfg)
                 sc = merge({ Name="Slider", Range={0,100}, Increment=1, CurrentValue=50, Suffix="", Flag=nil, Callback=function() end }, sc or {})
                 local f = Elem(52)
 
-                Txt({ T=sc.Name, Sz=UDim2.new(1,-100,0,15), Pos=UDim2.new(0,14,0,8), Font=Enum.Font.GothamSemibold, TS=13, Col=Theme.TextPrimary, Z=4, Par=f })
+                Txt({ T=sc.Name, Sz=UDim2.new(1,-100,0,15), Pos=UDim2.new(0,14,0,8), Font=Enum.Font.GothamSemibold, TS=14, Col=Theme.TextPrimary, Z=4, Par=f })
 
                 local valChip = Box({ Sz=UDim2.new(0,0,0,18), Pos=UDim2.new(1,-12,0,6), AP=Vector2.new(1,0), Bg=Theme.TertiaryBackground, R=4, Z=4, Par=f })
                 valChip.AutomaticSize = Enum.AutomaticSize.X
                 Pad(valChip, 0, 0, 6, 6)
-                local valL = Txt({ T=tostring(sc.CurrentValue)..sc.Suffix, Sz=UDim2.new(0,0,1,0), Font=Enum.Font.Code, TS=11, Col=Theme.AccentColor, AX=Enum.TextXAlignment.Center, Z=5, Par=valChip })
+                local valL = Txt({ T=tostring(sc.CurrentValue)..sc.Suffix, Sz=UDim2.new(0,0,1,0), Font=Enum.Font.Code, TS=12, Col=Theme.AccentColor, AX=Enum.TextXAlignment.Center, Z=5, Par=valChip })
                 valL.AutomaticSize = Enum.AutomaticSize.X
 
                 local trackBg = Box({ Sz=UDim2.new(1,-28,0,4), Pos=UDim2.new(0,14,0,34), Bg=Theme.TertiaryBackground, R=2, Z=4, Par=f })
