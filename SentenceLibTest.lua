@@ -1,11 +1,11 @@
 --[[
 ╔═══════════════════════════════════════════════════════════╗
-║  SENTENCE GUI · OG Sentence Edition  v2.8                 ║
+║  SENTENCE GUI · OG Sentence Edition  v2.6                 ║
 ╚═══════════════════════════════════════════════════════════╝
 --]]
 
 local Sentence = {
-    Version = "2.8",
+    Version = "2.6",
     Flags   = {},
     Options = {},
     _conns  = {},
@@ -767,81 +767,58 @@ function Sentence:CreateWindow(cfg)
     ttL.AutomaticSize=Enum.AutomaticSize.X
     local ttStroke=Instance.new("UIStroke"); ttStroke.Color=T.Accent; ttStroke.Thickness=1; ttStroke.Transparency=0.6; ttStroke.Parent=tooltip
 
-    -- ── Content Area — glass (symulacja bez UIBlurEffect) ────────────────────
+    -- ── Content Area — glass z blurem ────────────────────────────────────────
+    -- Warstwa bluru (UIBlurEffect wewnątrz ScreenGui działa od ~2023)
     local blurHost=Instance.new("Frame")
     blurHost.Name="BlurHost"
     blurHost.Size=UDim2.new(1,-SW-1,1,-TB_H-2)
     blurHost.Position=UDim2.new(0,SW+1,0,TB_H+2)
     blurHost.BackgroundColor3=T.BG1
-    blurHost.BackgroundTransparency=0.9
+    blurHost.BackgroundTransparency=0.38   -- półprzezroczyste = glass
     blurHost.BorderSizePixel=0
     blurHost.ZIndex=2
     blurHost.ClipsDescendants=false
     blurHost.Parent=win
+    Instance.new("UICorner",blurHost).CornerRadius=UDim.new(0,0)
 
-    -- Warstwa 1: ciemny podkład (glass base)
-    local glassBase=Instance.new("Frame")
-    glassBase.Size=UDim2.new(1,0,1,0)
-    glassBase.BackgroundColor3=T.BG0
-    glassBase.BackgroundTransparency=0.88
-    glassBase.BorderSizePixel=0; glassBase.ZIndex=2; glassBase.Parent=blurHost
+    -- UIBlurEffect — rozmywa to co jest za panelem
+    local blurEffect=Instance.new("UIBlurEffect")
+    blurEffect.Size=24           -- intensywność bluru (0–56)
+    blurEffect.Parent=blurHost
 
-    -- Warstwa 2: niebieski tint (glass color tint)
-    local glassTint=Instance.new("Frame")
-    glassTint.Size=UDim2.new(1,0,1,0)
-    glassTint.BackgroundColor3=T.Accent
-    glassTint.BackgroundTransparency=0.94
-    glassTint.BorderSizePixel=0; glassTint.ZIndex=3; glassTint.Parent=blurHost
-
-    -- Warstwa 3: sheen — odbicie od góry (klasyczny glass highlight)
+    -- Subtelna niebieska poświata na krawędzi (glass sheen)
     local glassSheen=Instance.new("Frame")
-    glassSheen.Size=UDim2.new(1,0,0.45,0)
-    glassSheen.BackgroundColor3=T.TextHi
-    glassSheen.BackgroundTransparency=1
-    glassSheen.BorderSizePixel=0; glassSheen.ZIndex=4; glassSheen.Parent=blurHost
+    glassSheen.Name="GlassSheen"
+    glassSheen.Size=UDim2.new(1,0,1,0)
+    glassSheen.BackgroundColor3=T.Accent
+    glassSheen.BackgroundTransparency=0.96
+    glassSheen.BorderSizePixel=0
+    glassSheen.ZIndex=3
+    glassSheen.Parent=blurHost
+    -- Gradient od góry — delikatne odbicie światła
     local sheenG=Instance.new("UIGradient")
     sheenG.Color=ColorSequence.new{
-        ColorSequenceKeypoint.new(0,T.TextHi),
-        ColorSequenceKeypoint.new(1,T.BG1),
+        ColorSequenceKeypoint.new(0, T.TextHi),
+        ColorSequenceKeypoint.new(0.18, T.Accent),
+        ColorSequenceKeypoint.new(1, T.BG1),
     }
     sheenG.Transparency=NumberSequence.new{
-        NumberSequenceKeypoint.new(0,0.93),
-        NumberSequenceKeypoint.new(0.5,0.97),
-        NumberSequenceKeypoint.new(1,1),
+        NumberSequenceKeypoint.new(0, 0.94),
+        NumberSequenceKeypoint.new(0.12, 0.98),
+        NumberSequenceKeypoint.new(1, 1),
     }
-    sheenG.Rotation=90; sheenG.Parent=glassSheen
+    sheenG.Rotation=90
+    sheenG.Parent=glassSheen
 
-    -- Warstwa 4: noise/grain — subtelna faktura szkła
-    local glassNoise=Instance.new("Frame")
-    glassNoise.Size=UDim2.new(1,0,1,0)
-    glassNoise.BackgroundColor3=T.TextHi
-    glassNoise.BackgroundTransparency=0.97
-    glassNoise.BorderSizePixel=0; glassNoise.ZIndex=5; glassNoise.Parent=blurHost
-    local noiseG=Instance.new("UIGradient")
-    noiseG.Transparency=NumberSequence.new{
-        NumberSequenceKeypoint.new(0,0.95),
-        NumberSequenceKeypoint.new(0.5,1),
-        NumberSequenceKeypoint.new(1,0.95),
-    }
-    noiseG.Rotation=45; noiseG.Parent=glassNoise
-
-    -- Border: cienka niebieska obwódka (glass edge)
-    local glassBorder=Instance.new("UIStroke")
-    glassBorder.Color=T.Accent
-    glassBorder.Thickness=1
-    glassBorder.Transparency=0.72
-    glassBorder.ApplyStrokeMode=Enum.ApplyStrokeMode.Border
-    glassBorder.Parent=blurHost
-
-    -- Lewa krawędź separator
+    -- Lewa krawędź (pionowy separator od sidebara)
     local glassWire=Instance.new("Frame")
     glassWire.Size=UDim2.new(0,1,1,0)
     glassWire.Position=UDim2.new(0,0,0,0)
     glassWire.BackgroundColor3=T.Accent
-    glassWire.BackgroundTransparency=0.68
-    glassWire.BorderSizePixel=0; glassWire.ZIndex=6; glassWire.Parent=blurHost
+    glassWire.BackgroundTransparency=0.75
+    glassWire.BorderSizePixel=0; glassWire.ZIndex=4; glassWire.Parent=blurHost
 
-    -- Właściwy kontener treści
+    -- Właściwy kontener treści (scrollFrames tab pages)
     local contentArea=Instance.new("Frame")
     contentArea.Name="Content"
     contentArea.Size=UDim2.new(1,0,1,0)
@@ -849,7 +826,7 @@ function Sentence:CreateWindow(cfg)
     contentArea.BackgroundTransparency=1
     contentArea.BorderSizePixel=0
     contentArea.ClipsDescendants=true
-    contentArea.ZIndex=7
+    contentArea.ZIndex=5
     contentArea.Parent=blurHost
 
     local W={_gui=gui,_win=win,_content=contentArea,_tabs={},_activeTab=nil,_visible=true,_minimized=false,_cfg=cfg}
