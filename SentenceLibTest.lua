@@ -1,17 +1,18 @@
 --[[
 ╔═══════════════════════════════════════════════════════════╗
-║  SENTENCE GUI · OG Sentence Edition  v2.5                 ║
+║  SENTENCE GUI · OG Sentence Edition  v2.6                 ║
+║  Home page rewrite — full CreateSection API               ║
 ╚═══════════════════════════════════════════════════════════╝
 --]]
 
 local Sentence = {
-    Version = "2.5",
+    Version = "2.6",
     Flags   = {},
     Options = {},
     _conns  = {},
 }
 
--- ── Serwisy ──────────────────────────────────────────────────────────────────
+-- ── Services ──────────────────────────────────────────────────────────────────
 local TS    = game:GetService("TweenService")
 local UIS   = game:GetService("UserInputService")
 local RS    = game:GetService("RunService")
@@ -21,7 +22,7 @@ local LP    = Plrs.LocalPlayer
 local Cam   = workspace.CurrentCamera
 local IsStudio = RS:IsStudio()
 
--- ── Motyw ─────────────────────────────────────────────────────────────────────
+-- ── Theme ─────────────────────────────────────────────────────────────────────
 local function H(hex)
     hex = hex:gsub("#","")
     return Color3.fromRGB(
@@ -51,11 +52,10 @@ local T = {
 }
 
 local NotifPalette = {
-    -- Wszystkie kolory dopasowane do palety Sentence (ciemne BG, akcent niebieski)
-    Info    = { fg=T.Accent,   bg=T.BG2,  stroke=T.Accent,   iconBg=T.BG3 },
-    Success = { fg=T.Success,  bg=T.BG2,  stroke=T.Success,  iconBg=T.BG3 },
-    Warning = { fg=T.Warning,  bg=T.BG2,  stroke=T.Warning,  iconBg=T.BG3 },
-    Error   = { fg=T.Error,    bg=T.BG2,  stroke=T.Error,    iconBg=T.BG3 },
+    Info    = { fg=T.Accent,  bg=T.BG2, stroke=T.Accent,  iconBg=T.BG3 },
+    Success = { fg=T.Success, bg=T.BG2, stroke=T.Success, iconBg=T.BG3 },
+    Warning = { fg=T.Warning, bg=T.BG2, stroke=T.Warning, iconBg=T.BG3 },
+    Error   = { fg=T.Error,   bg=T.BG2, stroke=T.Error,   iconBg=T.BG3 },
 }
 
 -- ── Tween helpers ─────────────────────────────────────────────────────────────
@@ -63,9 +63,8 @@ local function TI(t,s,d) return TweenInfo.new(t or .2, s or Enum.EasingStyle.Exp
 local TI_FAST   = TI(.14)
 local TI_MED    = TI(.24)
 local TI_SLOW   = TI(.50)
-local TI_SPRING = TweenInfo.new(.40, Enum.EasingStyle.Back,  Enum.EasingDirection.Out)
-local TI_BOUNCE = TweenInfo.new(.32, Enum.EasingStyle.Back,  Enum.EasingDirection.Out, 0, true, 0)
-local TI_CIRC   = TweenInfo.new(.32, Enum.EasingStyle.Circular, Enum.EasingDirection.Out)
+local TI_SPRING = TweenInfo.new(.40, Enum.EasingStyle.Back,        Enum.EasingDirection.Out)
+local TI_CIRC   = TweenInfo.new(.32, Enum.EasingStyle.Circular,    Enum.EasingDirection.Out)
 
 local function tw(o,p,info,cb)
     local t = TS:Create(o, info or TI_MED, p)
@@ -90,6 +89,8 @@ local ICONS = {
     ok="rbxassetid://6031094667",    arr="rbxassetid://6031090995",
     unk="rbxassetid://6031079152",   notif="rbxassetid://6034308946",
     chev_d="rbxassetid://6031094687",chev_u="rbxassetid://6031094679",
+    save="rbxassetid://6031280882",  reset="rbxassetid://6031094667",
+    copy="rbxassetid://6034509993",  refresh="rbxassetid://6031094679",
 }
 local function ico(n)
     if not n or n=="" then return "" end
@@ -186,12 +187,6 @@ local function Wire(par,vert)
     f.Parent=par; return f
 end
 
-local function Gradient(par,c0,c1,rot)
-    local g=Instance.new("UIGradient")
-    g.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,c0),ColorSequenceKeypoint.new(1,c1)}
-    g.Rotation=rot or 0; g.Parent=par; return g
-end
-
 local function Draggable(handle,win)
     local drag=false; local ds,sp
     handle.InputBegan:Connect(function(i)
@@ -213,168 +208,365 @@ local function Draggable(handle,win)
 end
 
 -- ══════════════════════════════════════════════════════════════════════════════
--- NOTYFIKACJE v2.4 — kolorystyka Sentence, synchroniczne zanikanie
+-- SHARED SECTION BUILDER
+-- Builds a full CreateSection API onto any ScrollingFrame page.
+-- Used by both CreateTab and CreateHomeTab.
+-- ══════════════════════════════════════════════════════════════════════════════
+local function BuildSectionAPI(page, accentColor)
+    accentColor = accentColor or T.Accent
+    local _sN = 0
+    local API = {}
+
+    -- ── Shared element helpers ─────────────────────────────────────────────
+    local function Elem(secCon, h, autoY)
+        local f = Box({Sz=UDim2.new(1,0,0,h or 40), Bg=T.BG2, BgA=0, R=6, Z=3, Par=secCon})
+        if autoY then f.AutomaticSize=Enum.AutomaticSize.Y end
+        local es=Instance.new("UIStroke")
+        es.Color=accentColor; es.Thickness=1; es.Transparency=0.72
+        es.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; es.Parent=f
+        return f
+    end
+
+    local function HoverEff(f)
+        f.MouseEnter:Connect(function()
+            tw(f,{BackgroundColor3=T.BG3},TI_FAST)
+            local s=f:FindFirstChildOfClass("UIStroke")
+            if s then tw(s,{Transparency=0.45},TI_FAST) end
+        end)
+        f.MouseLeave:Connect(function()
+            tw(f,{BackgroundColor3=T.BG2},TI_FAST)
+            local s=f:FindFirstChildOfClass("UIStroke")
+            if s then tw(s,{Transparency=0.72},TI_FAST) end
+        end)
+    end
+
+    -- ── CreateSection ──────────────────────────────────────────────────────
+    function API:CreateSection(sName)
+        sName = sName or ""; _sN = _sN+1; local Sec = {}
+
+        -- Section header row
+        local shRow = Box({Name="SH", Sz=UDim2.new(1,0,0,sName~="" and 24 or 6), BgA=1, Z=3, Par=page})
+
+        if sName ~= "" then
+            -- Full-width separator line with accent→border gradient
+            local line = Instance.new("Frame"); line.Size=UDim2.new(1,0,0,1)
+            line.Position=UDim2.new(0,0,1,-1); line.BorderSizePixel=0; line.ZIndex=3; line.Parent=shRow
+            local lineG = Instance.new("UIGradient")
+            lineG.Color=ColorSequence.new{
+                ColorSequenceKeypoint.new(0,accentColor),
+                ColorSequenceKeypoint.new(0.35,T.Border),
+                ColorSequenceKeypoint.new(1,T.Border)}
+            lineG.Parent=line
+
+            -- Badge: "#01 SECTION NAME"
+            local badge = Box({Sz=UDim2.new(0,0,0,18), Pos=UDim2.new(0,0,0.5,0), AP=Vector2.new(0,0.5), Bg=T.BG1, R=0, Z=4, Par=shRow})
+            badge.AutomaticSize=Enum.AutomaticSize.X; Pad(badge,0,0,0,10)
+            local bRow = Instance.new("Frame"); bRow.Size=UDim2.new(0,0,1,0)
+            bRow.AutomaticSize=Enum.AutomaticSize.X; bRow.BackgroundTransparency=1; bRow.ZIndex=5; bRow.Parent=badge
+            List(bRow,0,Enum.FillDirection.Horizontal,nil,Enum.VerticalAlignment.Center)
+            local nL = Instance.new("TextLabel"); nL.Text="#"..string.format("%02d",_sN).." "
+            nL.Size=UDim2.new(0,0,1,0); nL.AutomaticSize=Enum.AutomaticSize.X
+            nL.Font=Enum.Font.GothamBold; nL.TextSize=12; nL.TextColor3=accentColor
+            nL.BackgroundTransparency=1; nL.BorderSizePixel=0; nL.ZIndex=5; nL.RichText=false; nL.Parent=bRow
+            local nmL = Instance.new("TextLabel"); nmL.Text=sName:upper()
+            nmL.Size=UDim2.new(0,0,1,0); nmL.AutomaticSize=Enum.AutomaticSize.X
+            nmL.Font=Enum.Font.GothamBold; nmL.TextSize=12; nmL.TextColor3=T.TextLo
+            nmL.BackgroundTransparency=1; nmL.BorderSizePixel=0; nmL.ZIndex=5; nmL.RichText=false; nmL.Parent=bRow
+        end
+
+        -- Content container
+        local secCon = Box({Name="SC", Sz=UDim2.new(1,0,0,0), BgA=1, Z=3, AutoY=true, Par=page})
+        List(secCon,5)
+
+        -- ── Elements ───────────────────────────────────────────────────────
+        function Sec:CreateDivider()
+            local d = Instance.new("Frame"); d.Size=UDim2.new(1,0,0,1)
+            local dG = Instance.new("UIGradient")
+            dG.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,T.Border),ColorSequenceKeypoint.new(1,T.BG1)}
+            dG.Parent=d; d.BackgroundColor3=T.Border; d.BackgroundTransparency=0
+            d.BorderSizePixel=0; d.ZIndex=3; d.Parent=secCon
+            return {Destroy=function() d:Destroy() end}
+        end
+
+        function Sec:CreateLabel(lc)
+            lc = merge({Name="",Text="",Style=1},lc or {})
+            local text = lc.Text~="" and lc.Text or lc.Name or ""
+            -- Style 1=grey, 2=accent blue, 3=warning yellow
+            local cMap = {[1]=T.TextMid, [2]=accentColor, [3]=T.Warning}
+            local st   = lc.Style or 1
+            local f    = Elem(secCon, 32)
+            local xo   = st>1 and 16 or 12
+            if st>1 then
+                Box({Sz=UDim2.new(0,3,0.65,0), Pos=UDim2.new(0,0,0.175,0), Bg=cMap[st], R=0, Z=5, Par=f})
+            end
+            local lb = Txt({T=text, Sz=UDim2.new(1,-xo-6,0,15), Pos=UDim2.new(0,xo,0.5,0), AP=Vector2.new(0,0.5),
+                Font=Enum.Font.GothamSemibold, TS=15, Col=cMap[st], Z=4, Par=f})
+            return {
+                Set     = function(_,t) lb.Text=t end,
+                Destroy = function() f:Destroy() end,
+            }
+        end
+
+        function Sec:CreateParagraph(pc)
+            pc = merge({Title="Title",Content=""},pc or {})
+            local f = Elem(secCon,0,true); Pad(f,12,12,14,14); List(f,4)
+            local pt  = Txt({T=pc.Title,   Sz=UDim2.new(1,0,0,18), Font=Enum.Font.GothamBold, TS=16, Col=T.TextHi,  Z=4, Par=f})
+            local pc2 = Txt({T=pc.Content, Sz=UDim2.new(1,0,0,0),  Font=Enum.Font.Gotham,     TS=15, Col=T.TextMid, Z=4, Wrap=true, AutoY=true, Par=f})
+            return {
+                Set     = function(_,s) if s.Title then pt.Text=s.Title end; if s.Content then pc2.Text=s.Content end end,
+                Destroy = function() f:Destroy() end,
+            }
+        end
+
+        function Sec:CreateButton(bc)
+            bc = merge({Name="Button",Description=nil,Callback=function()end},bc or {})
+            local f = Elem(secCon, bc.Description and 58 or 40); f.ClipsDescendants=true
+
+            local rFill = Box({Sz=UDim2.new(0,0,1,0), Bg=accentColor, BgA=1, R=0, Z=3, Par=f})
+            local rGrad = Instance.new("UIGradient")
+            rGrad.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.88),NumberSequenceKeypoint.new(1,1)}
+            rGrad.Parent=rFill
+
+            local pip = Box({Sz=UDim2.new(0,3,1,0), Pos=UDim2.new(0,0,0,0), Bg=accentColor, BgA=1, R=0, Z=5, Par=f})
+            Txt({T=bc.Name, Sz=UDim2.new(1,-50,0,17), Pos=UDim2.new(0,16,0,bc.Description and 10 or 12),
+                Font=Enum.Font.GothamSemibold, TS=16, Col=T.TextHi, Z=5, Par=f})
+            if bc.Description then
+                Txt({T=bc.Description, Sz=UDim2.new(1,-50,0,15), Pos=UDim2.new(0,16,0,30),
+                    Font=Enum.Font.Gotham, TS=14, Col=T.TextMid, Z=5, Par=f})
+            end
+            local arr = Img({Ico="arr", Sz=UDim2.new(0,13,0,13), Pos=UDim2.new(1,-20,0.5,0), AP=Vector2.new(0,0.5),
+                Col=accentColor, IA=0.5, Z=6, Par=f})
+
+            local cl = Btn(f,7)
+            f.MouseEnter:Connect(function()
+                tw(rFill,{Size=UDim2.new(1,0,1,0),BackgroundTransparency=0},TI(.28,Enum.EasingStyle.Quad))
+                tw(pip,{BackgroundTransparency=0},TI_FAST)
+                tw(arr,{ImageTransparency=0,ImageColor3=T.TextHi},TI_FAST)
+                local s=f:FindFirstChildOfClass("UIStroke"); if s then tw(s,{Transparency=0.3},TI_FAST) end
+            end)
+            f.MouseLeave:Connect(function()
+                tw(rFill,{Size=UDim2.new(0,0,1,0),BackgroundTransparency=1},TI_MED)
+                tw(pip,{BackgroundTransparency=1},TI_FAST)
+                tw(arr,{ImageTransparency=0.5,ImageColor3=accentColor},TI_FAST)
+                local s=f:FindFirstChildOfClass("UIStroke"); if s then tw(s,{Transparency=0.72},TI_FAST) end
+            end)
+            cl.MouseButton1Click:Connect(function()
+                tw(rFill,{BackgroundColor3=T.TextHi},TI(.08,Enum.EasingStyle.Quad))
+                task.wait(0.10)
+                tw(rFill,{BackgroundColor3=accentColor,Size=UDim2.new(0,0,1,0),BackgroundTransparency=1},TI_MED)
+                safe(bc.Callback)
+            end)
+            return {Destroy=function() f:Destroy() end}
+        end
+
+        function Sec:CreateToggle(tc)
+            tc=merge({Name="Toggle",Description=nil,CurrentValue=false,Flag=nil,Callback=function()end},tc or {})
+            local f = Elem(secCon, tc.Description and 58 or 40)
+            Txt({T=tc.Name, Sz=UDim2.new(1,-72,0,17), Pos=UDim2.new(0,14,0,tc.Description and 10 or 12),
+                Font=Enum.Font.GothamSemibold, TS=16, Col=T.TextHi, Z=5, Par=f})
+            if tc.Description then
+                Txt({T=tc.Description, Sz=UDim2.new(1,-72,0,15), Pos=UDim2.new(0,14,0,30),
+                    Font=Enum.Font.Gotham, TS=14, Col=T.TextMid, Z=5, Par=f})
+            end
+            local trk  = Box({Sz=UDim2.new(0,46,0,24), Pos=UDim2.new(1,-58,0.5,0), AP=Vector2.new(0,0.5),
+                Bg=T.BG3, R=12, Border=true, BorderCol=T.Border, Z=5, Par=f})
+            local knob = Box({Sz=UDim2.new(0,18,0,18), Pos=UDim2.new(0,3,0.5,0), AP=Vector2.new(0,0.5),
+                Bg=T.TextLo, R=9, Z=6, Par=trk})
+            local kDot = Box({Sz=UDim2.new(0,6,0,6), Pos=UDim2.new(0.5,0,0.5,0), AP=Vector2.new(0.5,0.5),
+                Bg=T.TextHi, BgA=0.6, R=3, Z=7, Par=knob})
+
+            local TV = {CurrentValue=tc.CurrentValue, Type="Toggle", Settings=tc}
+            local function upd()
+                if TV.CurrentValue then
+                    tw(trk,{BackgroundColor3=T.AccentLo},TI_MED)
+                    local s=trk:FindFirstChildOfClass("UIStroke"); if s then tw(s,{Color=accentColor,Transparency=0.3},TI_MED) end
+                    tw(knob,{Position=UDim2.new(1,-21,0.5,0),BackgroundColor3=accentColor},TI_SPRING)
+                    tw(kDot,{BackgroundTransparency=0},TI_FAST)
+                else
+                    tw(trk,{BackgroundColor3=T.BG3},TI_MED)
+                    local s=trk:FindFirstChildOfClass("UIStroke"); if s then tw(s,{Color=T.Border,Transparency=0},TI_MED) end
+                    tw(knob,{Position=UDim2.new(0,3,0.5,0),BackgroundColor3=T.TextLo},TI_SPRING)
+                    tw(kDot,{BackgroundTransparency=1},TI_FAST)
+                end
+            end
+            upd(); HoverEff(f)
+            Btn(f,6).MouseButton1Click:Connect(function()
+                TV.CurrentValue=not TV.CurrentValue; upd(); safe(tc.Callback,TV.CurrentValue)
+            end)
+            function TV:Set(v) TV.CurrentValue=v; upd(); safe(tc.Callback,v) end
+            if tc.Flag then Sentence.Flags[tc.Flag]=TV; Sentence.Options[tc.Flag]=TV end
+            return TV
+        end
+
+        function Sec:CreateSlider(sc)
+            sc=merge({Name="Slider",Range={0,100},Increment=1,CurrentValue=50,Suffix="",Flag=nil,Callback=function()end},sc or {})
+            local f = Elem(secCon, 58)
+            Txt({T=sc.Name, Sz=UDim2.new(1,-120,0,17), Pos=UDim2.new(0,14,0,9),
+                Font=Enum.Font.GothamSemibold, TS=16, Col=T.TextHi, Z=5, Par=f})
+
+            local vc = Box({Sz=UDim2.new(0,0,0,22), Pos=UDim2.new(1,-13,0,7), AP=Vector2.new(1,0),
+                Bg=T.AccentLo, R=5, Border=true, BorderCol=T.AccentDim, BorderA=0.4, Z=5, Par=f})
+            vc.AutomaticSize=Enum.AutomaticSize.X; Pad(vc,0,0,8,8)
+            local vL = Txt({T=tostring(sc.CurrentValue)..sc.Suffix, Sz=UDim2.new(0,0,1,0),
+                Font=Enum.Font.Code, TS=14, Col=accentColor, AX=Enum.TextXAlignment.Center, Z=6, Par=vc})
+            vL.AutomaticSize=Enum.AutomaticSize.X
+
+            local bg    = Box({Sz=UDim2.new(1,-28,0,5), Pos=UDim2.new(0,14,0,38), Bg=T.BG3, R=3, Z=5, Par=f})
+            local fill  = Box({Sz=UDim2.new(0,0,1,0), Bg=accentColor, R=3, Z=6, Par=bg})
+            local fillG = Instance.new("UIGradient")
+            fillG.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,H("#4580C9")),ColorSequenceKeypoint.new(1,H("#8BC4FF"))}
+            fillG.Parent=fill
+            local thumb = Box({Sz=UDim2.new(0,12,0,12), Pos=UDim2.new(0,0,0.5,0), AP=Vector2.new(0.5,0.5),
+                Bg=T.TextHi, R=6, Z=7, Par=bg})
+            local thG   = Instance.new("UIStroke"); thG.Color=accentColor; thG.Thickness=2; thG.Transparency=0.5; thG.Parent=thumb
+
+            local SV = {CurrentValue=sc.CurrentValue, Type="Slider", Settings=sc}
+            local mn,mx,inc = sc.Range[1],sc.Range[2],sc.Increment
+            local function setV(v)
+                v=math.clamp(v,mn,mx); v=math.floor(v/inc+0.5)*inc
+                v=tonumber(string.format("%.10g",v)); SV.CurrentValue=v
+                vL.Text=tostring(v)..sc.Suffix
+                local pct=(v-mn)/(mx-mn)
+                tw(fill,{Size=UDim2.new(pct,0,1,0)},TI_FAST)
+                tw(thumb,{Position=UDim2.new(pct,0,0.5,0)},TI_FAST)
+            end
+            setV(sc.CurrentValue)
+            local drag=false; local bCL=Btn(bg,9)
+            local function fromInp(i)
+                local rel=math.clamp((i.Position.X-bg.AbsolutePosition.X)/bg.AbsoluteSize.X,0,1)
+                setV(mn+(mx-mn)*rel); safe(sc.Callback,SV.CurrentValue)
+            end
+            bCL.InputBegan:Connect(function(i)
+                if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+                    drag=true; fromInp(i)
+                    tw(thumb,{Size=UDim2.new(0,14,0,14)},TI_FAST); tw(thG,{Transparency=0.2},TI_FAST)
+                end
+            end)
+            UIS.InputEnded:Connect(function(i)
+                if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
+                    drag=false
+                    tw(thumb,{Size=UDim2.new(0,12,0,12)},TI_FAST); tw(thG,{Transparency=0.5},TI_FAST)
+                end
+            end)
+            track(UIS.InputChanged:Connect(function(i)
+                if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then fromInp(i) end
+            end))
+            HoverEff(f)
+            function SV:Set(v) setV(v); safe(sc.Callback,SV.CurrentValue) end
+            if sc.Flag then Sentence.Flags[sc.Flag]=SV; Sentence.Options[sc.Flag]=SV end
+            return SV
+        end
+
+        function Sec:CreateColorPicker(cc2)
+            cc2=merge({Name="Color",Flag=nil,Color=Color3.new(1,1,1),Callback=function()end},cc2 or {})
+            -- Minimal colour display (full picker is complex; shows swatch + callback)
+            local f = Elem(secCon,40)
+            Txt({T=cc2.Name, Sz=UDim2.new(1,-60,0,17), Pos=UDim2.new(0,14,0,12),
+                Font=Enum.Font.GothamSemibold, TS=16, Col=T.TextHi, Z=5, Par=f})
+            local swatch = Box({Sz=UDim2.new(0,24,0,24), Pos=UDim2.new(1,-42,0.5,0), AP=Vector2.new(0,0.5),
+                Bg=cc2.Color, R=5, Border=true, BorderCol=T.Border, Z=5, Par=f})
+            local CV = {CurrentValue=cc2.Color, Type="ColorPicker", Settings=cc2}
+            function CV:Set(c) CV.CurrentValue=c; swatch.BackgroundColor3=c; safe(cc2.Callback,c) end
+            if cc2.Flag then Sentence.Flags[cc2.Flag]=CV; Sentence.Options[cc2.Flag]=CV end
+            return CV
+        end
+
+        return Sec
+    end
+
+    -- ── Default section shortcut ───────────────────────────────────────────
+    local _ds
+    local function gds() if not _ds then _ds=API:CreateSection("") end; return _ds end
+    for _,m in ipairs({"CreateButton","CreateLabel","CreateParagraph","CreateToggle","CreateSlider","CreateDivider","CreateColorPicker"}) do
+        API[m]=function(self,...) return gds()[m](gds(),...) end
+    end
+
+    return API
+end
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- NOTIFICATIONS
 -- ══════════════════════════════════════════════════════════════════════════════
 function Sentence:Notify(data)
     task.spawn(function()
         data = merge({Title="Notice",Content="",Icon="info",Type="Info",Duration=5},data)
         local pal = NotifPalette[data.Type] or NotifPalette.Info
 
-        -- ── Karta ──────────────────────────────────────────────────────────────
-        local card = Box({
-            Name="NCard",
-            Sz=UDim2.new(0,300,0,0),
-            Pos=UDim2.new(-1.1,0,1,0),
-            AP=Vector2.new(0,1),
-            Bg=T.BG1,
-            BgA=1,
-            Clip=true,
-            R=7,
-            Par=self._notifHolder,
-        })
+        local card = Box({Name="NCard", Sz=UDim2.new(0,300,0,0), Pos=UDim2.new(-1.1,0,1,0),
+            AP=Vector2.new(0,1), Bg=T.BG1, BgA=1, Clip=true, R=7, Par=self._notifHolder})
 
-        -- Border — kolor akcentu dla danego typu
         local cardStroke = Instance.new("UIStroke")
-        cardStroke.Color = pal.stroke
-        cardStroke.Thickness = 1
-        cardStroke.Transparency = 1
-        cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        cardStroke.Parent = card
+        cardStroke.Color=pal.stroke; cardStroke.Thickness=1; cardStroke.Transparency=1
+        cardStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; cardStroke.Parent=card
 
-        -- Tło karty (BG2 = ciemne, pasuje do GUI)
-        local bgFill = Box({Sz=UDim2.new(1,0,1,0),Bg=pal.bg,BgA=1,R=7,Z=1,Par=card})
-
-        -- Lewy pionowy pasek akcentu
-        local accentBar = Box({
-            Sz=UDim2.new(0,2,1,0), Pos=UDim2.new(0,0,0,0),
-            Bg=pal.fg, BgA=1, R=0, Z=8, Par=card,
-        })
-
-        -- Subtelny poziomy gradient od paska
-        local sideGlow = Box({Sz=UDim2.new(0,80,1,0),Pos=UDim2.new(0,2,0,0),Bg=pal.fg,BgA=1,R=0,Z=2,Par=card})
+        local bgFill    = Box({Sz=UDim2.new(1,0,1,0), Bg=pal.bg, BgA=1, R=7, Z=1, Par=card})
+        local accentBar = Box({Sz=UDim2.new(0,2,1,0), Pos=UDim2.new(0,0,0,0), Bg=pal.fg, BgA=1, R=0, Z=8, Par=card})
+        local sideGlow  = Box({Sz=UDim2.new(0,80,1,0), Pos=UDim2.new(0,2,0,0), Bg=pal.fg, BgA=1, R=0, Z=2, Par=card})
         local sg=Instance.new("UIGradient")
         sg.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,pal.fg),ColorSequenceKeypoint.new(1,T.BG1)}
         sg.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.90),NumberSequenceKeypoint.new(1,1)}
         sg.Parent=sideGlow
 
-        -- Ikonka w kwadracie
-        local iconRing = Box({
-            Sz=UDim2.new(0,28,0,28), Pos=UDim2.new(0,12,0,0),
-            AP=Vector2.new(0,0.5), Bg=pal.iconBg, BgA=1, R=5, Z=6, Par=card,
-        })
-        local iconRingStroke = Instance.new("UIStroke")
-        iconRingStroke.Color = pal.fg
-        iconRingStroke.Thickness = 1
-        iconRingStroke.Transparency = 1
-        iconRingStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-        iconRingStroke.Parent = iconRing
+        local iconRing = Box({Sz=UDim2.new(0,28,0,28), Pos=UDim2.new(0,12,0,0), AP=Vector2.new(0,0.5),
+            Bg=pal.iconBg, BgA=1, R=5, Z=6, Par=card})
+        local iconRingStroke=Instance.new("UIStroke"); iconRingStroke.Color=pal.fg
+        iconRingStroke.Thickness=1; iconRingStroke.Transparency=1
+        iconRingStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; iconRingStroke.Parent=iconRing
+        local iconImg = Img({Ico=data.Icon, Sz=UDim2.new(0,13,0,13), Col=pal.fg, IA=1, Z=7, Par=iconRing})
 
-        local iconImg = Img({Ico=data.Icon,Sz=UDim2.new(0,13,0,13),Col=pal.fg,IA=1,Z=7,Par=iconRing})
+        local cc = Box({Name="CC", Sz=UDim2.new(1,0,0,0), Pos=UDim2.new(0,0,0,0), BgA=1, AutoY=true, Z=5, Par=card})
+        Pad(cc,9,11,52,32); List(cc,2)
 
-        -- Treść
-        local cc = Box({Name="CC",Sz=UDim2.new(1,0,0,0),Pos=UDim2.new(0,0,0,0),BgA=1,AutoY=true,Z=5,Par=card})
-        Pad(cc,9,11,52,32)
-        List(cc,2)
-
-        -- Badge z typem
-        local typeBadge = Box({Sz=UDim2.new(0,0,0,14),Bg=pal.fg,BgA=1,R=3,Z=6,AutoX=true,Par=cc})
+        local typeBadge = Box({Sz=UDim2.new(0,0,0,14), Bg=pal.fg, BgA=1, R=3, Z=6, AutoX=true, Par=cc})
         Pad(typeBadge,0,0,5,5)
-        local typeL = Txt({T=data.Type:upper(),Sz=UDim2.new(0,0,1,0),Font=Enum.Font.GothamBold,TS=10,Col=T.BG1,AX=Enum.TextXAlignment.Center,Alpha=1,AutoX=true,Z=7,Par=typeBadge})
+        local typeL = Txt({T=data.Type:upper(), Sz=UDim2.new(0,0,1,0), Font=Enum.Font.GothamBold, TS=10,
+            Col=T.BG1, AX=Enum.TextXAlignment.Center, Alpha=1, AutoX=true, Z=7, Par=typeBadge})
+        local ttl = Txt({T=data.Title,   Sz=UDim2.new(1,0,0,17), Font=Enum.Font.GothamBold, TS=14, Col=T.TextHi,  Alpha=1, Z=6, Par=cc})
+        local msg = Txt({T=data.Content, Sz=UDim2.new(1,0,0,0),  Font=Enum.Font.Gotham,     TS=13, Col=T.TextMid, Alpha=1, Wrap=true, AutoY=true, Z=6, Par=cc})
 
-        local ttl = Txt({T=data.Title,Sz=UDim2.new(1,0,0,17),Font=Enum.Font.GothamBold,TS=14,Col=T.TextHi,Alpha=1,Z=6,Par=cc})
-        local msg = Txt({T=data.Content,Sz=UDim2.new(1,0,0,0),Font=Enum.Font.Gotham,TS=13,Col=T.TextMid,Alpha=1,Wrap=true,AutoY=true,Z=6,Par=cc})
+        local pTrack = Box({Sz=UDim2.new(1,0,0,2), Pos=UDim2.new(0,0,1,-2), Bg=T.BG3, BgA=1, R=0, Z=6, Par=card})
+        local pFill  = Box({Sz=UDim2.new(1,0,1,0), Bg=pal.fg, BgA=1, R=0, Z=7, Par=pTrack})
 
-        -- Pasek progresu (dolna krawędź)
-        local pTrack = Box({Sz=UDim2.new(1,0,0,2),Pos=UDim2.new(0,0,1,-2),Bg=T.BG3,BgA=1,R=0,Z=6,Par=card})
-        local pFill  = Box({Sz=UDim2.new(1,0,1,0),Bg=pal.fg,BgA=1,R=0,Z=7,Par=pTrack})
-
-        -- Przycisk zamknięcia
-        local xBtn = Box({
-            Sz=UDim2.new(0,16,0,16), Pos=UDim2.new(1,-8,0,8), AP=Vector2.new(1,0),
-            Bg=T.BG3, BgA=1, R=4, Z=9, Par=card,
-        })
-        local xIco = Img({Ico="close",Sz=UDim2.new(0,7,0,7),Col=T.TextLo,Z=10,Par=xBtn})
+        local xBtn = Box({Sz=UDim2.new(0,16,0,16), Pos=UDim2.new(1,-8,0,8), AP=Vector2.new(1,0),
+            Bg=T.BG3, BgA=1, R=4, Z=9, Par=card})
+        local xIco = Img({Ico="close", Sz=UDim2.new(0,7,0,7), Col=T.TextLo, Z=10, Par=xBtn})
         local xCL  = Btn(xBtn,11)
         xBtn.MouseEnter:Connect(function() tw(xBtn,{BackgroundColor3=T.Error},TI_FAST); tw(xIco,{ImageColor3=T.TextHi},TI_FAST) end)
         xBtn.MouseLeave:Connect(function() tw(xBtn,{BackgroundColor3=T.BG3},TI_FAST); tw(xIco,{ImageColor3=T.TextLo},TI_FAST) end)
 
-        -- ── Animacja wejścia ──────────────────────────────────────────────────
         task.wait()
         local cardH = cc.AbsoluteSize.Y + 4
-        iconRing.Position = UDim2.new(0,12,0, cardH/2 - 14)
+        iconRing.Position = UDim2.new(0,12,0,cardH/2-14)
+        card.Size=UDim2.new(0,300,0,cardH); card.Position=UDim2.new(-1.1,0,1,0)
 
-        card.Size     = UDim2.new(0,300,0,cardH)
-        card.Position = UDim2.new(-1.1,0,1,0)
+        for _,el in ipairs({bgFill,accentBar,sideGlow,iconRing,typeBadge}) do el.BackgroundTransparency=1 end
+        iconImg.ImageTransparency=1; typeL.TextTransparency=1; ttl.TextTransparency=1
+        msg.TextTransparency=1; pTrack.BackgroundTransparency=1; pFill.BackgroundTransparency=1
+        xBtn.BackgroundTransparency=1; xIco.ImageTransparency=1
 
-        -- Wszystkie elementy startują niewidoczne
-        bgFill.BackgroundTransparency    = 1
-        accentBar.BackgroundTransparency = 1
-        sideGlow.BackgroundTransparency  = 1
-        iconRing.BackgroundTransparency  = 1
-        iconImg.ImageTransparency        = 1
-        typeBadge.BackgroundTransparency = 1
-        typeL.TextTransparency           = 1
-        ttl.TextTransparency             = 1
-        msg.TextTransparency             = 1
-        pTrack.BackgroundTransparency    = 1
-        pFill.BackgroundTransparency     = 1
-        xBtn.BackgroundTransparency      = 1
-        xIco.ImageTransparency           = 1
-
-        -- Wjazd karty z lewej
-        tw(card,{Position=UDim2.new(0,0,1,0)},TI_CIRC)
-        task.wait(0.08)
-
-        -- Pojawienie się elementów — razem
-        local TI_IN = TI(.22, Enum.EasingStyle.Exponential)
-        tw(bgFill,    {BackgroundTransparency=0},       TI_IN)
-        tw(accentBar, {BackgroundTransparency=0},       TI_IN)
-        tw(sideGlow,  {BackgroundTransparency=0},       TI_IN)
-        tw(iconRing,  {BackgroundTransparency=0},       TI_IN)
-        tw(iconRingStroke, {Transparency=0.35},         TI_IN)
-        tw(iconImg,   {ImageTransparency=0},            TI_IN)
-        tw(typeBadge, {BackgroundTransparency=0},       TI_IN)
-        tw(typeL,     {TextTransparency=0},             TI_IN)
-        tw(ttl,       {TextTransparency=0},             TI_IN)
-        tw(msg,       {TextTransparency=0},             TI_IN)
-        tw(pTrack,    {BackgroundTransparency=0.55},    TI_IN)
-        tw(pFill,     {BackgroundTransparency=0},       TI_IN)
-        tw(cardStroke,{Transparency=0.55},              TI_IN)
-        tw(xBtn,      {BackgroundTransparency=0},       TI_IN)
-        tw(xIco,      {ImageTransparency=0},            TI_IN)
-
-        -- Timer progresu
+        tw(card,{Position=UDim2.new(0,0,1,0)},TI_CIRC); task.wait(0.08)
+        local TI_IN=TI(.22,Enum.EasingStyle.Exponential)
+        for _,el in ipairs({bgFill,accentBar,sideGlow,iconRing}) do tw(el,{BackgroundTransparency=0},TI_IN) end
+        tw(iconRingStroke,{Transparency=0.35},TI_IN); tw(iconImg,{ImageTransparency=0},TI_IN)
+        tw(typeBadge,{BackgroundTransparency=0},TI_IN); tw(typeL,{TextTransparency=0},TI_IN)
+        tw(ttl,{TextTransparency=0},TI_IN); tw(msg,{TextTransparency=0},TI_IN)
+        tw(pTrack,{BackgroundTransparency=0.55},TI_IN); tw(pFill,{BackgroundTransparency=0},TI_IN)
+        tw(cardStroke,{Transparency=0.55},TI_IN); tw(xBtn,{BackgroundTransparency=0},TI_IN); tw(xIco,{ImageTransparency=0},TI_IN)
         tw(pFill,{Size=UDim2.new(0,0,1,0)},TI(data.Duration,Enum.EasingStyle.Linear))
 
-        local paused=false
+        local paused,dismissed,elapsed=false,false,0
         card.MouseEnter:Connect(function() paused=true;  tw(card,{BackgroundColor3=T.BG2},TI_FAST) end)
         card.MouseLeave:Connect(function() paused=false; tw(card,{BackgroundColor3=T.BG1},TI_FAST) end)
-
-        local dismissed=false
         xCL.MouseButton1Click:Connect(function() dismissed=true end)
-        local elapsed=0
         repeat task.wait(0.05); if not paused then elapsed=elapsed+0.05 end
-        until dismissed or elapsed >= data.Duration
+        until dismissed or elapsed>=data.Duration
 
-        -- ── Animacja wyjścia — WSZYSTKO równocześnie, każdy swój tween ───────
-        local TI_OUT = TI(.18, Enum.EasingStyle.Quad)
-        tw(bgFill,    {BackgroundTransparency=1},    TI_OUT)
-        tw(accentBar, {BackgroundTransparency=1},    TI_OUT)
-        tw(sideGlow,  {BackgroundTransparency=1},    TI_OUT)
-        tw(iconRing,  {BackgroundTransparency=1},    TI_OUT)
-        tw(iconRingStroke, {Transparency=1},         TI_OUT)
-        tw(iconImg,   {ImageTransparency=1},         TI_OUT)
-        tw(typeBadge, {BackgroundTransparency=1},    TI_OUT)
-        tw(typeL,     {TextTransparency=1},          TI_OUT)
-        tw(ttl,       {TextTransparency=1},          TI_OUT)
-        tw(msg,       {TextTransparency=1},          TI_OUT)
-        tw(pTrack,    {BackgroundTransparency=1},    TI_OUT)
-        tw(pFill,     {BackgroundTransparency=1},    TI_OUT)
-        tw(cardStroke,{Transparency=1},              TI_OUT)
-        tw(xBtn,      {BackgroundTransparency=1},    TI_OUT)
-        tw(xIco,      {ImageTransparency=1},         TI_OUT)
-        -- Karta wyjeżdża w lewo równocześnie
-        tw(card,{BackgroundTransparency=1, Position=UDim2.new(-1.1,0,1,0)}, TI(.22,Enum.EasingStyle.Quad,Enum.EasingDirection.In))
+        local TI_OUT=TI(.18,Enum.EasingStyle.Quad)
+        for _,el in ipairs({bgFill,accentBar,sideGlow,iconRing,typeBadge,pTrack,pFill,xBtn}) do tw(el,{BackgroundTransparency=1},TI_OUT) end
+        tw(iconRingStroke,{Transparency=1},TI_OUT); tw(iconImg,{ImageTransparency=1},TI_OUT)
+        tw(typeL,{TextTransparency=1},TI_OUT); tw(ttl,{TextTransparency=1},TI_OUT)
+        tw(msg,{TextTransparency=1},TI_OUT); tw(cardStroke,{Transparency=1},TI_OUT); tw(xIco,{ImageTransparency=1},TI_OUT)
+        tw(card,{BackgroundTransparency=1,Position=UDim2.new(-1.1,0,1,0)},TI(.22,Enum.EasingStyle.Quad,Enum.EasingDirection.In))
         task.wait(0.24)
         tw(card,{Size=UDim2.new(0,300,0,0)},TI_MED,function() card:Destroy() end)
     end)
@@ -393,13 +585,12 @@ function Sentence:CreateWindow(cfg)
 
     local vp = Cam.ViewportSize
     local WW = math.clamp(vp.X-100,616,825)
-    local WH = math.clamp(vp.Y-80, 440,550)
+    local WH = math.clamp(vp.Y-80,440,550)
     local FULL = UDim2.fromOffset(WW,WH)
-    -- titlebar +5% wyższy: było 44, teraz ~46
     local TB_H = 46
-    local MINI = UDim2.fromOffset(WW, TB_H+2)
+    local MINI = UDim2.fromOffset(WW,TB_H+2)
 
-    -- ── ScreenGui ────────────────────────────────────────────────────────────
+    -- ── ScreenGui ─────────────────────────────────────────────────────────────
     local gui=Instance.new("ScreenGui")
     gui.Name="OGSentenceUI"; gui.DisplayOrder=999999999
     gui.ZIndexBehavior=Enum.ZIndexBehavior.Sibling
@@ -413,49 +604,39 @@ function Sentence:CreateWindow(cfg)
     -- SPLASH SCREEN
     -- ══════════════════════════════════════════════════════════════════════════
     task.spawn(function()
-        local splashConns={};  local alive=true
-
-        local splash=Instance.new("Frame")
-        splash.Name="Splash"; splash.Size=UDim2.new(1,0,1,0)
+        local splashConns={}; local alive=true
+        local splash=Instance.new("Frame"); splash.Name="Splash"; splash.Size=UDim2.new(1,0,1,0)
         splash.BackgroundColor3=H("#080c10"); splash.BackgroundTransparency=1
-        splash.BorderSizePixel=0; splash.ZIndex=1000; splash.ClipsDescendants=true
-        splash.Parent=gui
+        splash.BorderSizePixel=0; splash.ZIndex=1000; splash.ClipsDescendants=true; splash.Parent=gui
 
         local cLines={}
         local function MkCorner(ax,ay,rx,ry)
             local r=Instance.new("Frame"); r.Size=UDim2.new(0,36,0,36)
             r.Position=UDim2.new(ax,rx,ay,ry); r.AnchorPoint=Vector2.new(ax,ay)
             r.BackgroundTransparency=1; r.ZIndex=1002; r.Parent=splash
-            local h=Instance.new("Frame"); h.Size=UDim2.new(1,0,0,1)
-            h.Position=ay==0 and UDim2.new(0,0,0,0) or UDim2.new(0,0,1,-1)
-            h.BackgroundColor3=T.Accent; h.BackgroundTransparency=1
-            h.BorderSizePixel=0; h.ZIndex=1003; h.Parent=r
+            local h2=Instance.new("Frame"); h2.Size=UDim2.new(1,0,0,1)
+            h2.Position=ay==0 and UDim2.new(0,0,0,0) or UDim2.new(0,0,1,-1)
+            h2.BackgroundColor3=T.Accent; h2.BackgroundTransparency=1; h2.BorderSizePixel=0; h2.ZIndex=1003; h2.Parent=r
             local v=Instance.new("Frame"); v.Size=UDim2.new(0,1,1,0)
             v.Position=ax==0 and UDim2.new(0,0,0,0) or UDim2.new(1,-1,0,0)
-            v.BackgroundColor3=T.Accent; v.BackgroundTransparency=1
-            v.BorderSizePixel=0; v.ZIndex=1003; v.Parent=r
-            table.insert(cLines,h); table.insert(cLines,v)
+            v.BackgroundColor3=T.Accent; v.BackgroundTransparency=1; v.BorderSizePixel=0; v.ZIndex=1003; v.Parent=r
+            table.insert(cLines,h2); table.insert(cLines,v)
         end
-        MkCorner(0,0,24,24); MkCorner(1,0,-24,24)
-        MkCorner(0,1,24,-24); MkCorner(1,1,-24,-24)
+        MkCorner(0,0,24,24); MkCorner(1,0,-24,24); MkCorner(0,1,24,-24); MkCorner(1,1,-24,-24)
 
         local glow=Instance.new("Frame"); glow.Size=UDim2.new(0,540,0,270)
         glow.Position=UDim2.new(0.5,0,0.5,0); glow.AnchorPoint=Vector2.new(0.5,0.5)
-        glow.BackgroundColor3=T.Accent; glow.BackgroundTransparency=1
-        glow.BorderSizePixel=0; glow.ZIndex=1001; glow.Parent=splash
+        glow.BackgroundColor3=T.Accent; glow.BackgroundTransparency=1; glow.BorderSizePixel=0; glow.ZIndex=1001; glow.Parent=splash
         Instance.new("UICorner",glow).CornerRadius=UDim.new(1,0)
         local gg=Instance.new("UIGradient")
-        gg.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.74),NumberSequenceKeypoint.new(1,1)}
-        gg.Parent=glow
+        gg.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.74),NumberSequenceKeypoint.new(1,1)}; gg.Parent=glow
 
         local scan=Instance.new("Frame"); scan.Size=UDim2.new(0,2,1,0)
         scan.Position=UDim2.new(-0.02,0,0,0); scan.BackgroundColor3=T.Accent
         scan.BackgroundTransparency=0.5; scan.BorderSizePixel=0; scan.ZIndex=1020; scan.Parent=splash
-        local sg=Instance.new("UIGradient")
-        sg.Transparency=NumberSequence.new{
-            NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(0.38,0.35),
-            NumberSequenceKeypoint.new(0.62,0.35),NumberSequenceKeypoint.new(1,1)}
-        sg.Rotation=90; sg.Parent=scan
+        local sg2=Instance.new("UIGradient")
+        sg2.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,1),NumberSequenceKeypoint.new(0.38,0.35),NumberSequenceKeypoint.new(0.62,0.35),NumberSequenceKeypoint.new(1,1)}
+        sg2.Rotation=90; sg2.Parent=scan
 
         local lw=Instance.new("Frame"); lw.Name="LW"; lw.Size=UDim2.new(0,48,0,48)
         lw.Position=UDim2.new(0.5,0,0.44,0); lw.AnchorPoint=Vector2.new(0.5,0.5)
@@ -463,23 +644,19 @@ function Sentence:CreateWindow(cfg)
 
         local lglow=Instance.new("Frame"); lglow.Size=UDim2.new(2,0,2,0)
         lglow.Position=UDim2.new(0.5,0,0.5,0); lglow.AnchorPoint=Vector2.new(0.5,0.5)
-        lglow.BackgroundColor3=T.Accent; lglow.BackgroundTransparency=1
-        lglow.BorderSizePixel=0; lglow.ZIndex=1003; lglow.Parent=lw
+        lglow.BackgroundColor3=T.Accent; lglow.BackgroundTransparency=1; lglow.BorderSizePixel=0; lglow.ZIndex=1003; lglow.Parent=lw
         Instance.new("UICorner",lglow).CornerRadius=UDim.new(1,0)
         local lgg=Instance.new("UIGradient")
-        lgg.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.78),NumberSequenceKeypoint.new(1,1)}
-        lgg.Parent=lglow
+        lgg.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.78),NumberSequenceKeypoint.new(1,1)}; lgg.Parent=lglow
 
         local ro=Instance.new("Frame"); ro.Size=UDim2.new(1,28,1,28)
         ro.Position=UDim2.new(0.5,0,0.5,0); ro.AnchorPoint=Vector2.new(0.5,0.5)
         ro.BackgroundTransparency=1; ro.BorderSizePixel=0; ro.ZIndex=1005; ro.Parent=lw
         Instance.new("UICorner",ro).CornerRadius=UDim.new(1,0)
         local so=Instance.new("UIStroke"); so.Color=T.Accent; so.Thickness=1.5; so.Transparency=0.15; so.Parent=ro
-        local go=Instance.new("UIGradient")
-        go.Transparency=NumberSequence.new{
-            NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(0.3,0),
-            NumberSequenceKeypoint.new(0.65,0.88),NumberSequenceKeypoint.new(1,0)}
-        go.Parent=so
+        local go2=Instance.new("UIGradient")
+        go2.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0),NumberSequenceKeypoint.new(0.3,0),NumberSequenceKeypoint.new(0.65,0.88),NumberSequenceKeypoint.new(1,0)}
+        go2.Parent=so
 
         local ri=Instance.new("Frame"); ri.Size=UDim2.new(1,-16,1,-16)
         ri.Position=UDim2.new(0.5,0,0.5,0); ri.AnchorPoint=Vector2.new(0.5,0.5)
@@ -487,9 +664,7 @@ function Sentence:CreateWindow(cfg)
         Instance.new("UICorner",ri).CornerRadius=UDim.new(1,0)
         local si=Instance.new("UIStroke"); si.Color=H("#4580C9"); si.Thickness=1; si.Transparency=0.45; si.Parent=ri
         local gi=Instance.new("UIGradient")
-        gi.Transparency=NumberSequence.new{
-            NumberSequenceKeypoint.new(0,0.85),NumberSequenceKeypoint.new(0.28,0),
-            NumberSequenceKeypoint.new(0.72,0),NumberSequenceKeypoint.new(1,0.85)}
+        gi.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.85),NumberSequenceKeypoint.new(0.28,0),NumberSequenceKeypoint.new(0.72,0),NumberSequenceKeypoint.new(1,0.85)}
         gi.Parent=si
 
         local limg=Instance.new("ImageLabel"); limg.Size=UDim2.new(1,0,1,0)
@@ -497,277 +672,181 @@ function Sentence:CreateWindow(cfg)
         limg.ScaleType=Enum.ScaleType.Fit; limg.ZIndex=1006; limg.Parent=lw
         Instance.new("UICorner",limg).CornerRadius=UDim.new(0,10)
 
-        local tw2=Instance.new("Frame"); tw2.Size=UDim2.new(0,420,0,0)
-        tw2.Position=UDim2.new(0.5,0,0.44,110); tw2.AnchorPoint=Vector2.new(0.5,0)
-        tw2.BackgroundTransparency=1; tw2.AutomaticSize=Enum.AutomaticSize.Y
-        tw2.ZIndex=1004; tw2.Parent=splash
+        local tw2f=Instance.new("Frame"); tw2f.Size=UDim2.new(0,420,0,0)
+        tw2f.Position=UDim2.new(0.5,0,0.44,110); tw2f.AnchorPoint=Vector2.new(0.5,0)
+        tw2f.BackgroundTransparency=1; tw2f.AutomaticSize=Enum.AutomaticSize.Y; tw2f.ZIndex=1004; tw2f.Parent=splash
 
         local tRow=Instance.new("Frame"); tRow.Size=UDim2.new(1,0,0,0)
-        tRow.BackgroundTransparency=1; tRow.AutomaticSize=Enum.AutomaticSize.XY
-        tRow.ZIndex=1005; tRow.Parent=tw2
+        tRow.BackgroundTransparency=1; tRow.AutomaticSize=Enum.AutomaticSize.XY; tRow.ZIndex=1005; tRow.Parent=tw2f
         local trl=Instance.new("UIListLayout"); trl.FillDirection=Enum.FillDirection.Horizontal
-        trl.HorizontalAlignment=Enum.HorizontalAlignment.Center
-        trl.VerticalAlignment=Enum.VerticalAlignment.Center
+        trl.HorizontalAlignment=Enum.HorizontalAlignment.Center; trl.VerticalAlignment=Enum.VerticalAlignment.Center
         trl.Padding=UDim.new(0,0); trl.SortOrder=Enum.SortOrder.LayoutOrder; trl.Parent=tRow
 
         local CHARS={"S","E","N","T","E","N","C","E"}; local charLbls={}
         for i,ch in ipairs(CHARS) do
-            local l=Instance.new("TextLabel"); l.Text=ch
-            l.Size=UDim2.new(0,0,0,0); l.AutomaticSize=Enum.AutomaticSize.XY
+            local l=Instance.new("TextLabel"); l.Text=ch; l.Size=UDim2.new(0,0,0,0); l.AutomaticSize=Enum.AutomaticSize.XY
             l.Font=Enum.Font.GothamBold; l.TextSize=48; l.TextColor3=T.TextHi
             l.TextTransparency=1; l.BackgroundTransparency=1; l.BorderSizePixel=0
-            l.ZIndex=1006; l.LayoutOrder=i; l.RichText=false; l.Parent=tRow
-            charLbls[i]=l
+            l.ZIndex=1006; l.LayoutOrder=i; l.RichText=false; l.Parent=tRow; charLbls[i]=l
         end
-        local sp=Instance.new("Frame"); sp.Size=UDim2.new(0,14,0,1)
-        sp.BackgroundTransparency=1; sp.BorderSizePixel=0; sp.LayoutOrder=9; sp.Parent=tRow
-        local hub=Instance.new("TextLabel"); hub.Text="HUB"
-        hub.Size=UDim2.new(0,0,0,0); hub.AutomaticSize=Enum.AutomaticSize.XY
+        local sp2=Instance.new("Frame"); sp2.Size=UDim2.new(0,14,0,1); sp2.BackgroundTransparency=1; sp2.BorderSizePixel=0; sp2.LayoutOrder=9; sp2.Parent=tRow
+        local hub=Instance.new("TextLabel"); hub.Text="HUB"; hub.Size=UDim2.new(0,0,0,0); hub.AutomaticSize=Enum.AutomaticSize.XY
         hub.Font=Enum.Font.GothamBold; hub.TextSize=48; hub.TextColor3=T.Accent
-        hub.TextTransparency=1; hub.BackgroundTransparency=1; hub.BorderSizePixel=0
-        hub.ZIndex=1006; hub.LayoutOrder=10; hub.RichText=false; hub.Parent=tRow
+        hub.TextTransparency=1; hub.BackgroundTransparency=1; hub.BorderSizePixel=0; hub.ZIndex=1006; hub.LayoutOrder=10; hub.RichText=false; hub.Parent=tRow
 
-        local acLine=Instance.new("Frame"); acLine.Size=UDim2.new(0,0,0,2)
-        acLine.Position=UDim2.new(0.5,0,0,56); acLine.AnchorPoint=Vector2.new(0.5,0)
-        acLine.BackgroundColor3=T.Accent; acLine.BackgroundTransparency=1
-        acLine.BorderSizePixel=0; acLine.ZIndex=1005; acLine.Parent=tw2
+        local acLine=Instance.new("Frame"); acLine.Size=UDim2.new(0,0,0,2); acLine.Position=UDim2.new(0.5,0,0,56); acLine.AnchorPoint=Vector2.new(0.5,0)
+        acLine.BackgroundColor3=T.Accent; acLine.BackgroundTransparency=1; acLine.BorderSizePixel=0; acLine.ZIndex=1005; acLine.Parent=tw2f
         Instance.new("UICorner",acLine).CornerRadius=UDim.new(1,0)
 
-        local stat=Instance.new("TextLabel"); stat.Text="INITIALISING CORE"
-        stat.Size=UDim2.new(1,0,0,22); stat.Position=UDim2.new(0,0,0,64)
-        stat.Font=Enum.Font.Code; stat.TextSize=12; stat.TextColor3=T.TextMid
-        stat.TextTransparency=1; stat.BackgroundTransparency=1; stat.BorderSizePixel=0
-        stat.ZIndex=1005; stat.TextXAlignment=Enum.TextXAlignment.Center
-        stat.RichText=false; stat.Parent=tw2
+        local stat=Instance.new("TextLabel"); stat.Text="INITIALISING CORE"; stat.Size=UDim2.new(1,0,0,22); stat.Position=UDim2.new(0,0,0,64)
+        stat.Font=Enum.Font.Code; stat.TextSize=12; stat.TextColor3=T.TextMid; stat.TextTransparency=1
+        stat.BackgroundTransparency=1; stat.BorderSizePixel=0; stat.ZIndex=1005; stat.TextXAlignment=Enum.TextXAlignment.Center; stat.RichText=false; stat.Parent=tw2f
 
-        local pw=Instance.new("Frame"); pw.Size=UDim2.new(0,260,0,3)
-        pw.Position=UDim2.new(0.5,0,0,90); pw.AnchorPoint=Vector2.new(0.5,0)
-        pw.BackgroundColor3=H("#1a1f28"); pw.BackgroundTransparency=1
-        pw.BorderSizePixel=0; pw.ZIndex=1005; pw.Parent=tw2
+        local pw=Instance.new("Frame"); pw.Size=UDim2.new(0,260,0,3); pw.Position=UDim2.new(0.5,0,0,90); pw.AnchorPoint=Vector2.new(0.5,0)
+        pw.BackgroundColor3=H("#1a1f28"); pw.BackgroundTransparency=1; pw.BorderSizePixel=0; pw.ZIndex=1005; pw.Parent=tw2f
         Instance.new("UICorner",pw).CornerRadius=UDim.new(1,0)
-        local pf=Instance.new("Frame"); pf.Size=UDim2.new(0,0,1,0)
-        pf.BackgroundColor3=T.Accent; pf.BackgroundTransparency=1
-        pf.BorderSizePixel=0; pf.ZIndex=1006; pf.Parent=pw
-        Instance.new("UICorner",pf).CornerRadius=UDim.new(1,0)
+        local pf2=Instance.new("Frame"); pf2.Size=UDim2.new(0,0,1,0); pf2.BackgroundColor3=T.Accent; pf2.BackgroundTransparency=1; pf2.BorderSizePixel=0; pf2.ZIndex=1006; pf2.Parent=pw
+        Instance.new("UICorner",pf2).CornerRadius=UDim.new(1,0)
         local pfg=Instance.new("UIGradient")
-        pfg.Color=ColorSequence.new{
-            ColorSequenceKeypoint.new(0,H("#4580C9")),
-            ColorSequenceKeypoint.new(0.6,H("#5A9FE8")),
-            ColorSequenceKeypoint.new(1,H("#8BC4FF"))}
-        pfg.Parent=pf
+        pfg.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,H("#4580C9")),ColorSequenceKeypoint.new(0.6,H("#5A9FE8")),ColorSequenceKeypoint.new(1,H("#8BC4FF"))}; pfg.Parent=pf2
 
         local parts={}
         for pi=1,7 do
             local px=Instance.new("Frame"); px.Size=UDim2.new(0,math.random(2,4),0,math.random(2,4))
-            px.Position=UDim2.new(math.random(15,85)/100,0,math.random(15,85)/100,0)
-            px.AnchorPoint=Vector2.new(0.5,0.5); px.BackgroundColor3=T.Accent
-            px.BackgroundTransparency=0.55+math.random()*0.35
-            px.BorderSizePixel=0; px.ZIndex=1002; px.Parent=splash
+            px.Position=UDim2.new(math.random(15,85)/100,0,math.random(15,85)/100,0); px.AnchorPoint=Vector2.new(0.5,0.5)
+            px.BackgroundColor3=T.Accent; px.BackgroundTransparency=0.55+math.random()*0.35; px.BorderSizePixel=0; px.ZIndex=1002; px.Parent=splash
             Instance.new("UICorner",px).CornerRadius=UDim.new(1,0)
-            parts[pi]={f=px,bx=math.random(15,85)/100,by=math.random(15,85)/100,
-                ph=math.random()*math.pi*2,sp=0.28+math.random()*0.38,
-                rg=0.011+math.random()*0.017}
+            parts[pi]={f=px,bx=math.random(15,85)/100,by=math.random(15,85)/100,ph=math.random()*math.pi*2,sp=0.28+math.random()*0.38,rg=0.011+math.random()*0.017}
         end
 
         tw(splash,{BackgroundTransparency=0},TI(.38,Enum.EasingStyle.Quad)); task.wait(0.14)
-        for _,l in ipairs(cLines) do tw(l,{BackgroundTransparency=0},TI(.48,Enum.EasingStyle.Exponential)) end
-        task.wait(0.16)
+        for _,l in ipairs(cLines) do tw(l,{BackgroundTransparency=0},TI(.48,Enum.EasingStyle.Exponential)) end; task.wait(0.16)
         tw(scan,{Position=UDim2.new(1.02,0,0,0)},TI(.85,Enum.EasingStyle.Quad)); task.wait(0.08)
         tw(glow,{BackgroundTransparency=0.76},TI(.6,Enum.EasingStyle.Quad)); task.wait(0.06)
         tw(so,{Transparency=0},TI_MED); tw(si,{Transparency=0},TI_MED)
         tw(lw,{Size=UDim2.new(0,160,0,160)},TI_SPRING)
         tw(lglow,{BackgroundTransparency=0.82},TI(.5,Enum.EasingStyle.Quad))
         tw(limg,{ImageTransparency=0},TI(.5,Enum.EasingStyle.Exponential)); task.wait(0.24)
-        for i,l in ipairs(charLbls) do
-            task.spawn(function() task.wait((i-1)*0.055); tw(l,{TextTransparency=0},TI(.28,Enum.EasingStyle.Back)) end)
-        end
-        task.wait(0.38)
+        for i,l in ipairs(charLbls) do task.spawn(function() task.wait((i-1)*0.055); tw(l,{TextTransparency=0},TI(.28,Enum.EasingStyle.Back)) end) end; task.wait(0.38)
         tw(hub,{TextTransparency=0},TI(.32,Enum.EasingStyle.Back)); task.wait(0.14)
         tw(acLine,{Size=UDim2.new(0,280,0,2),BackgroundTransparency=0},TI(.45,Enum.EasingStyle.Exponential)); task.wait(0.1)
-        tw(stat,{TextTransparency=0.3},TI_MED); tw(pw,{BackgroundTransparency=0},TI_FAST); tw(pf,{BackgroundTransparency=0},TI_FAST)
+        tw(stat,{TextTransparency=0.3},TI_MED); tw(pw,{BackgroundTransparency=0},TI_FAST); tw(pf2,{BackgroundTransparency=0},TI_FAST)
 
         local rsC=RS.RenderStepped:Connect(function(dt)
             if not alive then return end
             ro.Rotation=ro.Rotation+88*dt; ri.Rotation=ri.Rotation-52*dt
-            local pulse=0.82+math.sin(tick()*2.2)*0.07
-            lglow.BackgroundTransparency=1-(1-0.82)*pulse
+            local pulse=0.82+math.sin(tick()*2.2)*0.07; lglow.BackgroundTransparency=1-(1-0.82)*pulse
             local mp=UIS:GetMouseLocation(); local vs=Cam.ViewportSize
             glow.Position=UDim2.new(0.5,(mp.X/vs.X-0.5)*38,0.5,(mp.Y/vs.Y-0.5)*18)
-            for _,p in ipairs(parts) do
-                local t2=tick()*p.sp+p.ph
-                p.f.Position=UDim2.new(p.bx+math.sin(t2)*p.rg,0,p.by+math.cos(t2*1.4)*p.rg,0)
-            end
-        end)
-        table.insert(splashConns,rsC)
+            for _,p in ipairs(parts) do local t2=tick()*p.sp+p.ph; p.f.Position=UDim2.new(p.bx+math.sin(t2)*p.rg,0,p.by+math.cos(t2*1.4)*p.rg,0) end
+        end); table.insert(splashConns,rsC)
 
-        local steps={
-            {l="VERIFYING MODULES",p=0.20},{l="INJECTING SCRIPTS",p=0.42},
-            {l="LOADING ASSETS",p=0.64},{l="BUILDING INTERFACE",p=0.86},{l="COMPLETE",p=1.0},
-        }
+        local steps={{l="VERIFYING MODULES",p=0.20},{l="INJECTING SCRIPTS",p=0.42},{l="LOADING ASSETS",p=0.64},{l="BUILDING INTERFACE",p=0.86},{l="COMPLETE",p=1.0}}
         for _,s in ipairs(steps) do
-            tw(stat,{TextTransparency=1},TI(.07,Enum.EasingStyle.Quad)); task.wait(0.08)
-            stat.Text=s.l
-            tw(stat,{TextTransparency=0.3},TI(.1,Enum.EasingStyle.Quad))
-            tw(pf,{Size=UDim2.new(s.p,0,1,0)},TI(.36,Enum.EasingStyle.Quad))
-            tw(limg,{ImageTransparency=0.22},TI(.06,Enum.EasingStyle.Quad)); task.wait(0.07)
-            tw(limg,{ImageTransparency=0},TI(.1,Enum.EasingStyle.Quad))
+            tw(stat,{TextTransparency=1},TI(.07,Enum.EasingStyle.Quad)); task.wait(0.08); stat.Text=s.l
+            tw(stat,{TextTransparency=0.3},TI(.1,Enum.EasingStyle.Quad)); tw(pf2,{Size=UDim2.new(s.p,0,1,0)},TI(.36,Enum.EasingStyle.Quad))
+            tw(limg,{ImageTransparency=0.22},TI(.06,Enum.EasingStyle.Quad)); task.wait(0.07); tw(limg,{ImageTransparency=0},TI(.1,Enum.EasingStyle.Quad))
             task.wait(s.p==1 and 0.3 or 0.28)
-        end
-        task.wait(0.38)
+        end; task.wait(0.38)
 
         alive=false
         for _,c in ipairs(splashConns) do pcall(function() c:Disconnect() end) end
-        for i=#charLbls,1,-1 do
-            task.spawn(function() task.wait((#charLbls-i)*0.038); tw(charLbls[i],{TextTransparency=1},TI(.18,Enum.EasingStyle.Quad)) end)
-        end
+        for i=#charLbls,1,-1 do task.spawn(function() task.wait((#charLbls-i)*0.038); tw(charLbls[i],{TextTransparency=1},TI(.18,Enum.EasingStyle.Quad)) end) end
         tw(hub,{TextTransparency=1},TI(.18,Enum.EasingStyle.Quad))
         tw(acLine,{BackgroundTransparency=1,Size=UDim2.new(0,0,0,2)},TI(.3,Enum.EasingStyle.Exponential)); task.wait(0.14)
-        tw(stat,{TextTransparency=1},TI_FAST); tw(pf,{BackgroundTransparency=1},TI_FAST); tw(pw,{BackgroundTransparency=1},TI_FAST)
+        tw(stat,{TextTransparency=1},TI_FAST); tw(pf2,{BackgroundTransparency=1},TI_FAST); tw(pw,{BackgroundTransparency=1},TI_FAST)
         tw(limg,{ImageTransparency=1},TI(.26,Enum.EasingStyle.Quad))
         tw(so,{Transparency=1},TI(.22,Enum.EasingStyle.Quad)); tw(si,{Transparency=1},TI(.22,Enum.EasingStyle.Quad))
         tw(lglow,{BackgroundTransparency=1},TI(.28,Enum.EasingStyle.Quad))
         for _,l in ipairs(cLines) do tw(l,{BackgroundTransparency=1},TI(.2,Enum.EasingStyle.Quad)) end
-        for _,p in ipairs(parts) do tw(p.f,{BackgroundTransparency=1},TI(.18,Enum.EasingStyle.Quad)) end
-        task.wait(0.16)
+        for _,p in ipairs(parts) do tw(p.f,{BackgroundTransparency=1},TI(.18,Enum.EasingStyle.Quad)) end; task.wait(0.16)
         tw(glow,{BackgroundTransparency=1},TI(.32,Enum.EasingStyle.Quad))
         tw(splash,{BackgroundTransparency=1},TI(.42,Enum.EasingStyle.Quad),function() splash:Destroy() end)
     end)
 
-    -- ── Notif Holder ─────────────────────────────────────────────────────────
+    -- ── Notif Holder ──────────────────────────────────────────────────────────
     local notifHolder=Instance.new("Frame"); notifHolder.Name="Notifs"
     notifHolder.Size=UDim2.new(0,310,1,-16); notifHolder.Position=UDim2.new(0,10,1,-8)
-    notifHolder.AnchorPoint=Vector2.new(0,1)
-    notifHolder.BackgroundTransparency=1; notifHolder.ZIndex=200; notifHolder.Parent=gui
+    notifHolder.AnchorPoint=Vector2.new(0,1); notifHolder.BackgroundTransparency=1; notifHolder.ZIndex=200; notifHolder.Parent=gui
     local nList=List(notifHolder,6); nList.VerticalAlignment=Enum.VerticalAlignment.Bottom
     self._notifHolder=notifHolder
 
     -- ══════════════════════════════════════════════════════════════════════════
-    -- GŁÓWNE OKNO
+    -- MAIN WINDOW
     -- ══════════════════════════════════════════════════════════════════════════
-    local win=Box({
-        Name="OGSentenceWin",Sz=UDim2.fromOffset(0,0),
-        Pos=UDim2.new(0.5,0,0.5,0),AP=Vector2.new(0.5,0.5),
-        Bg=T.BG1,BgA=0,Clip=true,R=6,
-        Border=true,BorderCol=T.Border,BorderA=0,Z=1,Par=gui,
-    })
+    local win=Box({Name="OGSentenceWin", Sz=UDim2.fromOffset(0,0), Pos=UDim2.new(0.5,0,0.5,0), AP=Vector2.new(0.5,0.5),
+        Bg=T.BG1, BgA=0, Clip=true, R=6, Border=true, BorderCol=T.Border, BorderA=0, Z=1, Par=gui})
 
-    local topLine=Box({Name="TopLine",Sz=UDim2.new(1,0,0,2),Pos=UDim2.new(0,0,0,0),Bg=T.Accent,BgA=0,Z=6,Par=win})
-
-    local winGlow=Box({Name="WinGlow",Sz=UDim2.new(0,260,0,140),Pos=UDim2.new(0,0,0,0),Bg=T.Accent,BgA=0.9,R=0,Z=0,Par=win})
-    local wgG=Instance.new("UIGradient")
-    wgG.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.88),NumberSequenceKeypoint.new(1,1)}
-    wgG.Rotation=130; wgG.Parent=winGlow
+    local topLine   = Box({Name="TopLine", Sz=UDim2.new(1,0,0,2), Pos=UDim2.new(0,0,0,0), Bg=T.Accent, BgA=0, Z=6, Par=win})
+    local winGlow   = Box({Name="WinGlow", Sz=UDim2.new(0,260,0,140), Pos=UDim2.new(0,0,0,0), Bg=T.Accent, BgA=0.9, R=0, Z=0, Par=win})
+    local wgG=Instance.new("UIGradient"); wgG.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.88),NumberSequenceKeypoint.new(1,1)}; wgG.Rotation=130; wgG.Parent=winGlow
 
     -- ── Title Bar ─────────────────────────────────────────────────────────────
-    local titleBar=Box({Name="TitleBar",Sz=UDim2.new(1,0,0,TB_H),Pos=UDim2.new(0,0,0,2),Bg=T.BG1,BgA=1,Z=4,Par=win})
+    local titleBar=Box({Name="TitleBar", Sz=UDim2.new(1,0,0,TB_H), Pos=UDim2.new(0,0,0,2), Bg=T.BG1, BgA=1, Z=4, Par=win})
     Draggable(titleBar,win)
 
-    local tbLine=Instance.new("Frame"); tbLine.Size=UDim2.new(1,0,0,1)
-    tbLine.Position=UDim2.new(0,0,1,-1); tbLine.BackgroundColor3=T.Border
-    tbLine.BackgroundTransparency=0; tbLine.BorderSizePixel=0; tbLine.ZIndex=5; tbLine.Parent=titleBar
+    local tbLine=Instance.new("Frame"); tbLine.Size=UDim2.new(1,0,0,1); tbLine.Position=UDim2.new(0,0,1,-1)
+    tbLine.BackgroundColor3=T.Border; tbLine.BackgroundTransparency=0; tbLine.BorderSizePixel=0; tbLine.ZIndex=5; tbLine.Parent=titleBar
     local tbLineG=Instance.new("UIGradient")
-    tbLineG.Color=ColorSequence.new{
-        ColorSequenceKeypoint.new(0,T.Accent),
-        ColorSequenceKeypoint.new(0.3,T.Border),
-        ColorSequenceKeypoint.new(1,T.Border)}
-    tbLineG.Parent=tbLine
+    tbLineG.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,T.Accent),ColorSequenceKeypoint.new(0.3,T.Border),ColorSequenceKeypoint.new(1,T.Border)}; tbLineG.Parent=tbLine
 
-    -- ── Przyciski sterowania — PRAWA STRONA: [Minimize] [Hide] [Exit] ─────────
-    -- Minimize: ikona minus/dash
-    -- Hide: ikona oka
-    -- Exit: ikona X (przy samej prawej ścianie)
+    -- Control buttons
     local ctrlBtns={}
     local CBTN_W=26; local CBTN_GAP=5; local CBTN_MARGIN=10
-    -- kolejność od lewej do prawej: Minimize, Hide, Exit
-    -- Exit jest ostatni (skrajnie prawy)
     local CTRL_DEFS={
-        -- key, icon id, hoverBg, hoverIconCol
-        {key="−", ico="rbxassetid://6031094687", hoverBg=T.AccentDim, hoverCol=T.TextHi},  -- Minimize (dash/arrow-down)
-        {key="·", ico="rbxassetid://6031075929", hoverBg=T.BG4,       hoverCol=T.Accent},  -- Hide (eye)
-        {key="X", ico="rbxassetid://6031094678", hoverBg=T.Error,      hoverCol=T.TextHi}, -- Exit (close X)
+        {key="−", ico="rbxassetid://6031094687", hoverBg=T.AccentDim, hoverCol=T.TextHi},
+        {key="·", ico="rbxassetid://6031075929", hoverBg=T.BG4,       hoverCol=T.Accent},
+        {key="X", ico="rbxassetid://6031094678", hoverBg=T.Error,      hoverCol=T.TextHi},
     }
     for idx,cd in ipairs(CTRL_DEFS) do
-        -- pozycja: Exit (idx=3) przy prawej ścianie z marginem 10
-        -- każdy kolejny w lewo o (CBTN_W+CBTN_GAP)
-        local fromRight = CBTN_MARGIN + (3-idx)*(CBTN_W+CBTN_GAP)
-        local cb=Box({
-            Name=cd.key,
-            Sz=UDim2.new(0,CBTN_W,0,CBTN_W),
-            Pos=UDim2.new(1,-fromRight-CBTN_W,0.5,0),
-            AP=Vector2.new(0,0.5),
-            Bg=T.BG3,
-            BgA=0,
-            R=5,
-            Z=5,
-            Par=titleBar
-        })
+        local fromRight=CBTN_MARGIN+(3-idx)*(CBTN_W+CBTN_GAP)
+        local cb=Box({Name=cd.key, Sz=UDim2.new(0,CBTN_W,0,CBTN_W), Pos=UDim2.new(1,-fromRight-CBTN_W,0.5,0), AP=Vector2.new(0,0.5), Bg=T.BG3, BgA=0, R=5, Z=5, Par=titleBar})
         local cbStroke=Instance.new("UIStroke"); cbStroke.Color=T.Border; cbStroke.Thickness=1; cbStroke.Transparency=0.45; cbStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; cbStroke.Parent=cb
-        local cbIco=Img({Ico=cd.ico,Sz=UDim2.new(0,12,0,12),Col=T.TextLo,IA=0,Z=6,Par=cb})
+        local cbIco=Img({Ico=cd.ico, Sz=UDim2.new(0,12,0,12), Col=T.TextLo, IA=0, Z=6, Par=cb})
         task.spawn(function() tw(cbIco,{ImageTransparency=0},TI_MED) end)
         local cl=Btn(cb,7)
-        cb.MouseEnter:Connect(function()
-            tw(cb,{BackgroundColor3=cd.hoverBg,BackgroundTransparency=0},TI_FAST)
-            tw(cbIco,{ImageColor3=cd.hoverCol},TI_FAST)
-            tw(cbStroke,{Color=cd.hoverBg,Transparency=0.4},TI_FAST)
-        end)
-        cb.MouseLeave:Connect(function()
-            tw(cb,{BackgroundColor3=T.BG3,BackgroundTransparency=0},TI_FAST)
-            tw(cbIco,{ImageColor3=T.TextLo},TI_FAST)
-            tw(cbStroke,{Color=T.Border,Transparency=0.45},TI_FAST)
-        end)
+        cb.MouseEnter:Connect(function() tw(cb,{BackgroundColor3=cd.hoverBg,BackgroundTransparency=0},TI_FAST); tw(cbIco,{ImageColor3=cd.hoverCol},TI_FAST); tw(cbStroke,{Color=cd.hoverBg,Transparency=0.4},TI_FAST) end)
+        cb.MouseLeave:Connect(function() tw(cb,{BackgroundColor3=T.BG3,BackgroundTransparency=0},TI_FAST); tw(cbIco,{ImageColor3=T.TextLo},TI_FAST); tw(cbStroke,{Color=T.Border,Transparency=0.45},TI_FAST) end)
         ctrlBtns[cd.key]={frame=cb,click=cl,ico=cbIco}
     end
 
-    -- ── Logo — wyśrodkowane na osi sidebara (SW=50 → środek=25px), tytuł obok ──
-    local LOGO_SIZE   = 32
-    local LOGO_CENTER = 25   -- środek sidebara = SW/2
-    local LOGO_GAP    = 10   -- odstęp między logo a tekstem
-
-    -- Logo jako ImageLabel, wyśrodkowane poziomo na sidebarze
-    local logoImg=Instance.new("ImageLabel")
-    logoImg.Name="LogoImg"; logoImg.Size=UDim2.new(0,LOGO_SIZE,0,LOGO_SIZE)
-    logoImg.Position=UDim2.new(0, LOGO_CENTER - LOGO_SIZE/2, 0.5, 0)
-    logoImg.AnchorPoint=Vector2.new(0,0.5)
+    local LOGO_SIZE=32; local LOGO_CENTER=25; local LOGO_GAP=10
+    local logoImg=Instance.new("ImageLabel"); logoImg.Name="LogoImg"; logoImg.Size=UDim2.new(0,LOGO_SIZE,0,LOGO_SIZE)
+    logoImg.Position=UDim2.new(0,LOGO_CENTER-LOGO_SIZE/2,0.5,0); logoImg.AnchorPoint=Vector2.new(0,0.5)
     logoImg.BackgroundTransparency=1; logoImg.Image=cfg.Icon~="" and ico(cfg.Icon) or LOGO
-    logoImg.ScaleType=Enum.ScaleType.Fit; logoImg.ImageTransparency=1
-    logoImg.ZIndex=5; logoImg.Parent=titleBar
+    logoImg.ScaleType=Enum.ScaleType.Fit; logoImg.ImageTransparency=1; logoImg.ZIndex=5; logoImg.Parent=titleBar
     Instance.new("UICorner",logoImg).CornerRadius=UDim.new(0,5)
     task.spawn(function() tw(logoImg,{ImageTransparency=0},TI_MED) end)
 
-    local txtX = LOGO_CENTER + LOGO_SIZE/2 + LOGO_GAP
-    local nameLabel=Txt({T=cfg.Name,Sz=UDim2.new(0,220,0,20),Pos=UDim2.new(0,txtX,0,5),Font=Enum.Font.GothamBold,TS=16,Col=T.TextHi,Alpha=1,Z=5,Par=titleBar})
-    local subText = cfg.Subtitle~="" and cfg.Subtitle or "v"..Sentence.Version
-    local subLabel=Txt({T=subText,Sz=UDim2.new(0,200,0,13),Pos=UDim2.new(0,txtX,0,26),Font=Enum.Font.Gotham,TS=12,Col=T.TextLo,Alpha=1,Z=5,Par=titleBar})
+    local txtX=LOGO_CENTER+LOGO_SIZE/2+LOGO_GAP
+    local nameLabel=Txt({T=cfg.Name,         Sz=UDim2.new(0,220,0,20), Pos=UDim2.new(0,txtX,0,5),  Font=Enum.Font.GothamBold, TS=16, Col=T.TextHi, Alpha=1, Z=5, Par=titleBar})
+    local subText=cfg.Subtitle~="" and cfg.Subtitle or "v"..Sentence.Version
+    local subLabel =Txt({T=subText,           Sz=UDim2.new(0,200,0,13), Pos=UDim2.new(0,txtX,0,26), Font=Enum.Font.Gotham,     TS=12, Col=T.TextLo, Alpha=1, Z=5, Par=titleBar})
 
     -- ── Sidebar ───────────────────────────────────────────────────────────────
     local SW=50
-    local sidebar=Box({Name="Sidebar",Sz=UDim2.new(0,SW,1,-TB_H-2),Pos=UDim2.new(0,0,0,TB_H+2),Bg=T.BG2,BgA=0,Z=3,Par=win})
-
+    local sidebar=Box({Name="Sidebar", Sz=UDim2.new(0,SW,1,-TB_H-2), Pos=UDim2.new(0,0,0,TB_H+2), Bg=T.BG2, BgA=0, Z=3, Par=win})
     local sbWire=Wire(sidebar,true); sbWire.Position=UDim2.new(1,-1,0,0); sbWire.BackgroundColor3=T.Border
 
     local tabList=Instance.new("ScrollingFrame"); tabList.Name="TabList"
     tabList.Size=UDim2.new(1,0,1,-56); tabList.Position=UDim2.new(0,0,0,14)
-    tabList.BackgroundTransparency=1; tabList.BorderSizePixel=0
-    tabList.ScrollBarThickness=0; tabList.AutomaticCanvasSize=Enum.AutomaticSize.Y
-    tabList.ZIndex=4; tabList.Parent=sidebar
-    List(tabList,4,Enum.FillDirection.Vertical,Enum.HorizontalAlignment.Center)
-    Pad(tabList,4,4,0,0)
+    tabList.BackgroundTransparency=1; tabList.BorderSizePixel=0; tabList.ScrollBarThickness=0
+    tabList.AutomaticCanvasSize=Enum.AutomaticSize.Y; tabList.ZIndex=4; tabList.Parent=sidebar
+    List(tabList,4,Enum.FillDirection.Vertical,Enum.HorizontalAlignment.Center); Pad(tabList,4,4,0,0)
 
-    local avBox=Box({Sz=UDim2.new(0,34,0,34),Pos=UDim2.new(0.5,0,1,-12),AP=Vector2.new(0.5,1),Bg=T.BG2,R=5,Z=4,Par=sidebar})
-    local avImg=Instance.new("ImageLabel"); avImg.Size=UDim2.new(1,0,1,0)
-    avImg.BackgroundTransparency=1; avImg.ZIndex=5; avImg.Parent=avBox
+    local avBox=Box({Sz=UDim2.new(0,34,0,34), Pos=UDim2.new(0.5,0,1,-12), AP=Vector2.new(0.5,1), Bg=T.BG2, R=5, Z=4, Par=sidebar})
+    local avImg=Instance.new("ImageLabel"); avImg.Size=UDim2.new(1,0,1,0); avImg.BackgroundTransparency=1; avImg.ZIndex=5; avImg.Parent=avBox
     Instance.new("UICorner",avImg).CornerRadius=UDim.new(0,5)
     local avS=Instance.new("UIStroke"); avS.Color=T.Accent; avS.Thickness=1.5; avS.Transparency=0.5; avS.Parent=avImg
     pcall(function() avImg.Image=Plrs:GetUserThumbnailAsync(LP.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48) end)
 
-    local tooltip=Box({Name="TT",Sz=UDim2.new(0,0,0,28),Pos=UDim2.new(0,SW+6,0,0),Bg=T.BG3,R=5,Border=true,BorderCol=T.Border,BorderA=0,Z=20,Vis=false,Par=win})
-    tooltip.AutomaticSize=Enum.AutomaticSize.X
-    Pad(tooltip,0,0,10,10)
-    local ttL=Txt({T="",Sz=UDim2.new(0,0,1,0),Font=Enum.Font.GothamSemibold,TS=14,Col=T.TextHi,Z=21,Par=tooltip})
+    local tooltip=Box({Name="TT", Sz=UDim2.new(0,0,0,28), Pos=UDim2.new(0,SW+6,0,0), Bg=T.BG3, R=5, Border=true, BorderCol=T.Border, BorderA=0, Z=20, Vis=false, Par=win})
+    tooltip.AutomaticSize=Enum.AutomaticSize.X; Pad(tooltip,0,0,10,10)
+    local ttL=Txt({T="", Sz=UDim2.new(0,0,1,0), Font=Enum.Font.GothamSemibold, TS=14, Col=T.TextHi, Z=21, Par=tooltip})
     ttL.AutomaticSize=Enum.AutomaticSize.X
     local ttStroke=Instance.new("UIStroke"); ttStroke.Color=T.Accent; ttStroke.Thickness=1; ttStroke.Transparency=0.6; ttStroke.Parent=tooltip
 
-    local contentArea=Box({Name="Content",Sz=UDim2.new(1,-SW-1,1,-TB_H-2),Pos=UDim2.new(0,SW+1,0,TB_H+2),Bg=T.BG1,BgA=1,Clip=true,Z=2,Par=win})
+    local contentArea=Box({Name="Content", Sz=UDim2.new(1,-SW-1,1,-TB_H-2), Pos=UDim2.new(0,SW+1,0,TB_H+2), Bg=T.BG1, BgA=1, Clip=true, Z=2, Par=win})
 
     local W={_gui=gui,_win=win,_content=contentArea,_tabs={},_activeTab=nil,_visible=true,_minimized=false,_cfg=cfg}
 
@@ -775,22 +854,20 @@ function Sentence:CreateWindow(cfg)
         for _,tab in ipairs(W._tabs) do
             if tab.id==id then
                 tab.page.Visible=true
-                tw(tab.bar,{BackgroundTransparency=0},TI_FAST)
-                tw(tab.ico,{ImageColor3=T.Accent},TI_FAST)
+                tw(tab.bar,{BackgroundTransparency=0},TI_FAST); tw(tab.ico,{ImageColor3=T.Accent},TI_FAST)
                 tw(tab.box,{BackgroundColor3=T.AccentLo,BackgroundTransparency=0},TI_FAST)
-                if tab.box.UIStroke then tw(tab.box.UIStroke,{Color=T.Accent,Transparency=0.5},TI_FAST) end
+                local s=tab.box:FindFirstChildOfClass("UIStroke"); if s then tw(s,{Color=T.Accent,Transparency=0.5},TI_FAST) end
                 W._activeTab=id
             else
                 tab.page.Visible=false
-                tw(tab.bar,{BackgroundTransparency=1},TI_FAST)
-                tw(tab.ico,{ImageColor3=T.TextLo},TI_FAST)
+                tw(tab.bar,{BackgroundTransparency=1},TI_FAST); tw(tab.ico,{ImageColor3=T.TextLo},TI_FAST)
                 tw(tab.box,{BackgroundColor3=T.BG3,BackgroundTransparency=1},TI_FAST)
-                if tab.box.UIStroke then tw(tab.box.UIStroke,{Color=T.Border,Transparency=0.6},TI_FAST) end
+                local s=tab.box:FindFirstChildOfClass("UIStroke"); if s then tw(s,{Color=T.Border,Transparency=0.6},TI_FAST) end
             end
         end
     end
 
-    -- ── Ekran ładowania ───────────────────────────────────────────────────────
+    -- ── Loading Screen ────────────────────────────────────────────────────────
     if cfg.LoadingEnabled then
         local lf=Box({Name="Loading",Sz=UDim2.new(1,0,1,0),Bg=T.BG1,BgA=0,Z=50,Par=win})
         Instance.new("UICorner",lf).CornerRadius=UDim.new(0,6)
@@ -798,22 +875,20 @@ function Sentence:CreateWindow(cfg)
         local lT=Txt({T=cfg.LoadingTitle,    Sz=UDim2.new(1,0,0,26),Pos=UDim2.new(0.5,0,0.5,-14),AP=Vector2.new(0.5,0.5),Font=Enum.Font.GothamBold,TS=24,Col=T.TextHi,AX=Enum.TextXAlignment.Center,Alpha=1,Z=51,Par=lf})
         local lS=Txt({T=cfg.LoadingSubtitle, Sz=UDim2.new(1,0,0,16),Pos=UDim2.new(0.5,0,0.5, 16),AP=Vector2.new(0.5,0.5),Font=Enum.Font.Code,TS=14,Col=T.TextMid,AX=Enum.TextXAlignment.Center,Alpha=1,Z=51,Par=lf})
         local pTrack=Box({Sz=UDim2.new(0.45,0,0,3),Pos=UDim2.new(0.5,0,0.5,44),AP=Vector2.new(0.5,0.5),Bg=T.BG3,R=2,Z=51,Par=lf})
-        local pFill=Box({Sz=UDim2.new(0,0,1,0),Bg=T.Accent,R=2,Z=52,Par=pTrack})
+        local pFillL=Box({Sz=UDim2.new(0,0,1,0),Bg=T.Accent,R=2,Z=52,Par=pTrack})
         local pctL=Txt({T="0%",Sz=UDim2.new(1,0,0,16),Pos=UDim2.new(0.5,0,0.5,54),AP=Vector2.new(0.5,0.5),Font=Enum.Font.Code,TS=13,Col=T.Accent,AX=Enum.TextXAlignment.Center,Z=51,Par=lf})
         tw(win,{Size=FULL},TI_SLOW); task.wait(0.3)
         tw(lT,{TextTransparency=0},TI_MED); task.wait(0.1); tw(lS,{TextTransparency=0.3},TI_MED)
         if cfg.Icon~="" then tw(lLogo,{ImageTransparency=0},TI_MED) end
         local pct=0
         for _,s in ipairs({0.12,0.08,0.15,0.1,0.18,0.12,0.1,0.15}) do
-            pct=math.min(pct+s,1)
-            tw(pFill,{Size=UDim2.new(pct,0,1,0)},TI(.25,Enum.EasingStyle.Quad))
+            pct=math.min(pct+s,1); tw(pFillL,{Size=UDim2.new(pct,0,1,0)},TI(.25,Enum.EasingStyle.Quad))
             pctL.Text=math.floor(pct*100).."%"; task.wait(0.13+math.random()*0.1)
         end
-        pctL.Text="100%"; tw(pFill,{Size=UDim2.new(1,0,1,0)},TI_FAST); task.wait(0.3)
-        tw(pFill,{BackgroundColor3=T.TextHi},TI_FAST); task.wait(0.08)
+        pctL.Text="100%"; tw(pFillL,{Size=UDim2.new(1,0,1,0)},TI_FAST); task.wait(0.3)
+        tw(pFillL,{BackgroundColor3=T.TextHi},TI_FAST); task.wait(0.08)
         tw(lT,{TextTransparency=1},TI_FAST); tw(lS,{TextTransparency=1},TI_FAST)
-        tw(pctL,{TextTransparency=1},TI_FAST); tw(pTrack,{BackgroundTransparency=1},TI_FAST)
-        tw(pFill,{BackgroundTransparency=1},TI_FAST)
+        tw(pctL,{TextTransparency=1},TI_FAST); tw(pTrack,{BackgroundTransparency=1},TI_FAST); tw(pFillL,{BackgroundTransparency=1},TI_FAST)
         if cfg.Icon~="" then tw(lLogo,{ImageTransparency=1},TI_FAST) end
         task.wait(0.2); tw(lf,{BackgroundTransparency=1},TI_MED,function() lf:Destroy() end); task.wait(0.3)
     else
@@ -824,146 +899,109 @@ function Sentence:CreateWindow(cfg)
     tw(nameLabel,{TextTransparency=0},      TI_MED)
     tw(subLabel, {TextTransparency=0},      TI_MED)
 
-    -- ── Zamknięcie ─────────────────────────────────────────────────────────────
+    -- ── Close / Minimize / Hide ───────────────────────────────────────────────
     local function DoClose()
-        local blocker=Instance.new("Frame"); blocker.Size=UDim2.new(1,0,1,0)
-        blocker.BackgroundTransparency=1; blocker.ZIndex=900; blocker.Parent=gui
-        Btn(blocker,901)
-
-        local ov=Box({Sz=UDim2.new(1,0,1,0),Bg=T.BG0,BgA=1,Z=500,Par=win})
-        Instance.new("UICorner",ov).CornerRadius=UDim.new(0,6)
-
-        local oLogo=Instance.new("ImageLabel"); oLogo.Size=UDim2.new(0,54,0,54)
-        oLogo.Position=UDim2.new(0.5,0,0.5,-70); oLogo.AnchorPoint=Vector2.new(0.5,0.5)
-        oLogo.BackgroundTransparency=1; oLogo.Image=LOGO; oLogo.ScaleType=Enum.ScaleType.Fit
-        oLogo.ImageTransparency=1; oLogo.ZIndex=501; oLogo.Parent=ov
-
-        local oName=Txt({T=cfg.Name,Sz=UDim2.new(1,0,0,24),Pos=UDim2.new(0.5,0,0.5,-26),AP=Vector2.new(0.5,0.5),Font=Enum.Font.GothamBold,TS=22,Col=T.TextHi,AX=Enum.TextXAlignment.Center,Alpha=1,Z=501,Par=ov})
-        local oSub =Txt({T="Closing...",Sz=UDim2.new(1,0,0,16),Pos=UDim2.new(0.5,0,0.5, 4),AP=Vector2.new(0.5,0.5),Font=Enum.Font.Code,TS=13,Col=T.TextLo,AX=Enum.TextXAlignment.Center,Alpha=1,Z=501,Par=ov})
-
+        local blocker=Instance.new("Frame"); blocker.Size=UDim2.new(1,0,1,0); blocker.BackgroundTransparency=1; blocker.ZIndex=900; blocker.Parent=gui; Btn(blocker,901)
+        local ov=Box({Sz=UDim2.new(1,0,1,0),Bg=T.BG0,BgA=1,Z=500,Par=win}); Instance.new("UICorner",ov).CornerRadius=UDim.new(0,6)
+        local oLogo=Instance.new("ImageLabel"); oLogo.Size=UDim2.new(0,54,0,54); oLogo.Position=UDim2.new(0.5,0,0.5,-70); oLogo.AnchorPoint=Vector2.new(0.5,0.5); oLogo.BackgroundTransparency=1; oLogo.Image=LOGO; oLogo.ScaleType=Enum.ScaleType.Fit; oLogo.ImageTransparency=1; oLogo.ZIndex=501; oLogo.Parent=ov
+        local oName=Txt({T=cfg.Name,    Sz=UDim2.new(1,0,0,24),Pos=UDim2.new(0.5,0,0.5,-26),AP=Vector2.new(0.5,0.5),Font=Enum.Font.GothamBold,TS=22,Col=T.TextHi,AX=Enum.TextXAlignment.Center,Alpha=1,Z=501,Par=ov})
+        local oSub =Txt({T="Closing...",Sz=UDim2.new(1,0,0,16),Pos=UDim2.new(0.5,0,0.5, 4), AP=Vector2.new(0.5,0.5),Font=Enum.Font.Code,    TS=13,Col=T.TextLo, AX=Enum.TextXAlignment.Center,Alpha=1,Z=501,Par=ov})
         local cl2=Box({Sz=UDim2.new(0,200,0,2),Pos=UDim2.new(0.5,0,0.5,30),AP=Vector2.new(0.5,0.5),Bg=T.BG3,R=2,Z=501,Par=ov})
-        local cf =Box({Sz=UDim2.new(0,0,1,0),Bg=T.Accent,R=2,Z=502,Par=cl2})
-
-        if win.UIStroke then
-            tw(win.UIStroke,{Color=T.Error,Transparency=0.2},TI_MED)
-        end
-
-        tw(ov,{BackgroundTransparency=0},TI(.2,Enum.EasingStyle.Quad))
-        tw(oLogo,{ImageTransparency=0},TI_MED)
-        tw(oName,{TextTransparency=0},TI_MED)
-        tw(oSub, {TextTransparency=0},TI_MED)
-        tw(cl2,  {BackgroundTransparency=0},TI_FAST)
-        tw(cf,   {BackgroundTransparency=0},TI_FAST)
-        task.wait(0.12)
-
-        tw(cf,{Size=UDim2.new(1,0,1,0)},TI(.55,Enum.EasingStyle.Quad))
-        task.wait(0.28)
-
-        oSub.Text="See you soon."
-        tw(cf,{BackgroundColor3=T.TextHi},TI_FAST)
-        task.wait(0.22)
-
+        local cf=Box({Sz=UDim2.new(0,0,1,0),Bg=T.Accent,R=2,Z=502,Par=cl2})
+        local ws=win:FindFirstChildOfClass("UIStroke"); if ws then tw(ws,{Color=T.Error,Transparency=0.2},TI_MED) end
+        tw(ov,{BackgroundTransparency=0},TI(.2,Enum.EasingStyle.Quad)); tw(oLogo,{ImageTransparency=0},TI_MED); tw(oName,{TextTransparency=0},TI_MED); tw(oSub,{TextTransparency=0},TI_MED); tw(cl2,{BackgroundTransparency=0},TI_FAST); tw(cf,{BackgroundTransparency=0},TI_FAST); task.wait(0.12)
+        tw(cf,{Size=UDim2.new(1,0,1,0)},TI(.55,Enum.EasingStyle.Quad)); task.wait(0.28); oSub.Text="See you soon."; tw(cf,{BackgroundColor3=T.TextHi},TI_FAST); task.wait(0.22)
         tw(win,{Size=UDim2.fromOffset(WW,0),BackgroundTransparency=1},TI(.4,Enum.EasingStyle.Back,Enum.EasingDirection.In))
-        if win.UIStroke then tw(win.UIStroke,{Transparency=1},TI(.3,Enum.EasingStyle.Quad)) end
-        task.wait(0.42)
-
-        Sentence:Destroy()
+        if ws then tw(ws,{Transparency=1},TI(.3,Enum.EasingStyle.Quad)) end; task.wait(0.42); Sentence:Destroy()
     end
 
     local function DoMinimize()
         if W._minimized then
-            W._minimized=false
-            win.ClipsDescendants=true
-            tw(win,{Size=FULL},TI_SPRING,function()
-                sidebar.Visible=true; contentArea.Visible=true
-                win.ClipsDescendants=true
-            end)
+            W._minimized=false; win.ClipsDescendants=true
+            tw(win,{Size=FULL},TI_SPRING,function() sidebar.Visible=true; contentArea.Visible=true; win.ClipsDescendants=true end)
         else
-            W._minimized=true
-            sidebar.Visible=false; contentArea.Visible=false
-            local squishH=MINI.Y.Offset+6
-            tw(win,{Size=UDim2.fromOffset(WW,squishH)},TI(.18,Enum.EasingStyle.Quad,Enum.EasingDirection.Out))
-            task.wait(0.10)
+            W._minimized=true; sidebar.Visible=false; contentArea.Visible=false
+            tw(win,{Size=UDim2.fromOffset(WW,MINI.Y.Offset+6)},TI(.18,Enum.EasingStyle.Quad,Enum.EasingDirection.Out)); task.wait(0.10)
             tw(win,{Size=MINI},TI(.22,Enum.EasingStyle.Back,Enum.EasingDirection.Out))
         end
     end
 
     local function HideW()
         W._visible=false
-        tw(win,{Position=UDim2.new(0.5,0,1.2,0),Size=UDim2.fromOffset(WW*0.85,WH*0.85)},TI(.45,Enum.EasingStyle.Back,Enum.EasingDirection.In),function()
-            win.Visible=false
-            win.Size=W._minimized and MINI or FULL
-        end)
+        tw(win,{Position=UDim2.new(0.5,0,1.2,0),Size=UDim2.fromOffset(WW*0.85,WH*0.85)},TI(.45,Enum.EasingStyle.Back,Enum.EasingDirection.In),function() win.Visible=false; win.Size=W._minimized and MINI or FULL end)
     end
     local function ShowW()
-        win.Visible=true; W._visible=true
-        win.Position=UDim2.new(0.5,0,1.2,0)
-        win.Size=UDim2.fromOffset(WW*0.85, (W._minimized and MINI or FULL).Y.Offset*0.85)
+        win.Visible=true; W._visible=true; win.Position=UDim2.new(0.5,0,1.2,0)
+        win.Size=UDim2.fromOffset(WW*0.85,(W._minimized and MINI or FULL).Y.Offset*0.85)
         tw(win,{Position=UDim2.new(0.5,0,0.5,0),Size=W._minimized and MINI or FULL},TI_SPRING)
     end
 
     ctrlBtns["X"].click.MouseButton1Click:Connect(DoClose)
-    ctrlBtns["·"].click.MouseButton1Click:Connect(function()
-        Sentence:Notify({Title="Hidden",Content="Press "..cfg.ToggleBind.Name.." to restore.",Type="Info"})
-        HideW()
-    end)
+    ctrlBtns["·"].click.MouseButton1Click:Connect(function() Sentence:Notify({Title="Hidden",Content="Press "..cfg.ToggleBind.Name.." to restore.",Type="Info"}); HideW() end)
     ctrlBtns["−"].click.MouseButton1Click:Connect(DoMinimize)
-
     track(UIS.InputBegan:Connect(function(inp,proc)
         if proc then return end
-        if inp.KeyCode==cfg.ToggleBind then
-            if W._visible then HideW() else ShowW() end
-        end
+        if inp.KeyCode==cfg.ToggleBind then if W._visible then HideW() else ShowW() end end
     end))
 
     -- ══════════════════════════════════════════════════════════════════════════
-    -- HOME TAB
+    -- HOME TAB  —  full CreateSection API + built-in professional layout
     -- ══════════════════════════════════════════════════════════════════════════
     function W:CreateHomeTab(hCfg)
-        hCfg=merge({Icon="home"},hCfg or {})
-        local id="Home"
-        local hBox=Box({Name="HomeTB",Sz=UDim2.new(0,40,0,40),Bg=T.BG3,BgA=1,R=6,Border=true,BorderCol=T.Border,BorderA=0.5,Z=5,Par=tabList})
-        local hBar=Box({Sz=UDim2.new(0,3,0.55,0),Pos=UDim2.new(0,0,0.225,0),Bg=T.Accent,BgA=1,R=0,Z=6,Par=hBox})
-        local hIco=Img({Ico=hCfg.Icon,Sz=UDim2.new(0,18,0,18),Col=T.TextLo,Z=6,Par=hBox})
-        local hCL=Btn(hBox,7)
+        hCfg = merge({Icon="home"},hCfg or {})
+        local id = "Home"
 
-        local hPage=Instance.new("ScrollingFrame"); hPage.Name="HomePage"
+        local hBox = Box({Name="HomeTB", Sz=UDim2.new(0,40,0,40), Bg=T.BG3, BgA=1, R=6,
+            Border=true, BorderCol=T.Border, BorderA=0.5, Z=5, Par=tabList})
+        local hBar = Box({Sz=UDim2.new(0,3,0.55,0), Pos=UDim2.new(0,0,0.225,0), Bg=T.Accent, BgA=1, R=0, Z=6, Par=hBox})
+        local hIco = Img({Ico=hCfg.Icon, Sz=UDim2.new(0,18,0,18), Col=T.TextLo, Z=6, Par=hBox})
+        local hCL  = Btn(hBox,7)
+
+        -- Scrollable page
+        local hPage = Instance.new("ScrollingFrame"); hPage.Name="HomePage"
         hPage.Size=UDim2.new(1,0,1,0); hPage.BackgroundTransparency=1; hPage.BorderSizePixel=0
         hPage.ScrollBarThickness=2; hPage.ScrollBarImageColor3=T.Border
         hPage.CanvasSize=UDim2.new(0,0,0,0); hPage.AutomaticCanvasSize=Enum.AutomaticSize.Y
         hPage.ZIndex=3; hPage.Visible=false; hPage.Parent=contentArea
-        List(hPage,12); Pad(hPage,18,18,18,18)
+        List(hPage,10); Pad(hPage,16,16,16,16)
 
-        local pCard=Box({Name="PCard",Sz=UDim2.new(1,0,0,86),Bg=T.BG1,BgA=0,R=6,Z=3,Par=hPage})
-        -- Tylko niebieski border
-        local pcStroke=Instance.new("UIStroke"); pcStroke.Color=T.Accent; pcStroke.Thickness=1; pcStroke.Transparency=0.6; pcStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; pcStroke.Parent=pCard
-        local pcBg=Box({Sz=UDim2.new(1,0,1,0),Bg=T.AccentLo,BgA=0,R=6,Z=3,Par=pCard})
-        local pcBgG=Instance.new("UIGradient")
-        pcBgG.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,T.AccentLo),ColorSequenceKeypoint.new(1,T.BG1)}
-        pcBgG.Rotation=0; pcBgG.Parent=pcBg
-        Box({Sz=UDim2.new(0,3,0.7,0),Pos=UDim2.new(0,0,0.15,0),Bg=T.Accent,R=0,Z=5,Par=pCard})
-        local pAv=Instance.new("ImageLabel"); pAv.Size=UDim2.new(0,52,0,52)
-        pAv.Position=UDim2.new(0,16,0.5,0); pAv.AnchorPoint=Vector2.new(0,0.5)
+        -- ── BUILT-IN: Player Card ─────────────────────────────────────────────
+        local pCard = Box({Name="PlayerCard", Sz=UDim2.new(1,0,0,86), Bg=T.BG1, BgA=0, R=8, Z=3, Par=hPage})
+        local pcStroke=Instance.new("UIStroke"); pcStroke.Color=T.Accent; pcStroke.Thickness=1; pcStroke.Transparency=0.55; pcStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; pcStroke.Parent=pCard
+        -- Subtle blue gradient wash
+        local pcBg=Box({Sz=UDim2.new(1,0,1,0), Bg=T.AccentLo, BgA=0, R=8, Z=3, Par=pCard})
+        local pcBgG=Instance.new("UIGradient"); pcBgG.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,T.AccentLo),ColorSequenceKeypoint.new(1,T.BG1)}; pcBgG.Rotation=0; pcBgG.Parent=pcBg
+        -- Left accent bar
+        Box({Sz=UDim2.new(0,3,0.7,0), Pos=UDim2.new(0,0,0.15,0), Bg=T.Accent, R=0, Z=5, Par=pCard})
+        -- Avatar
+        local pAv=Instance.new("ImageLabel"); pAv.Size=UDim2.new(0,52,0,52); pAv.Position=UDim2.new(0,16,0.5,0); pAv.AnchorPoint=Vector2.new(0,0.5)
         pAv.BackgroundTransparency=1; pAv.ZIndex=6; pAv.Parent=pCard
-        Instance.new("UICorner",pAv).CornerRadius=UDim.new(0,5)
-        local pAS=Instance.new("UIStroke"); pAS.Color=T.Accent; pAS.Thickness=1.5; pAS.Transparency=0.45; pAS.Parent=pAv
+        Instance.new("UICorner",pAv).CornerRadius=UDim.new(0,6)
+        local pAS=Instance.new("UIStroke"); pAS.Color=T.Accent; pAS.Thickness=1.5; pAS.Transparency=0.4; pAS.Parent=pAv
         pcall(function() pAv.Image=Plrs:GetUserThumbnailAsync(LP.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size150x150) end)
-        Txt({T=LP.DisplayName,Sz=UDim2.new(1,-96,0,22),Pos=UDim2.new(0,82,0,14),Font=Enum.Font.GothamBold,TS=19,Col=T.TextHi,Z=6,Par=pCard})
-        Txt({T="@"..LP.Name,  Sz=UDim2.new(1,-96,0,16),Pos=UDim2.new(0,82,0,38),Font=Enum.Font.Code,TS=14,Col=T.TextMid,Z=6,Par=pCard})
+        Txt({T=LP.DisplayName, Sz=UDim2.new(1,-100,0,22), Pos=UDim2.new(0,82,0,14), Font=Enum.Font.GothamBold, TS=19, Col=T.TextHi,  Z=6, Par=pCard})
+        Txt({T="@"..LP.Name,   Sz=UDim2.new(1,-100,0,16), Pos=UDim2.new(0,82,0,38), Font=Enum.Font.Code,       TS=14, Col=T.TextMid, Z=6, Par=pCard})
+        -- SENTENCE badge top-right
+        local badge=Box({Sz=UDim2.new(0,0,0,18), Pos=UDim2.new(1,-12,0,10), AP=Vector2.new(1,0), Bg=T.AccentLo, R=4, Z=6, Par=pCard})
+        badge.AutomaticSize=Enum.AutomaticSize.X; Pad(badge,0,0,6,6)
+        local bs=Instance.new("UIStroke"); bs.Color=T.Accent; bs.Thickness=1; bs.Transparency=0.55; bs.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; bs.Parent=badge
+        Txt({T="SENTENCE HUB", Sz=UDim2.new(0,0,1,0), Font=Enum.Font.GothamBold, TS=11, Col=T.Accent, AX=Enum.TextXAlignment.Center, AutoX=true, Z=7, Par=badge})
 
-        local sCard=Box({Name="SCard",Sz=UDim2.new(1,0,0,108),Bg=T.BG1,BgA=0,R=6,Z=3,Par=hPage})
-        -- Tylko niebieski border
-        local scStroke=Instance.new("UIStroke"); scStroke.Color=T.Accent; scStroke.Thickness=1; scStroke.Transparency=0.6; scStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; scStroke.Parent=sCard
-        Txt({T="SRV",       Sz=UDim2.new(0,32,0,14),Pos=UDim2.new(0,14,0,10),Font=Enum.Font.GothamBold,TS=12,Col=T.Accent,Z=4,Par=sCard})
-        Txt({T="STATISTICS",Sz=UDim2.new(1,-50,0,14),Pos=UDim2.new(0,48,0,10),Font=Enum.Font.GothamBold,TS=12,Col=T.TextLo,Z=4,Par=sCard})
+        -- ── BUILT-IN: Server Statistics Card ─────────────────────────────────
+        local sCard = Box({Name="SrvCard", Sz=UDim2.new(1,0,0,108), Bg=T.BG1, BgA=0, R=8, Z=3, Par=hPage})
+        local scStroke=Instance.new("UIStroke"); scStroke.Color=T.Accent; scStroke.Thickness=1; scStroke.Transparency=0.55; scStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; scStroke.Parent=sCard
+        -- Header
+        Txt({T="SRV",        Sz=UDim2.new(0,32,0,14), Pos=UDim2.new(0,14,0,10), Font=Enum.Font.GothamBold, TS=12, Col=T.Accent,  Z=4, Par=sCard})
+        Txt({T="STATISTICS", Sz=UDim2.new(1,-50,0,14), Pos=UDim2.new(0,48,0,10), Font=Enum.Font.GothamBold, TS=12, Col=T.TextLo,  Z=4, Par=sCard})
         local sSep=Instance.new("Frame"); sSep.Size=UDim2.new(1,-28,0,1); sSep.Position=UDim2.new(0,14,0,28)
         sSep.BackgroundColor3=T.Border; sSep.BackgroundTransparency=0; sSep.BorderSizePixel=0; sSep.ZIndex=3; sSep.Parent=sCard
         local statVals={}
-        for i,sd in ipairs({{"PLAYERS",""},{"PING",""},{"UPTIME",""},{"REGION",""}}) do
+        local statDefs={{"PLAYERS",""},{"PING",""},{"UPTIME",""},{"REGION",""}}
+        for i,sd in ipairs(statDefs) do
             local col=(i-1)%2; local row=math.floor((i-1)/2)
             local cW=(WW-SW-50)/2; local x=14+col*cW; local y=34+row*36
-            Txt({T=sd[1],Sz=UDim2.new(0,130,0,13),Pos=UDim2.new(0,x,0,y),Font=Enum.Font.GothamBold,TS=12,Col=T.TextLo,Z=4,Par=sCard})
-            statVals[sd[1]]=Txt({T="—",Sz=UDim2.new(0,170,0,19),Pos=UDim2.new(0,x,0,y+14),Font=Enum.Font.Code,TS=17,Col=T.TextHi,Z=4,Par=sCard})
+            Txt({T=sd[1],   Sz=UDim2.new(0,130,0,13), Pos=UDim2.new(0,x,0,y),    Font=Enum.Font.GothamBold, TS=12, Col=T.TextLo, Z=4, Par=sCard})
+            statVals[sd[1]]=Txt({T="—", Sz=UDim2.new(0,170,0,19), Pos=UDim2.new(0,x,0,y+14), Font=Enum.Font.Code, TS=17, Col=T.TextHi, Z=4, Par=sCard})
         end
         task.spawn(function()
             while task.wait(1) do
@@ -980,6 +1018,11 @@ function Sentence:CreateWindow(cfg)
             end
         end)
 
+        -- ── Section API — reuses shared BuildSectionAPI ───────────────────────
+        local HomeObj = BuildSectionAPI(hPage, T.Accent)
+        HomeObj.Activate = function() SwitchTab(id) end
+
+        -- Wire up tab button
         table.insert(W._tabs,{id=id,box=hBox,page=hPage,bar=hBar,ico=hIco})
         hCL.MouseButton1Click:Connect(function() SwitchTab(id) end)
         hBox.MouseEnter:Connect(function()
@@ -992,20 +1035,20 @@ function Sentence:CreateWindow(cfg)
             tooltip.Visible=false
         end)
         SwitchTab(id)
-        return {Activate=function() SwitchTab(id) end}
+        return HomeObj
     end
 
     -- ══════════════════════════════════════════════════════════════════════════
-    -- CREATE TAB
+    -- CREATE TAB  —  uses shared BuildSectionAPI
     -- ══════════════════════════════════════════════════════════════════════════
     function W:CreateTab(tCfg)
-        tCfg=merge({Name="Tab",Icon="unk",ShowTitle=true},tCfg or {})
-        local Tab={}; local id=tCfg.Name
+        tCfg = merge({Name="Tab",Icon="unk",ShowTitle=true},tCfg or {})
+        local Tab = {}; local id = tCfg.Name
 
-        local tBox=Box({Name=id.."TB",Sz=UDim2.new(0,40,0,40),Bg=T.BG3,BgA=1,R=6,Border=true,BorderCol=T.Border,BorderA=0.6,Z=5,Ord=#W._tabs+1,Par=tabList})
-        local tBar=Box({Sz=UDim2.new(0,3,0.55,0),Pos=UDim2.new(0,0,0.225,0),Bg=T.Accent,BgA=1,R=0,Z=6,Par=tBox})
-        local tIco=Img({Ico=tCfg.Icon,Sz=UDim2.new(0,18,0,18),Col=T.TextLo,Z=6,Par=tBox})
-        local tCL=Btn(tBox,7)
+        local tBox=Box({Name=id.."TB", Sz=UDim2.new(0,40,0,40), Bg=T.BG3, BgA=1, R=6, Border=true, BorderCol=T.Border, BorderA=0.6, Z=5, Ord=#W._tabs+1, Par=tabList})
+        local tBar=Box({Sz=UDim2.new(0,3,0.55,0), Pos=UDim2.new(0,0,0.225,0), Bg=T.Accent, BgA=1, R=0, Z=6, Par=tBox})
+        local tIco=Img({Ico=tCfg.Icon, Sz=UDim2.new(0,18,0,18), Col=T.TextLo, Z=6, Par=tBox})
+        local tCL =Btn(tBox,7)
 
         local tPage=Instance.new("ScrollingFrame"); tPage.Name=id
         tPage.Size=UDim2.new(1,0,1,0); tPage.BackgroundTransparency=1; tPage.BorderSizePixel=0
@@ -1015,13 +1058,17 @@ function Sentence:CreateWindow(cfg)
         List(tPage,8); Pad(tPage,16,16,18,18)
 
         if tCfg.ShowTitle then
-            local tRow=Box({Sz=UDim2.new(1,0,0,32),BgA=1,Z=3,Par=tPage})
-            Img({Ico=tCfg.Icon,Sz=UDim2.new(0,16,0,16),Pos=UDim2.new(0,0,0.5,0),AP=Vector2.new(0,0.5),Col=T.Accent,Z=4,Par=tRow})
-            Txt({T=tCfg.Name:upper(),Sz=UDim2.new(1,-24,0,18),Pos=UDim2.new(0,24,0.5,0),AP=Vector2.new(0,0.5),Font=Enum.Font.GothamBold,TS=18,Col=T.TextHi,Z=4,Par=tRow})
+            local tRow=Box({Sz=UDim2.new(1,0,0,32), BgA=1, Z=3, Par=tPage})
+            Img({Ico=tCfg.Icon, Sz=UDim2.new(0,16,0,16), Pos=UDim2.new(0,0,0.5,0), AP=Vector2.new(0,0.5), Col=T.Accent, Z=4, Par=tRow})
+            Txt({T=tCfg.Name:upper(), Sz=UDim2.new(1,-24,0,18), Pos=UDim2.new(0,24,0.5,0), AP=Vector2.new(0,0.5), Font=Enum.Font.GothamBold, TS=18, Col=T.TextHi, Z=4, Par=tRow})
         end
 
-        table.insert(W._tabs,{id=id,box=tBox,page=tPage,bar=tBar,ico=tIco})
+        -- Merge section API into Tab
+        local secAPI = BuildSectionAPI(tPage, T.Accent)
+        for k,v in pairs(secAPI) do Tab[k]=v end
         function Tab:Activate() SwitchTab(id) end
+
+        table.insert(W._tabs,{id=id,box=tBox,page=tPage,bar=tBar,ico=tIco})
         tCL.MouseButton1Click:Connect(function() Tab:Activate() end)
         tBox.MouseEnter:Connect(function()
             if W._activeTab~=id then tw(tBox,{BackgroundTransparency=0.88},TI_FAST) end
@@ -1032,228 +1079,6 @@ function Sentence:CreateWindow(cfg)
             if W._activeTab~=id then tw(tBox,{BackgroundTransparency=1},TI_FAST) end
             tooltip.Visible=false
         end)
-
-        -- ── CreateSection ─────────────────────────────────────────────────────
-        local _sN=0
-        function Tab:CreateSection(sName)
-            sName=sName or ""; _sN=_sN+1; local Sec={}
-            local shRow=Box({Name="SH",Sz=UDim2.new(1,0,0,sName~="" and 22 or 6),BgA=1,Z=3,Par=tPage,Ord=#tPage:GetChildren()})
-
-            if sName~="" then
-                local line=Instance.new("Frame"); line.Size=UDim2.new(1,0,0,1)
-                line.Position=UDim2.new(0,0,1,-1); line.BorderSizePixel=0; line.ZIndex=3; line.Parent=shRow
-                local lineG=Instance.new("UIGradient")
-                lineG.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,T.Accent),ColorSequenceKeypoint.new(0.4,T.Border),ColorSequenceKeypoint.new(1,T.Border)}
-                lineG.Parent=line
-
-                local badge=Box({Sz=UDim2.new(0,0,0,18),Pos=UDim2.new(0,0,0.5,0),AP=Vector2.new(0,0.5),Bg=T.BG1,R=0,Z=4,Par=shRow})
-                badge.AutomaticSize=Enum.AutomaticSize.X; Pad(badge,0,0,0,8)
-                local bRow=Instance.new("Frame"); bRow.Size=UDim2.new(0,0,1,0)
-                bRow.AutomaticSize=Enum.AutomaticSize.X; bRow.BackgroundTransparency=1; bRow.ZIndex=5; bRow.Parent=badge
-                List(bRow,0,Enum.FillDirection.Horizontal,nil,Enum.VerticalAlignment.Center)
-                local nL=Instance.new("TextLabel"); nL.Text="#"..string.format("%02d",_sN).." "
-                nL.Size=UDim2.new(0,0,1,0); nL.AutomaticSize=Enum.AutomaticSize.X
-                nL.Font=Enum.Font.GothamBold; nL.TextSize=12; nL.TextColor3=T.Accent
-                nL.BackgroundTransparency=1; nL.BorderSizePixel=0; nL.ZIndex=5; nL.RichText=false; nL.Parent=bRow
-                local nmL=Instance.new("TextLabel"); nmL.Text=sName:upper()
-                nmL.Size=UDim2.new(0,0,1,0); nmL.AutomaticSize=Enum.AutomaticSize.X
-                nmL.Font=Enum.Font.GothamBold; nmL.TextSize=12; nmL.TextColor3=T.TextLo
-                nmL.BackgroundTransparency=1; nmL.BorderSizePixel=0; nmL.ZIndex=5; nmL.RichText=false; nmL.Parent=bRow
-            end
-
-            local secCon=Box({Name="SC",Sz=UDim2.new(1,0,0,0),BgA=1,Z=3,AutoY=true,Ord=shRow.LayoutOrder+1,Par=tPage})
-            List(secCon,5)
-
-            -- ── Elem: tło nieco jaśniejsze niż BG1, tylko niebieski border ──────
-            local function Elem(h,autoY)
-                local f=Box({
-                    Sz=UDim2.new(1,0,0,h or 40),
-                    Bg=T.BG2,   -- #161616 — ciut jaśniejszy niż BG1 (#121212)
-                    BgA=0,
-                    R=6,
-                    Z=3,
-                    Par=secCon,
-                })
-                if autoY then f.AutomaticSize=Enum.AutomaticSize.Y end
-                -- Tylko niebieski border (accent)
-                local es=Instance.new("UIStroke")
-                es.Color=T.Accent; es.Thickness=1; es.Transparency=0.72
-                es.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; es.Parent=f
-                return f
-            end
-
-            local function HoverEff(f)
-                f.MouseEnter:Connect(function()
-                    tw(f,{BackgroundColor3=T.BG3},TI_FAST)
-                    if f.UIStroke then tw(f.UIStroke,{Transparency=0.45},TI_FAST) end
-                end)
-                f.MouseLeave:Connect(function()
-                    tw(f,{BackgroundColor3=T.BG2},TI_FAST)
-                    if f.UIStroke then tw(f.UIStroke,{Transparency=0.72},TI_FAST) end
-                end)
-            end
-
-            function Sec:CreateDivider()
-                local d=Instance.new("Frame"); d.Size=UDim2.new(1,0,0,1)
-                local dG=Instance.new("UIGradient")
-                dG.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,T.Border),ColorSequenceKeypoint.new(1,T.BG1)}
-                dG.Parent=d; d.BackgroundColor3=T.Border; d.BackgroundTransparency=0
-                d.BorderSizePixel=0; d.ZIndex=3; d.Parent=secCon
-                return {Destroy=function() d:Destroy() end}
-            end
-
-            function Sec:CreateLabel(lc)
-                lc=merge({Text="Label",Style=1},lc or {})
-                local cMap={[1]=T.TextMid,[2]=T.Accent,[3]=T.Warning}
-                local f=Elem(32); local xo=lc.Style>1 and 14 or 10
-                if lc.Style>1 then Box({Sz=UDim2.new(0,3,0.7,0),Pos=UDim2.new(0,0,0.15,0),Bg=cMap[lc.Style],R=0,Z=5,Par=f}) end
-                local lb=Txt({T=lc.Text,Sz=UDim2.new(1,-xo-6,0,15),Pos=UDim2.new(0,xo,0.5,0),AP=Vector2.new(0,0.5),Font=Enum.Font.GothamSemibold,TS=15,Col=cMap[lc.Style],Z=4,Par=f})
-                return {Set=function(self,t) lb.Text=t end, Destroy=function() f:Destroy() end}
-            end
-
-            function Sec:CreateParagraph(pc)
-                pc=merge({Title="Title",Content=""},pc or {})
-                local f=Elem(0,true); Pad(f,12,12,14,14); List(f,4)
-                local pt=Txt({T=pc.Title,  Sz=UDim2.new(1,0,0,18),Font=Enum.Font.GothamBold,TS=16,Col=T.TextHi,Z=4,Par=f})
-                local pc2=Txt({T=pc.Content,Sz=UDim2.new(1,0,0,0),Font=Enum.Font.Gotham,TS=15,Col=T.TextMid,Z=4,Wrap=true,AutoY=true,Par=f})
-                return {
-                    Set=function(self,s) if s.Title then pt.Text=s.Title end; if s.Content then pc2.Text=s.Content end end,
-                    Destroy=function() f:Destroy() end,
-                }
-            end
-
-            function Sec:CreateButton(bc)
-                bc=merge({Name="Button",Description=nil,Callback=function()end},bc or {})
-                local f=Elem(bc.Description and 58 or 40); f.ClipsDescendants=true
-
-                local rFill=Box({Sz=UDim2.new(0,0,1,0),Bg=T.Accent,BgA=1,R=0,Z=3,Par=f})
-                local rGrad=Instance.new("UIGradient"); rGrad.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.88),NumberSequenceKeypoint.new(1,1)}; rGrad.Parent=rFill
-
-                local pip=Box({Sz=UDim2.new(0,3,1,0),Pos=UDim2.new(0,0,0,0),Bg=T.Accent,BgA=1,R=0,Z=5,Par=f})
-
-                Txt({T=bc.Name,Sz=UDim2.new(1,-50,0,17),Pos=UDim2.new(0,16,0,bc.Description and 10 or 12),Font=Enum.Font.GothamSemibold,TS=16,Col=T.TextHi,Z=5,Par=f})
-                if bc.Description then
-                    Txt({T=bc.Description,Sz=UDim2.new(1,-50,0,15),Pos=UDim2.new(0,16,0,30),Font=Enum.Font.Gotham,TS=14,Col=T.TextMid,Z=5,Par=f})
-                end
-                local arr=Img({Ico="arr",Sz=UDim2.new(0,13,0,13),Pos=UDim2.new(1,-20,0.5,0),AP=Vector2.new(0,0.5),Col=T.Accent,IA=0.5,Z=6,Par=f})
-
-                local cl=Btn(f,7)
-                f.MouseEnter:Connect(function()
-                    tw(rFill,{Size=UDim2.new(1,0,1,0),BackgroundTransparency=0},TI(.28,Enum.EasingStyle.Quad))
-                    tw(pip,{BackgroundTransparency=0},TI_FAST)
-                    tw(arr,{ImageTransparency=0,ImageColor3=T.TextHi},TI_FAST)
-                    if f.UIStroke then tw(f.UIStroke,{Transparency=0.3},TI_FAST) end
-                end)
-                f.MouseLeave:Connect(function()
-                    tw(rFill,{Size=UDim2.new(0,0,1,0),BackgroundTransparency=1},TI_MED)
-                    tw(pip,{BackgroundTransparency=1},TI_FAST)
-                    tw(arr,{ImageTransparency=0.5,ImageColor3=T.Accent},TI_FAST)
-                    if f.UIStroke then tw(f.UIStroke,{Transparency=0.72},TI_FAST) end
-                end)
-                cl.MouseButton1Click:Connect(function()
-                    tw(rFill,{BackgroundColor3=T.TextHi},TI(.08,Enum.EasingStyle.Quad))
-                    task.wait(0.10)
-                    tw(rFill,{BackgroundColor3=T.Accent,Size=UDim2.new(0,0,1,0),BackgroundTransparency=1},TI_MED)
-                    safe(bc.Callback)
-                end)
-                return {Destroy=function() f:Destroy() end}
-            end
-
-            function Sec:CreateToggle(tc)
-                tc=merge({Name="Toggle",Description=nil,CurrentValue=false,Flag=nil,Callback=function()end},tc or {})
-                local f=Elem(tc.Description and 58 or 40)
-                Txt({T=tc.Name,Sz=UDim2.new(1,-72,0,17),Pos=UDim2.new(0,14,0,tc.Description and 10 or 12),Font=Enum.Font.GothamSemibold,TS=16,Col=T.TextHi,Z=5,Par=f})
-                if tc.Description then
-                    Txt({T=tc.Description,Sz=UDim2.new(1,-72,0,15),Pos=UDim2.new(0,14,0,30),Font=Enum.Font.Gotham,TS=14,Col=T.TextMid,Z=5,Par=f})
-                end
-                local trk=Box({Sz=UDim2.new(0,46,0,24),Pos=UDim2.new(1,-58,0.5,0),AP=Vector2.new(0,0.5),Bg=T.BG3,R=12,Border=true,BorderCol=T.Border,Z=5,Par=f})
-                local knob=Box({Sz=UDim2.new(0,18,0,18),Pos=UDim2.new(0,3,0.5,0),AP=Vector2.new(0,0.5),Bg=T.TextLo,R=9,Z=6,Par=trk})
-                local kDot=Box({Sz=UDim2.new(0,6,0,6),Pos=UDim2.new(0.5,0,0.5,0),AP=Vector2.new(0.5,0.5),Bg=T.TextHi,BgA=0.6,R=3,Z=7,Par=knob})
-
-                local TV={CurrentValue=tc.CurrentValue,Type="Toggle",Settings=tc}
-                local function upd()
-                    if TV.CurrentValue then
-                        tw(trk,{BackgroundColor3=T.AccentLo},TI_MED)
-                        if trk.UIStroke then tw(trk.UIStroke,{Color=T.Accent,Transparency=0.3},TI_MED) end
-                        tw(knob,{Position=UDim2.new(1,-21,0.5,0),BackgroundColor3=T.Accent},TI_SPRING)
-                        tw(kDot,{BackgroundTransparency=0},TI_FAST)
-                    else
-                        tw(trk,{BackgroundColor3=T.BG3},TI_MED)
-                        if trk.UIStroke then tw(trk.UIStroke,{Color=T.Border,Transparency=0},TI_MED) end
-                        tw(knob,{Position=UDim2.new(0,3,0.5,0),BackgroundColor3=T.TextLo},TI_SPRING)
-                        tw(kDot,{BackgroundTransparency=1},TI_FAST)
-                    end
-                end
-                upd(); HoverEff(f)
-                Btn(f,6).MouseButton1Click:Connect(function()
-                    TV.CurrentValue=not TV.CurrentValue; upd(); safe(tc.Callback,TV.CurrentValue)
-                end)
-                function TV:Set(v) TV.CurrentValue=v; upd(); safe(tc.Callback,v) end
-                if tc.Flag then Sentence.Flags[tc.Flag]=TV; Sentence.Options[tc.Flag]=TV end
-                return TV
-            end
-
-            function Sec:CreateSlider(sc)
-                sc=merge({Name="Slider",Range={0,100},Increment=1,CurrentValue=50,Suffix="",Flag=nil,Callback=function()end},sc or {})
-                local f=Elem(58)
-                Txt({T=sc.Name,Sz=UDim2.new(1,-120,0,17),Pos=UDim2.new(0,14,0,9),Font=Enum.Font.GothamSemibold,TS=16,Col=T.TextHi,Z=5,Par=f})
-
-                local vc=Box({Sz=UDim2.new(0,0,0,22),Pos=UDim2.new(1,-13,0,7),AP=Vector2.new(1,0),Bg=T.AccentLo,R=5,Border=true,BorderCol=T.AccentDim,BorderA=0.4,Z=5,Par=f})
-                vc.AutomaticSize=Enum.AutomaticSize.X; Pad(vc,0,0,8,8)
-                local vL=Txt({T=tostring(sc.CurrentValue)..sc.Suffix,Sz=UDim2.new(0,0,1,0),Font=Enum.Font.Code,TS=14,Col=T.Accent,AX=Enum.TextXAlignment.Center,Z=6,Par=vc})
-                vL.AutomaticSize=Enum.AutomaticSize.X
-
-                local bg=Box({Sz=UDim2.new(1,-28,0,5),Pos=UDim2.new(0,14,0,38),Bg=T.BG3,R=3,Z=5,Par=f})
-                local fill=Box({Sz=UDim2.new(0,0,1,0),Bg=T.Accent,R=3,Z=6,Par=bg})
-                local fillG=Instance.new("UIGradient"); fillG.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,H("#4580C9")),ColorSequenceKeypoint.new(1,H("#8BC4FF"))}; fillG.Parent=fill
-                local thumb=Box({Sz=UDim2.new(0,12,0,12),Pos=UDim2.new(0,0,0.5,0),AP=Vector2.new(0.5,0.5),Bg=T.TextHi,R=6,Z=7,Par=bg})
-                local thG=Instance.new("UIStroke"); thG.Color=T.Accent; thG.Thickness=2; thG.Transparency=0.5; thG.Parent=thumb
-
-                local SV={CurrentValue=sc.CurrentValue,Type="Slider",Settings=sc}
-                local mn,mx,inc=sc.Range[1],sc.Range[2],sc.Increment
-                local function setV(v)
-                    v=math.clamp(v,mn,mx); v=math.floor(v/inc+0.5)*inc
-                    v=tonumber(string.format("%.10g",v)); SV.CurrentValue=v
-                    vL.Text=tostring(v)..sc.Suffix
-                    local pct=(v-mn)/(mx-mn)
-                    tw(fill,{Size=UDim2.new(pct,0,1,0)},TI_FAST)
-                    tw(thumb,{Position=UDim2.new(pct,0,0.5,0)},TI_FAST)
-                end
-                setV(sc.CurrentValue)
-                local drag=false; local bCL=Btn(bg,9)
-                local function fromInp(i)
-                    local rel=math.clamp((i.Position.X-bg.AbsolutePosition.X)/bg.AbsoluteSize.X,0,1)
-                    setV(mn+(mx-mn)*rel); safe(sc.Callback,SV.CurrentValue)
-                end
-                bCL.InputBegan:Connect(function(i)
-                    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-                        drag=true; fromInp(i)
-                        tw(thumb,{Size=UDim2.new(0,14,0,14)},TI_FAST); tw(thG,{Transparency=0.2},TI_FAST)
-                    end
-                end)
-                UIS.InputEnded:Connect(function(i)
-                    if i.UserInputType==Enum.UserInputType.MouseButton1 or i.UserInputType==Enum.UserInputType.Touch then
-                        drag=false
-                        tw(thumb,{Size=UDim2.new(0,12,0,12)},TI_FAST); tw(thG,{Transparency=0.5},TI_FAST)
-                    end
-                end)
-                track(UIS.InputChanged:Connect(function(i)
-                    if drag and (i.UserInputType==Enum.UserInputType.MouseMovement or i.UserInputType==Enum.UserInputType.Touch) then fromInp(i) end
-                end))
-                HoverEff(f)
-                function SV:Set(v) setV(v); safe(sc.Callback,SV.CurrentValue) end
-                if sc.Flag then Sentence.Flags[sc.Flag]=SV; Sentence.Options[sc.Flag]=SV end
-                return SV
-            end
-
-            return Sec
-        end
-
-        local _ds
-        local function gds() if not _ds then _ds=Tab:CreateSection("") end; return _ds end
-        for _,m in ipairs({"CreateButton","CreateLabel","CreateParagraph","CreateToggle","CreateSlider","CreateDivider"}) do
-            Tab[m]=function(self,...) return gds()[m](gds(),...) end
-        end
         return Tab
     end
 
@@ -1268,9 +1093,7 @@ end
 function Sentence:Destroy()
     for _,c in ipairs(self._conns) do pcall(function() c:Disconnect() end) end
     self._conns={}
-    if self._notifHolder and self._notifHolder.Parent then
-        self._notifHolder.Parent:Destroy()
-    end
+    if self._notifHolder and self._notifHolder.Parent then self._notifHolder.Parent:Destroy() end
     self.Flags={}; self.Options={}
 end
 
