@@ -1,11 +1,11 @@
 --[[
 ╔═══════════════════════════════════════════════════════════╗
-║  SENTENCE GUI · OG Sentence Edition  v2.4                 ║
+║  SENTENCE GUI · OG Sentence Edition  v2.5                 ║
 ╚═══════════════════════════════════════════════════════════╝
 --]]
 
 local Sentence = {
-    Version = "2.4",
+    Version = "2.5",
     Flags   = {},
     Options = {},
     _conns  = {},
@@ -51,10 +51,11 @@ local T = {
 }
 
 local NotifPalette = {
-    Info    = { fg=T.Accent,   bg=H("#0d1e30"), bar=T.Accent,   glow=H("#1a3a5c") },
-    Success = { fg=T.Success,  bg=H("#0d2218"), bar=T.Success,  glow=H("#0a2e1a") },
-    Warning = { fg=T.Warning,  bg=H("#261c08"), bar=T.Warning,  glow=H("#2e1f05") },
-    Error   = { fg=T.Error,    bg=H("#280a0a"), bar=T.Error,    glow=H("#320808") },
+    -- Wszystkie kolory dopasowane do palety Sentence (ciemne BG, akcent niebieski)
+    Info    = { fg=T.Accent,   bg=T.BG2,  stroke=T.Accent,   iconBg=T.BG3 },
+    Success = { fg=T.Success,  bg=T.BG2,  stroke=T.Success,  iconBg=T.BG3 },
+    Warning = { fg=T.Warning,  bg=T.BG2,  stroke=T.Warning,  iconBg=T.BG3 },
+    Error   = { fg=T.Error,    bg=T.BG2,  stroke=T.Error,    iconBg=T.BG3 },
 }
 
 -- ── Tween helpers ─────────────────────────────────────────────────────────────
@@ -212,110 +213,85 @@ local function Draggable(handle,win)
 end
 
 -- ══════════════════════════════════════════════════════════════════════════════
--- NOTYFIKACJE — przeprojektowane v2.3 (oryginalne, eleganckie)
+-- NOTYFIKACJE v2.4 — kolorystyka Sentence, synchroniczne zanikanie
 -- ══════════════════════════════════════════════════════════════════════════════
 function Sentence:Notify(data)
     task.spawn(function()
         data = merge({Title="Notice",Content="",Icon="info",Type="Info",Duration=5},data)
         local pal = NotifPalette[data.Type] or NotifPalette.Info
 
-        -- Karta główna — wąska, elegancka
+        -- ── Karta ──────────────────────────────────────────────────────────────
         local card = Box({
             Name="NCard",
             Sz=UDim2.new(0,300,0,0),
             Pos=UDim2.new(-1.1,0,1,0),
             AP=Vector2.new(0,1),
             Bg=T.BG1,
-            BgA=0,
+            BgA=1,
             Clip=true,
-            R=8,
+            R=7,
             Par=self._notifHolder,
         })
 
-        -- Ciemna obwódka z niebieskim akcentem (UIStroke przez kod)
+        -- Border — kolor akcentu dla danego typu
         local cardStroke = Instance.new("UIStroke")
-        cardStroke.Color = pal.fg
+        cardStroke.Color = pal.stroke
         cardStroke.Thickness = 1
-        cardStroke.Transparency = 0.72
+        cardStroke.Transparency = 1
         cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         cardStroke.Parent = card
 
-        -- Subtelne tło z kolorem typu
-        local bgFill = Box({Sz=UDim2.new(1,0,1,0),Bg=pal.bg,BgA=0,R=8,Z=1,Par=card})
+        -- Tło karty (BG2 = ciemne, pasuje do GUI)
+        local bgFill = Box({Sz=UDim2.new(1,0,1,0),Bg=pal.bg,BgA=1,R=7,Z=1,Par=card})
 
-        -- Lewa pionowa linia koloru (cienka, elegancka)
+        -- Lewy pionowy pasek akcentu
         local accentBar = Box({
-            Sz=UDim2.new(0,2,1,0),
-            Pos=UDim2.new(0,0,0,0),
-            Bg=pal.fg,
-            BgA=0,
-            R=0,
-            Z=8,
-            Par=card,
+            Sz=UDim2.new(0,2,1,0), Pos=UDim2.new(0,0,0,0),
+            Bg=pal.fg, BgA=1, R=0, Z=8, Par=card,
         })
 
-        -- Delikatny poziomy gradient od lewej (glow od paska)
-        local sideGlow = Box({Sz=UDim2.new(0,90,1,0),Pos=UDim2.new(0,0,0,0),Bg=pal.fg,BgA=1,R=0,Z=2,Par=card})
-        local sg1=Instance.new("UIGradient")
-        sg1.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,pal.fg),ColorSequenceKeypoint.new(1,T.BG1)}
-        sg1.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.82),NumberSequenceKeypoint.new(1,1)}
-        sg1.Parent=sideGlow
+        -- Subtelny poziomy gradient od paska
+        local sideGlow = Box({Sz=UDim2.new(0,80,1,0),Pos=UDim2.new(0,2,0,0),Bg=pal.fg,BgA=1,R=0,Z=2,Par=card})
+        local sg=Instance.new("UIGradient")
+        sg.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,pal.fg),ColorSequenceKeypoint.new(1,T.BG1)}
+        sg.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.90),NumberSequenceKeypoint.new(1,1)}
+        sg.Parent=sideGlow
 
-        -- Mała ikonka w kółku
+        -- Ikonka w kwadracie
         local iconRing = Box({
-            Sz=UDim2.new(0,30,0,30),
-            Pos=UDim2.new(0,14,0,0),
-            AP=Vector2.new(0,0.5),
-            Bg=pal.bg,
-            BgA=0,
-            R=6,
-            Z=6,
-            Par=card,
+            Sz=UDim2.new(0,28,0,28), Pos=UDim2.new(0,12,0,0),
+            AP=Vector2.new(0,0.5), Bg=pal.iconBg, BgA=1, R=5, Z=6, Par=card,
         })
         local iconRingStroke = Instance.new("UIStroke")
         iconRingStroke.Color = pal.fg
         iconRingStroke.Thickness = 1
-        iconRingStroke.Transparency = 0.5
+        iconRingStroke.Transparency = 1
         iconRingStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         iconRingStroke.Parent = iconRing
 
-        local iconImg = Img({Ico=data.Icon,Sz=UDim2.new(0,14,0,14),Col=pal.fg,IA=1,Z=7,Par=iconRing})
+        local iconImg = Img({Ico=data.Icon,Sz=UDim2.new(0,13,0,13),Col=pal.fg,IA=1,Z=7,Par=iconRing})
 
-        -- Kontener treści
+        -- Treść
         local cc = Box({Name="CC",Sz=UDim2.new(1,0,0,0),Pos=UDim2.new(0,0,0,0),BgA=1,AutoY=true,Z=5,Par=card})
-        Pad(cc,10,12,56,36)
+        Pad(cc,9,11,52,32)
         List(cc,2)
 
-        -- Typ w postaci badge
-        local typeBadge = Box({
-            Sz=UDim2.new(0,0,0,15),
-            Bg=pal.fg,
-            BgA=0,
-            R=3,
-            Z=6,
-            AutoX=true,
-            Par=cc,
-        })
+        -- Badge z typem
+        local typeBadge = Box({Sz=UDim2.new(0,0,0,14),Bg=pal.fg,BgA=1,R=3,Z=6,AutoX=true,Par=cc})
         Pad(typeBadge,0,0,5,5)
-        local typeL = Txt({T=data.Type:upper(),Sz=UDim2.new(0,0,1,0),Font=Enum.Font.GothamBold,TS=10,Col=pal.fg,AX=Enum.TextXAlignment.Center,Alpha=1,AutoX=true,Z=7,Par=typeBadge})
+        local typeL = Txt({T=data.Type:upper(),Sz=UDim2.new(0,0,1,0),Font=Enum.Font.GothamBold,TS=10,Col=T.BG1,AX=Enum.TextXAlignment.Center,Alpha=1,AutoX=true,Z=7,Par=typeBadge})
 
-        local ttl = Txt({T=data.Title,Sz=UDim2.new(1,0,0,18),Font=Enum.Font.GothamBold,TS=15,Col=T.TextHi,Alpha=1,Z=6,Par=cc})
+        local ttl = Txt({T=data.Title,Sz=UDim2.new(1,0,0,17),Font=Enum.Font.GothamBold,TS=14,Col=T.TextHi,Alpha=1,Z=6,Par=cc})
         local msg = Txt({T=data.Content,Sz=UDim2.new(1,0,0,0),Font=Enum.Font.Gotham,TS=13,Col=T.TextMid,Alpha=1,Wrap=true,AutoY=true,Z=6,Par=cc})
 
-        -- Dolna linia odliczania (subtelna)
-        local pTrack = Box({Sz=UDim2.new(1,-4,0,1),Pos=UDim2.new(0,2,1,-1),Bg=T.BG3,BgA=0,R=0,Z=6,Par=card})
-        local pFill  = Box({Sz=UDim2.new(1,0,1,0),Bg=pal.fg,BgA=0,R=0,Z=7,Par=pTrack})
+        -- Pasek progresu (dolna krawędź)
+        local pTrack = Box({Sz=UDim2.new(1,0,0,2),Pos=UDim2.new(0,0,1,-2),Bg=T.BG3,BgA=1,R=0,Z=6,Par=card})
+        local pFill  = Box({Sz=UDim2.new(1,0,1,0),Bg=pal.fg,BgA=1,R=0,Z=7,Par=pTrack})
 
-        -- Przycisk X (bardzo mały, prawy górny)
+        -- Przycisk zamknięcia
         local xBtn = Box({
-            Sz=UDim2.new(0,16,0,16),
-            Pos=UDim2.new(1,-8,0,8),
-            AP=Vector2.new(1,0),
-            Bg=T.BG3,
-            BgA=1,
-            R=4,
-            Z=9,
-            Par=card,
+            Sz=UDim2.new(0,16,0,16), Pos=UDim2.new(1,-8,0,8), AP=Vector2.new(1,0),
+            Bg=T.BG3, BgA=1, R=4, Z=9, Par=card,
         })
         local xIco = Img({Ico="close",Sz=UDim2.new(0,7,0,7),Col=T.TextLo,Z=10,Par=xBtn})
         local xCL  = Btn(xBtn,11)
@@ -325,46 +301,81 @@ function Sentence:Notify(data)
         -- ── Animacja wejścia ──────────────────────────────────────────────────
         task.wait()
         local cardH = cc.AbsoluteSize.Y + 4
-        iconRing.Position = UDim2.new(0,14,0, cardH/2 - 15)
+        iconRing.Position = UDim2.new(0,12,0, cardH/2 - 14)
 
-        card.Size = UDim2.new(0,300,0,cardH)
+        card.Size     = UDim2.new(0,300,0,cardH)
         card.Position = UDim2.new(-1.1,0,1,0)
 
-        -- Wjazd z lewej
-        tw(card,{BackgroundTransparency=0,Position=UDim2.new(0,0,1,0)},TI_CIRC)
-        tw(bgFill,{BackgroundTransparency=0},TI_FAST)
-        tw(cardStroke,{Transparency=0.55},TI_MED)
-        task.wait(0.06)
-        tw(accentBar,{BackgroundTransparency=0},TI_FAST)
-        tw(iconRingStroke,{Transparency=0.2},TI_FAST)
-        tw(iconImg,{ImageTransparency=0},TI_MED)
-        tw(typeBadge,{BackgroundTransparency=0.88},TI_FAST)
-        tw(typeL,{TextTransparency=0},TI_MED)
-        tw(ttl,{TextTransparency=0},TI_MED)
-        tw(msg,{TextTransparency=0},TI_MED)
-        task.wait(0.1)
-        tw(pTrack,{BackgroundTransparency=0.6},TI_FAST)
-        tw(pFill,{BackgroundTransparency=0},TI_FAST)
+        -- Wszystkie elementy startują niewidoczne
+        bgFill.BackgroundTransparency    = 1
+        accentBar.BackgroundTransparency = 1
+        sideGlow.BackgroundTransparency  = 1
+        iconRing.BackgroundTransparency  = 1
+        iconImg.ImageTransparency        = 1
+        typeBadge.BackgroundTransparency = 1
+        typeL.TextTransparency           = 1
+        ttl.TextTransparency             = 1
+        msg.TextTransparency             = 1
+        pTrack.BackgroundTransparency    = 1
+        pFill.BackgroundTransparency     = 1
+        xBtn.BackgroundTransparency      = 1
+        xIco.ImageTransparency           = 1
+
+        -- Wjazd karty z lewej
+        tw(card,{Position=UDim2.new(0,0,1,0)},TI_CIRC)
+        task.wait(0.08)
+
+        -- Pojawienie się elementów — razem
+        local TI_IN = TI(.22, Enum.EasingStyle.Exponential)
+        tw(bgFill,    {BackgroundTransparency=0},       TI_IN)
+        tw(accentBar, {BackgroundTransparency=0},       TI_IN)
+        tw(sideGlow,  {BackgroundTransparency=0},       TI_IN)
+        tw(iconRing,  {BackgroundTransparency=0},       TI_IN)
+        tw(iconRingStroke, {Transparency=0.35},         TI_IN)
+        tw(iconImg,   {ImageTransparency=0},            TI_IN)
+        tw(typeBadge, {BackgroundTransparency=0},       TI_IN)
+        tw(typeL,     {TextTransparency=0},             TI_IN)
+        tw(ttl,       {TextTransparency=0},             TI_IN)
+        tw(msg,       {TextTransparency=0},             TI_IN)
+        tw(pTrack,    {BackgroundTransparency=0.55},    TI_IN)
+        tw(pFill,     {BackgroundTransparency=0},       TI_IN)
+        tw(cardStroke,{Transparency=0.55},              TI_IN)
+        tw(xBtn,      {BackgroundTransparency=0},       TI_IN)
+        tw(xIco,      {ImageTransparency=0},            TI_IN)
+
+        -- Timer progresu
         tw(pFill,{Size=UDim2.new(0,0,1,0)},TI(data.Duration,Enum.EasingStyle.Linear))
 
-        local paused = false
-        card.MouseEnter:Connect(function() paused=true; tw(card,{BackgroundColor3=T.BG3},TI_FAST) end)
+        local paused=false
+        card.MouseEnter:Connect(function() paused=true;  tw(card,{BackgroundColor3=T.BG2},TI_FAST) end)
         card.MouseLeave:Connect(function() paused=false; tw(card,{BackgroundColor3=T.BG1},TI_FAST) end)
 
-        local dismissed = false
+        local dismissed=false
         xCL.MouseButton1Click:Connect(function() dismissed=true end)
         local elapsed=0
         repeat task.wait(0.05); if not paused then elapsed=elapsed+0.05 end
         until dismissed or elapsed >= data.Duration
 
-        -- ── Animacja wyjścia ──────────────────────────────────────────────────
-        tw(ttl,{TextTransparency=1},TI_FAST); tw(msg,{TextTransparency=1},TI_FAST)
-        tw(typeL,{TextTransparency=1},TI_FAST); tw(iconImg,{ImageTransparency=1},TI_FAST)
-        tw(pFill,{BackgroundTransparency=1},TI_FAST); tw(pTrack,{BackgroundTransparency=1},TI_FAST)
-        tw(accentBar,{BackgroundTransparency=1},TI_FAST); tw(bgFill,{BackgroundTransparency=1},TI_FAST)
-        tw(cardStroke,{Transparency=1},TI_FAST)
-        tw(card,{BackgroundTransparency=1,Position=UDim2.new(-1.1,0,1,0)},TI_CIRC)
-        task.wait(0.28)
+        -- ── Animacja wyjścia — WSZYSTKO równocześnie, każdy swój tween ───────
+        local TI_OUT = TI(.18, Enum.EasingStyle.Quad)
+        tw(bgFill,    {BackgroundTransparency=1},    TI_OUT)
+        tw(accentBar, {BackgroundTransparency=1},    TI_OUT)
+        tw(sideGlow,  {BackgroundTransparency=1},    TI_OUT)
+        tw(iconRing,  {BackgroundTransparency=1},    TI_OUT)
+        tw(iconRingStroke, {Transparency=1},         TI_OUT)
+        tw(iconImg,   {ImageTransparency=1},         TI_OUT)
+        tw(typeBadge, {BackgroundTransparency=1},    TI_OUT)
+        tw(typeL,     {TextTransparency=1},          TI_OUT)
+        tw(ttl,       {TextTransparency=1},          TI_OUT)
+        tw(msg,       {TextTransparency=1},          TI_OUT)
+        tw(pTrack,    {BackgroundTransparency=1},    TI_OUT)
+        tw(pFill,     {BackgroundTransparency=1},    TI_OUT)
+        tw(cardStroke,{Transparency=1},              TI_OUT)
+        tw(xBtn,      {BackgroundTransparency=1},    TI_OUT)
+        tw(xIco,      {ImageTransparency=1},         TI_OUT)
+        -- Karta wyjeżdża w lewo równocześnie
+        tw(card,{BackgroundTransparency=1, Position=UDim2.new(-1.1,0,1,0)}, TI(.22,Enum.EasingStyle.Quad,Enum.EasingDirection.In))
+        task.wait(0.24)
         tw(card,{Size=UDim2.new(0,300,0,0)},TI_MED,function() card:Destroy() end)
     end)
 end
@@ -707,22 +718,23 @@ function Sentence:CreateWindow(cfg)
         ctrlBtns[cd.key]={frame=cb,click=cl,ico=cbIco}
     end
 
-    -- ── Logo — lewa strona 32x32, tytuł i subtitle obok ──────────────────────
-    local LOGO_MARGIN = 14   -- margines od lewej
+    -- ── Logo — wyśrodkowane na osi sidebara (SW=50 → środek=25px), tytuł obok ──
     local LOGO_SIZE   = 32
+    local LOGO_CENTER = 25   -- środek sidebara = SW/2
     local LOGO_GAP    = 10   -- odstęp między logo a tekstem
 
-    -- Logo jako ImageLabel z zaokrąglonymi rogami
+    -- Logo jako ImageLabel, wyśrodkowane poziomo na sidebarze
     local logoImg=Instance.new("ImageLabel")
     logoImg.Name="LogoImg"; logoImg.Size=UDim2.new(0,LOGO_SIZE,0,LOGO_SIZE)
-    logoImg.Position=UDim2.new(0,LOGO_MARGIN,0.5,0); logoImg.AnchorPoint=Vector2.new(0,0.5)
+    logoImg.Position=UDim2.new(0, LOGO_CENTER - LOGO_SIZE/2, 0.5, 0)
+    logoImg.AnchorPoint=Vector2.new(0,0.5)
     logoImg.BackgroundTransparency=1; logoImg.Image=cfg.Icon~="" and ico(cfg.Icon) or LOGO
     logoImg.ScaleType=Enum.ScaleType.Fit; logoImg.ImageTransparency=1
     logoImg.ZIndex=5; logoImg.Parent=titleBar
     Instance.new("UICorner",logoImg).CornerRadius=UDim.new(0,5)
     task.spawn(function() tw(logoImg,{ImageTransparency=0},TI_MED) end)
 
-    local txtX = LOGO_MARGIN + LOGO_SIZE + LOGO_GAP
+    local txtX = LOGO_CENTER + LOGO_SIZE/2 + LOGO_GAP
     local nameLabel=Txt({T=cfg.Name,Sz=UDim2.new(0,220,0,20),Pos=UDim2.new(0,txtX,0,5),Font=Enum.Font.GothamBold,TS=16,Col=T.TextHi,Alpha=1,Z=5,Par=titleBar})
     local subText = cfg.Subtitle~="" and cfg.Subtitle or "v"..Sentence.Version
     local subLabel=Txt({T=subText,Sz=UDim2.new(0,200,0,13),Pos=UDim2.new(0,txtX,0,26),Font=Enum.Font.Gotham,TS=12,Col=T.TextLo,Alpha=1,Z=5,Par=titleBar})
@@ -1052,11 +1064,11 @@ function Sentence:CreateWindow(cfg)
             local secCon=Box({Name="SC",Sz=UDim2.new(1,0,0,0),BgA=1,Z=3,AutoY=true,Ord=shRow.LayoutOrder+1,Par=tPage})
             List(secCon,5)
 
-            -- ── Elem: tło pasuje do BG1 (T.BG1), tylko niebieski border ──────
+            -- ── Elem: tło nieco jaśniejsze niż BG1, tylko niebieski border ──────
             local function Elem(h,autoY)
                 local f=Box({
                     Sz=UDim2.new(1,0,0,h or 40),
-                    Bg=T.BG1,
+                    Bg=T.BG2,   -- #161616 — ciut jaśniejszy niż BG1 (#121212)
                     BgA=0,
                     R=6,
                     Z=3,
@@ -1072,11 +1084,11 @@ function Sentence:CreateWindow(cfg)
 
             local function HoverEff(f)
                 f.MouseEnter:Connect(function()
-                    tw(f,{BackgroundColor3=T.BG2},TI_FAST)
+                    tw(f,{BackgroundColor3=T.BG3},TI_FAST)
                     if f.UIStroke then tw(f.UIStroke,{Transparency=0.45},TI_FAST) end
                 end)
                 f.MouseLeave:Connect(function()
-                    tw(f,{BackgroundColor3=T.BG1},TI_FAST)
+                    tw(f,{BackgroundColor3=T.BG2},TI_FAST)
                     if f.UIStroke then tw(f.UIStroke,{Transparency=0.72},TI_FAST) end
                 end)
             end
