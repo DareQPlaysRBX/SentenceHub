@@ -1,40 +1,37 @@
 -- ╔══════════════════════════════════════════════════════════════════╗
 -- ║        SENTENCE Hub  ·  Bubble Gum Simulator INFINITY            ║
--- ║                        Game Script v1.0                          ║
+-- ║                        Game Script v2.0                          ║
+-- ║        Requires SentenceLib v2.7 · Loaded via Loader             ║
 -- ╚══════════════════════════════════════════════════════════════════╝
--- This file is loaded automatically by the Loader when PlaceId matches.
--- Do NOT run this file standalone — use the Loader.
 
 -- ════════════════════════════════════════════════════════════
--- SERVICES & SHORTCUTS
+-- SERVICES & REMOTES
 -- ════════════════════════════════════════════════════════════
-local RS          = game:GetService("ReplicatedStorage")
-local Players     = game:GetService("Players")
-local RunService  = game:GetService("RunService")
-local LP          = Players.LocalPlayer
+local RS         = game:GetService("ReplicatedStorage")
+local Players    = game:GetService("Players")
+local HttpSvc    = game:GetService("HttpService")
+local LP         = Players.LocalPlayer
 
-local Shared      = RS.Shared.Framework.Network.Remote
-local RE          = Shared.RemoteEvent       -- FireServer
-local RF          = Shared.RemoteFunction    -- InvokeServer
-local PickupRE    = RS.Remotes.Pickups.CollectPickup
-local SpawnRE     = RS.Remotes.Pickups.SpawnPickups
+local Shared     = RS.Shared.Framework.Network.Remote
+local RE         = Shared.RemoteEvent       -- :FireServer(...)
+local RF         = Shared.RemoteFunction    -- :InvokeServer(...)
+local PickupRE   = RS.Remotes.Pickups.CollectPickup
+local SpawnRE    = RS.Remotes.Pickups.SpawnPickups
 
 -- ════════════════════════════════════════════════════════════
--- STATE
+-- STATE  (single source of truth for all feature config)
 -- ════════════════════════════════════════════════════════════
 local State = {
-    -- Toggles
-    AutoBlow         = false,
-    AutoSell         = false,
-    AutoHatch        = false,
-    AutoSpin         = false,
-    AutoPickup       = false,
-    AutoBlackMarket  = false,
-    AutoPlaytime     = false,
+    -- feature switches (driven by toggles)
+    AutoBlow        = false,
+    AutoSell        = false,
+    AutoHatch       = false,
+    AutoSpin        = false,
+    AutoPickup      = false,
+    AutoBlackMarket = false,
+    AutoPlaytime    = false,
 
-    -- Config
-    HatchEggName     = "Iceshard Egg",
-    HatchAmount      = 1,
+    -- delays (seconds)
     BlowDelay        = 0.1,
     SellDelay        = 0.5,
     HatchDelay       = 0.5,
@@ -42,15 +39,21 @@ local State = {
     PickupDelay      = 0.1,
     BlackMarketDelay = 1.0,
     PlaytimeDelay    = 2.0,
-    BlackMarketSlot  = 2,
 
-    -- Pickup zone path
-    PickupZonePath   = "The Overworld/Islands/The Void/Island/Pickups/Zone",
-    PickupVisual     = "Coin Box",
+    -- hatch config
+    HatchEggName  = "Iceshard Egg",
+    HatchAmount   = 1,
 
-    -- Internal
-    Threads          = {},
-    CollectedIds     = {},
+    -- black market config
+    BlackMarketSlot = 2,
+
+    -- pickup config
+    PickupZonePath = "The Overworld/Islands/The Void/Island/Pickups/Zone",
+    PickupVisual   = "Coin Box",
+
+    -- internals
+    Threads      = {},
+    CollectedIds = {},
 }
 
 -- ════════════════════════════════════════════════════════════
@@ -59,11 +62,11 @@ local State = {
 local function SafeCall(fn, label)
     local ok, err = pcall(fn)
     if not ok then
-        warn("[ BGS ] " .. label .. " error: " .. tostring(err))
+        warn("[ BGS ] " .. (label or "?") .. " error: " .. tostring(err))
     end
 end
 
-local function StartLoop(key, fn, delay)
+local function StartLoop(key, fn, delayKey)
     if State.Threads[key] then
         task.cancel(State.Threads[key])
         State.Threads[key] = nil
@@ -71,7 +74,7 @@ local function StartLoop(key, fn, delay)
     State.Threads[key] = task.spawn(function()
         while State[key] do
             SafeCall(fn, key)
-            task.wait(delay and State[delay] or 0.5)
+            task.wait(State[delayKey] or 0.5)
         end
     end)
 end
@@ -84,20 +87,16 @@ local function StopLoop(key)
 end
 
 -- ════════════════════════════════════════════════════════════
--- CORE FUNCTIONS
+-- CORE ACTION FUNCTIONS
 -- ════════════════════════════════════════════════════════════
-
--- Auto Blow Bubble
 local function DoBlow()
     RE:FireServer("BlowBubble")
 end
 
--- Auto Sell Bubble
 local function DoSell()
     RE:FireServer("SellBubble")
 end
 
--- Auto Hatch Egg
 local function DoHatch()
     RE:FireServer(table.unpack({
         [1] = "HatchEgg",
@@ -106,44 +105,35 @@ local function DoHatch()
     }))
 end
 
--- Auto Spin Wheel (claim queue first, then invoke spin)
 local function DoSpin()
     RE:FireServer("ClaimLunarYearWheelSpinQueue")
     task.wait(0.3)
     RF:InvokeServer("LunarWheelSpin")
 end
 
--- Auto Collect Pickups (firesignal approach)
 local function DoPickup()
-    -- Resolve the zone from path
     local ok, zone = pcall(function()
         local worlds = workspace:FindFirstChild("Worlds")
         if not worlds then return nil end
-        local parts = State.PickupZonePath:split("/")
         local obj = worlds
-        for _, part in ipairs(parts) do
+        for _, part in ipairs(State.PickupZonePath:split("/")) do
             obj = obj:FindFirstChild(part)
             if not obj then return nil end
         end
         return obj
     end)
-
     if not ok or not zone then return end
 
-    -- Collect all existing pickup children
     for _, child in ipairs(zone:GetChildren()) do
-        local id = child.Name  -- pickup GUIDs are usually the instance name
+        local id = child.Name
         if not State.CollectedIds[id] then
             State.CollectedIds[id] = true
-            SafeCall(function()
-                PickupRE:FireServer(id)
-            end, "CollectPickup:" .. id)
+            SafeCall(function() PickupRE:FireServer(id) end, "CollectPickup")
         end
     end
 
-    -- Also firesignal to spawn + collect a new pickup batch
     SafeCall(function()
-        local newId = game:GetService("HttpService"):GenerateGUID(false):lower()
+        local newId = HttpSvc:GenerateGUID(false):lower()
         firesignal(SpawnRE.OnClientEvent, {
             [1] = {
                 ["Root"]   = zone,
@@ -156,7 +146,6 @@ local function DoPickup()
     end, "SpawnPickup")
 end
 
--- Auto Black Market (BuyShopItem)
 local function DoBlackMarket()
     RE:FireServer(table.unpack({
         [1] = "BuyShopItem",
@@ -166,7 +155,6 @@ local function DoBlackMarket()
     }))
 end
 
--- Auto Playtime Rewards (claim 1–9)
 local function DoPlaytime()
     for i = 1, 9 do
         SafeCall(function()
@@ -180,245 +168,296 @@ local function DoPlaytime()
 end
 
 -- ════════════════════════════════════════════════════════════
--- TOGGLE HANDLERS
+-- TOGGLE WRAPPERS
 -- ════════════════════════════════════════════════════════════
 local function ToggleBlow(v)
     State.AutoBlow = v
-    if v then StartLoop("AutoBlow", DoBlow, "BlowDelay")
-    else StopLoop("AutoBlow") end
+    if v then StartLoop("AutoBlow", DoBlow, "BlowDelay") else StopLoop("AutoBlow") end
 end
-
 local function ToggleSell(v)
     State.AutoSell = v
-    if v then StartLoop("AutoSell", DoSell, "SellDelay")
-    else StopLoop("AutoSell") end
+    if v then StartLoop("AutoSell", DoSell, "SellDelay") else StopLoop("AutoSell") end
 end
-
 local function ToggleHatch(v)
     State.AutoHatch = v
-    if v then StartLoop("AutoHatch", DoHatch, "HatchDelay")
-    else StopLoop("AutoHatch") end
+    if v then StartLoop("AutoHatch", DoHatch, "HatchDelay") else StopLoop("AutoHatch") end
 end
-
 local function ToggleSpin(v)
     State.AutoSpin = v
-    if v then StartLoop("AutoSpin", DoSpin, "SpinDelay")
-    else StopLoop("AutoSpin") end
+    if v then StartLoop("AutoSpin", DoSpin, "SpinDelay") else StopLoop("AutoSpin") end
 end
-
 local function TogglePickup(v)
     State.AutoPickup = v
-    State.CollectedIds = {}  -- reset cache on toggle
-    if v then StartLoop("AutoPickup", DoPickup, "PickupDelay")
-    else StopLoop("AutoPickup") end
+    State.CollectedIds = {}
+    if v then StartLoop("AutoPickup", DoPickup, "PickupDelay") else StopLoop("AutoPickup") end
 end
-
 local function ToggleBlackMarket(v)
     State.AutoBlackMarket = v
-    if v then StartLoop("AutoBlackMarket", DoBlackMarket, "BlackMarketDelay")
-    else StopLoop("AutoBlackMarket") end
+    if v then StartLoop("AutoBlackMarket", DoBlackMarket, "BlackMarketDelay") else StopLoop("AutoBlackMarket") end
 end
-
 local function TogglePlaytime(v)
     State.AutoPlaytime = v
-    if v then StartLoop("AutoPlaytime", DoPlaytime, "PlaytimeDelay")
-    else StopLoop("AutoPlaytime") end
+    if v then StartLoop("AutoPlaytime", DoPlaytime, "PlaytimeDelay") else StopLoop("AutoPlaytime") end
 end
 
 -- ════════════════════════════════════════════════════════════
--- UI — TABS
+-- UI  —  Window is provided by the Loader as `Window`
 -- ════════════════════════════════════════════════════════════
 
--- ── Tab: Bubble ──────────────────────────────────────────────
-local TabBubble = Window:CreateTab({ Name = "Bubble", Icon = "rbxassetid://6031280882", ShowTitle = true })
+-- ── TAB: Bubble ──────────────────────────────────────────────────────────────
+local TabBubble = Window:CreateTab({
+    Name      = "Bubble",
+    Icon      = "rbxassetid://6031280882",
+    ShowTitle = true,
+})
 
 local S_Blow = TabBubble:CreateSection("Blow & Sell")
 
 S_Blow:CreateToggle({
-    Name     = "Auto Blow Bubble",
-    Default  = false,
-    Callback = ToggleBlow,
+    Name         = "Auto Blow Bubble",
+    Description  = "Continuously fires BlowBubble remote",
+    CurrentValue = false,
+    Flag         = "AutoBlow",
+    Callback     = ToggleBlow,
 })
 
 S_Blow:CreateSlider({
-    Name    = "Blow Delay (s)",
-    Min     = 0.05,
-    Max     = 2,
-    Default = 0.1,
-    Increment = 0.05,
-    Callback = function(v) State.BlowDelay = v end,
+    Name         = "Blow Delay",
+    Range        = { 0.05, 2 },
+    Increment    = 0.05,
+    CurrentValue = 0.1,
+    Suffix       = "s",
+    Flag         = "BlowDelay",
+    Callback     = function(v) State.BlowDelay = v end,
 })
+
+S_Blow:CreateDivider()
 
 S_Blow:CreateToggle({
-    Name     = "Auto Sell Bubble",
-    Default  = false,
-    Callback = ToggleSell,
+    Name         = "Auto Sell Bubble",
+    Description  = "Continuously fires SellBubble remote",
+    CurrentValue = false,
+    Flag         = "AutoSell",
+    Callback     = ToggleSell,
 })
 
 S_Blow:CreateSlider({
-    Name    = "Sell Delay (s)",
-    Min     = 0.1,
-    Max     = 3,
-    Default = 0.5,
-    Increment = 0.1,
-    Callback = function(v) State.SellDelay = v end,
+    Name         = "Sell Delay",
+    Range        = { 0.1, 3 },
+    Increment    = 0.1,
+    CurrentValue = 0.5,
+    Suffix       = "s",
+    Flag         = "SellDelay",
+    Callback     = function(v) State.SellDelay = v end,
 })
 
--- ── Tab: Eggs ────────────────────────────────────────────────
-local TabEggs = Window:CreateTab({ Name = "Eggs", Icon = "rbxassetid://6031280882", ShowTitle = true })
+-- ── TAB: Eggs ─────────────────────────────────────────────────────────────────
+local TabEggs = Window:CreateTab({
+    Name      = "Eggs",
+    Icon      = "rbxassetid://6031280882",
+    ShowTitle = true,
+})
 
 local S_Hatch = TabEggs:CreateSection("Auto Hatch")
 
 S_Hatch:CreateToggle({
-    Name     = "Auto Hatch Egg",
-    Default  = false,
-    Callback = ToggleHatch,
+    Name         = "Auto Hatch Egg",
+    Description  = "Sends HatchEgg remote in a loop",
+    CurrentValue = false,
+    Flag         = "AutoHatch",
+    Callback     = ToggleHatch,
 })
 
 S_Hatch:CreateInput({
-    Name        = "Egg Name",
-    Default     = "Iceshard Egg",
-    PlaceholderText = "e.g. Iceshard Egg",
+    Name                     = "Egg Name",
+    Description              = "Exact in-game name of the egg",
+    PlaceholderText          = "e.g. Iceshard Egg",
+    CurrentValue             = "Iceshard Egg",
     RemoveTextAfterFocusLost = false,
-    Callback    = function(v)
-        State.HatchEggName = v
+    Flag                     = "HatchEggName",
+    Callback                 = function(v)
+        if v ~= "" then State.HatchEggName = v end
     end,
 })
 
 S_Hatch:CreateSlider({
-    Name    = "Hatch Amount",
-    Min     = 1,
-    Max     = 10,
-    Default = 1,
-    Increment = 1,
-    Callback = function(v) State.HatchAmount = v end,
+    Name         = "Hatch Amount",
+    Range        = { 1, 10 },
+    Increment    = 1,
+    CurrentValue = 1,
+    Suffix       = "x",
+    Flag         = "HatchAmount",
+    Callback     = function(v) State.HatchAmount = v end,
 })
 
 S_Hatch:CreateSlider({
-    Name    = "Hatch Delay (s)",
-    Min     = 0.1,
-    Max     = 3,
-    Default = 0.5,
-    Increment = 0.1,
-    Callback = function(v) State.HatchDelay = v end,
+    Name         = "Hatch Delay",
+    Range        = { 0.1, 3 },
+    Increment    = 0.1,
+    CurrentValue = 0.5,
+    Suffix       = "s",
+    Flag         = "HatchDelay",
+    Callback     = function(v) State.HatchDelay = v end,
 })
 
--- ── Tab: World ───────────────────────────────────────────────
-local TabWorld = Window:CreateTab({ Name = "World", Icon = "rbxassetid://6031280882", ShowTitle = true })
+-- ── TAB: World ────────────────────────────────────────────────────────────────
+local TabWorld = Window:CreateTab({
+    Name      = "World",
+    Icon      = "rbxassetid://6031280882",
+    ShowTitle = true,
+})
 
 local S_Pickup = TabWorld:CreateSection("Auto Collect Pickups")
 
 S_Pickup:CreateToggle({
-    Name     = "Auto Collect Pickups",
-    Default  = false,
-    Callback = TogglePickup,
+    Name         = "Auto Collect Pickups",
+    Description  = "Collects pickups inside the specified zone",
+    CurrentValue = false,
+    Flag         = "AutoPickup",
+    Callback     = TogglePickup,
 })
 
 S_Pickup:CreateInput({
-    Name        = "Pickup Zone Path",
-    Default     = State.PickupZonePath,
-    PlaceholderText = "World/Islands/.../Zone",
+    Name                     = "Zone Path",
+    Description              = "Path inside workspace.Worlds/... to Pickups Zone",
+    PlaceholderText          = "The Overworld/Islands/The Void/Island/Pickups/Zone",
+    CurrentValue             = "The Overworld/Islands/The Void/Island/Pickups/Zone",
     RemoveTextAfterFocusLost = false,
-    Callback    = function(v)
-        State.PickupZonePath = v
-        State.CollectedIds = {}
+    Flag                     = "PickupZonePath",
+    Callback                 = function(v)
+        if v ~= "" then
+            State.PickupZonePath = v
+            State.CollectedIds   = {}
+        end
     end,
 })
 
 S_Pickup:CreateInput({
-    Name        = "Visual Type",
-    Default     = "Coin Box",
-    PlaceholderText = "e.g. Coin Box",
+    Name                     = "Visual Type",
+    Description              = "Visual identifier sent with SpawnPickups signal",
+    PlaceholderText          = "e.g. Coin Box",
+    CurrentValue             = "Coin Box",
     RemoveTextAfterFocusLost = false,
-    Callback    = function(v) State.PickupVisual = v end,
+    Flag                     = "PickupVisual",
+    Callback                 = function(v)
+        if v ~= "" then State.PickupVisual = v end
+    end,
 })
 
 S_Pickup:CreateSlider({
-    Name    = "Pickup Delay (s)",
-    Min     = 0.05,
-    Max     = 2,
-    Default = 0.1,
-    Increment = 0.05,
-    Callback = function(v) State.PickupDelay = v end,
+    Name         = "Pickup Delay",
+    Range        = { 0.05, 2 },
+    Increment    = 0.05,
+    CurrentValue = 0.1,
+    Suffix       = "s",
+    Flag         = "PickupDelay",
+    Callback     = function(v) State.PickupDelay = v end,
 })
 
--- ── Tab: Events ──────────────────────────────────────────────
-local TabEvents = Window:CreateTab({ Name = "Events", Icon = "rbxassetid://6031280882", ShowTitle = true })
+-- ── TAB: Events ───────────────────────────────────────────────────────────────
+local TabEvents = Window:CreateTab({
+    Name      = "Events",
+    Icon      = "rbxassetid://6031280882",
+    ShowTitle = true,
+})
 
-local S_Spin = TabEvents:CreateSection("Lunar Wheel")
+local S_Spin = TabEvents:CreateSection("Lunar New Year Wheel")
 
 S_Spin:CreateToggle({
-    Name     = "Auto Spin Wheel",
-    Default  = false,
-    Callback = ToggleSpin,
+    Name         = "Auto Spin Wheel",
+    Description  = "Claims spin queue then invokes LunarWheelSpin",
+    CurrentValue = false,
+    Flag         = "AutoSpin",
+    Callback     = ToggleSpin,
 })
 
 S_Spin:CreateSlider({
-    Name    = "Spin Delay (s)",
-    Min     = 0.5,
-    Max     = 5,
-    Default = 1.0,
-    Increment = 0.5,
-    Callback = function(v) State.SpinDelay = v end,
+    Name         = "Spin Delay",
+    Range        = { 0.5, 10 },
+    Increment    = 0.5,
+    CurrentValue = 1.0,
+    Suffix       = "s",
+    Flag         = "SpinDelay",
+    Callback     = function(v) State.SpinDelay = v end,
+})
+
+S_Spin:CreateButton({
+    Name        = "Spin Once",
+    Description = "Fires a single wheel spin right now",
+    Callback    = function() DoSpin() end,
 })
 
 local S_PT = TabEvents:CreateSection("Playtime Rewards")
 
 S_PT:CreateToggle({
-    Name     = "Auto Claim Playtime (1–9)",
-    Default  = false,
-    Callback = TogglePlaytime,
+    Name         = "Auto Claim Playtime",
+    Description  = "Loops ClaimPlaytime for milestones 1 through 9",
+    CurrentValue = false,
+    Flag         = "AutoPlaytime",
+    Callback     = TogglePlaytime,
 })
 
 S_PT:CreateSlider({
-    Name    = "Claim Loop Delay (s)",
-    Min     = 1,
-    Max     = 10,
-    Default = 2,
-    Increment = 0.5,
-    Callback = function(v) State.PlaytimeDelay = v end,
+    Name         = "Claim Loop Delay",
+    Range        = { 1, 15 },
+    Increment    = 0.5,
+    CurrentValue = 2.0,
+    Suffix       = "s",
+    Flag         = "PlaytimeDelay",
+    Callback     = function(v) State.PlaytimeDelay = v end,
 })
 
 S_PT:CreateButton({
-    Name     = "Claim Now (once)",
-    Callback = function() DoPlaytime() end,
+    Name        = "Claim All Now",
+    Description = "One-shot: claims milestones 1–9 immediately",
+    Callback    = function() DoPlaytime() end,
 })
 
--- ── Tab: Shop ────────────────────────────────────────────────
-local TabShop = Window:CreateTab({ Name = "Shop", Icon = "rbxassetid://6031280882", ShowTitle = true })
+-- ── TAB: Shop ─────────────────────────────────────────────────────────────────
+local TabShop = Window:CreateTab({
+    Name      = "Shop",
+    Icon      = "rbxassetid://6031280882",
+    ShowTitle = true,
+})
 
 local S_BM = TabShop:CreateSection("Black Market")
 
 S_BM:CreateToggle({
-    Name     = "Auto Buy Black Market",
-    Default  = false,
-    Callback = ToggleBlackMarket,
+    Name         = "Auto Buy Black Market",
+    Description  = "Buys the selected slot from shard-shop in a loop",
+    CurrentValue = false,
+    Flag         = "AutoBlackMarket",
+    Callback     = ToggleBlackMarket,
+})
+
+S_BM:CreateDropdown({
+    Name          = "Shop Slot",
+    Description   = "Which item slot to purchase (1 = first listing)",
+    Options       = { "1", "2", "3", "4", "5" },
+    CurrentOption = "2",
+    Flag          = "BlackMarketSlot",
+    Callback      = function(v)
+        State.BlackMarketSlot = tonumber(v) or 2
+    end,
 })
 
 S_BM:CreateSlider({
-    Name    = "Shop Slot (1–5)",
-    Min     = 1,
-    Max     = 5,
-    Default = 2,
-    Increment = 1,
-    Callback = function(v) State.BlackMarketSlot = v end,
-})
-
-S_BM:CreateSlider({
-    Name    = "Buy Delay (s)",
-    Min     = 0.5,
-    Max     = 5,
-    Default = 1.0,
-    Increment = 0.5,
-    Callback = function(v) State.BlackMarketDelay = v end,
+    Name         = "Buy Delay",
+    Range        = { 0.5, 10 },
+    Increment    = 0.5,
+    CurrentValue = 1.0,
+    Suffix       = "s",
+    Flag         = "BlackMarketDelay",
+    Callback     = function(v) State.BlackMarketDelay = v end,
 })
 
 S_BM:CreateButton({
-    Name     = "Buy Slot Once",
-    Callback = function() DoBlackMarket() end,
+    Name        = "Buy Slot Once",
+    Description = "Fires a single BuyShopItem call right now",
+    Callback    = function() DoBlackMarket() end,
 })
 
 -- ════════════════════════════════════════════════════════════
--- NOTIFY
+-- DONE
 -- ════════════════════════════════════════════════════════════
-print("[ SENTENCE ] Bubble Gum Simulator INFINITY script v1.0 — loaded.")
+print("[ SENTENCE ] BGS INFINITY script v2.0 — loaded.")
