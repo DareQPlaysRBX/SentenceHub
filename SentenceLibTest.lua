@@ -499,7 +499,6 @@ local function CreateSplashScreen(gui, cfg, onComplete)
     subtitleSplash.BackgroundTransparency = 1
     subtitleSplash.BorderSizePixel        = 0
     subtitleSplash.ZIndex                 = 511
-    subtitleSplash.LetterSpacing          = 6
     subtitleSplash.Parent                 = centerFrame
 
     -- ── Separator linia ──────────────────────────────────────
