@@ -1,11 +1,11 @@
 --[[
 ╔═══════════════════════════════════════════════════════════╗
-║  SENTENCE GUI · OG Sentence Edition  v2.2                 ║
+║  SENTENCE GUI · OG Sentence Edition  v2.3                 ║
 ╚═══════════════════════════════════════════════════════════╝
 --]]
 
 local Sentence = {
-    Version = "2.2",
+    Version = "2.3",
     Flags   = {},
     Options = {},
     _conns  = {},
@@ -32,11 +32,11 @@ local function H(hex)
 end
 
 local T = {
-    BG0      = H("#0e0e0e"),  -- najgłębsze tło
-    BG1      = H("#121212"),  -- główne tło okna
-    BG2      = H("#161616"),  -- sidebar / karta
-    BG3      = H("#1c1c1c"),  -- element kontrolki
-    BG4      = H("#222222"),  -- hover elementu
+    BG0      = H("#0e0e0e"),
+    BG1      = H("#121212"),
+    BG2      = H("#161616"),
+    BG3      = H("#1c1c1c"),
+    BG4      = H("#222222"),
     Border   = H("#2a2a2a"),
     BorderHi = H("#3a3a3a"),
     Accent   = H("#5A9FE8"),
@@ -51,10 +51,10 @@ local T = {
 }
 
 local NotifPalette = {
-    Info    = { fg=T.Accent,   bg=H("#0d1e30"), bar=T.Accent   },
-    Success = { fg=T.Success,  bg=H("#0d2218"), bar=T.Success  },
-    Warning = { fg=T.Warning,  bg=H("#261c08"), bar=T.Warning  },
-    Error   = { fg=T.Error,    bg=H("#280a0a"), bar=T.Error    },
+    Info    = { fg=T.Accent,   bg=H("#0d1e30"), bar=T.Accent,   glow=H("#1a3a5c") },
+    Success = { fg=T.Success,  bg=H("#0d2218"), bar=T.Success,  glow=H("#0a2e1a") },
+    Warning = { fg=T.Warning,  bg=H("#261c08"), bar=T.Warning,  glow=H("#2e1f05") },
+    Error   = { fg=T.Error,    bg=H("#280a0a"), bar=T.Error,    glow=H("#320808") },
 }
 
 -- ── Tween helpers ─────────────────────────────────────────────────────────────
@@ -212,115 +212,160 @@ local function Draggable(handle,win)
 end
 
 -- ══════════════════════════════════════════════════════════════════════════════
--- NOTIFIKACJE — przeprojektowane
+-- NOTYFIKACJE — przeprojektowane v2.3 (oryginalne, eleganckie)
 -- ══════════════════════════════════════════════════════════════════════════════
 function Sentence:Notify(data)
     task.spawn(function()
         data = merge({Title="Notice",Content="",Icon="info",Type="Info",Duration=5},data)
         local pal = NotifPalette[data.Type] or NotifPalette.Info
 
-        -- Karta
+        -- Karta główna — wąska, elegancka
         local card = Box({
-            Name="NCard", Sz=UDim2.new(0,310,0,0), Pos=UDim2.new(0,0,1,0),
-            AP=Vector2.new(0,1), Bg=T.BG1, BgA=1, Clip=true, R=6,
-            Border=true, BorderCol=T.Border, BorderA=1, Par=self._notifHolder,
+            Name="NCard",
+            Sz=UDim2.new(0,300,0,0),
+            Pos=UDim2.new(1,320,1,0),
+            AP=Vector2.new(0,1),
+            Bg=T.BG1,
+            BgA=0,
+            Clip=true,
+            R=8,
+            Par=self._notifHolder,
         })
 
-        -- Akcent: cienki górny pasek koloru
-        local topAccent = Box({Sz=UDim2.new(1,0,0,2),Pos=UDim2.new(0,0,0,0),Bg=pal.fg,BgA=1,R=0,Z=8,Par=card})
+        -- Ciemna obwódka z niebieskim akcentem (UIStroke przez kod)
+        local cardStroke = Instance.new("UIStroke")
+        cardStroke.Color = pal.fg
+        cardStroke.Thickness = 1
+        cardStroke.Transparency = 0.72
+        cardStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        cardStroke.Parent = card
 
-        -- Delikatne tło akcentu (subtone)
-        local bgTint = Box({Sz=UDim2.new(1,0,1,0),Bg=pal.bg,BgA=0,R=6,Z=2,Par=card})
+        -- Subtelne tło z kolorem typu
+        local bgFill = Box({Sz=UDim2.new(1,0,1,0),Bg=pal.bg,BgA=0,R=8,Z=1,Par=card})
 
-        -- Subtelny gradient boczny
-        local sideGlow = Box({Sz=UDim2.new(0,80,1,0),Pos=UDim2.new(0,0,0,0),Bg=pal.fg,BgA=1,R=0,Z=3,Par=card})
-        Gradient(sideGlow, pal.fg, T.BG1, 0)
-        local sideGradG=Instance.new("UIGradient")
-        sideGradG.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.88),NumberSequenceKeypoint.new(1,1)}
-        sideGradG.Parent=sideGlow
-
-        -- Kółko ikony
-        local iconBg = Box({
-            Sz=UDim2.new(0,34,0,34), Pos=UDim2.new(0,14,0,0), AP=Vector2.new(0,0.5),
-            Bg=pal.bg, BgA=0, R=8, Border=true, BorderCol=pal.fg, BorderA=0.65,
-            Z=6, Par=card,
+        -- Lewa pionowa linia koloru (cienka, elegancka)
+        local accentBar = Box({
+            Sz=UDim2.new(0,2,1,0),
+            Pos=UDim2.new(0,0,0,0),
+            Bg=pal.fg,
+            BgA=0,
+            R=0,
+            Z=8,
+            Par=card,
         })
-        -- anchorpoint w Y = 0.5 nie działa bez relative parent — ustawimy przez pozycję po zmierzeniu
-        local iconImg = Img({Ico=data.Icon,Sz=UDim2.new(0,16,0,16),Col=pal.fg,IA=1,Z=7,Par=iconBg})
 
-        -- Treść
+        -- Delikatny poziomy gradient od lewej (glow od paska)
+        local sideGlow = Box({Sz=UDim2.new(0,90,1,0),Pos=UDim2.new(0,0,0,0),Bg=pal.fg,BgA=1,R=0,Z=2,Par=card})
+        local sg1=Instance.new("UIGradient")
+        sg1.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,pal.fg),ColorSequenceKeypoint.new(1,T.BG1)}
+        sg1.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.82),NumberSequenceKeypoint.new(1,1)}
+        sg1.Parent=sideGlow
+
+        -- Mała ikonka w kółku
+        local iconRing = Box({
+            Sz=UDim2.new(0,30,0,30),
+            Pos=UDim2.new(0,14,0,0),
+            AP=Vector2.new(0,0.5),
+            Bg=pal.bg,
+            BgA=0,
+            R=6,
+            Z=6,
+            Par=card,
+        })
+        local iconRingStroke = Instance.new("UIStroke")
+        iconRingStroke.Color = pal.fg
+        iconRingStroke.Thickness = 1
+        iconRingStroke.Transparency = 0.5
+        iconRingStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+        iconRingStroke.Parent = iconRing
+
+        local iconImg = Img({Ico=data.Icon,Sz=UDim2.new(0,14,0,14),Col=pal.fg,IA=1,Z=7,Par=iconRing})
+
+        -- Kontener treści
         local cc = Box({Name="CC",Sz=UDim2.new(1,0,0,0),Pos=UDim2.new(0,0,0,0),BgA=1,AutoY=true,Z=5,Par=card})
-        Pad(cc,12,14,60,14)
-        List(cc,3)
+        Pad(cc,10,12,56,36)
+        List(cc,2)
+
+        -- Typ w postaci badge
+        local typeBadge = Box({
+            Sz=UDim2.new(0,0,0,15),
+            Bg=pal.fg,
+            BgA=0,
+            R=3,
+            Z=6,
+            AutoX=true,
+            Par=cc,
+        })
+        Pad(typeBadge,0,0,5,5)
+        local typeL = Txt({T=data.Type:upper(),Sz=UDim2.new(0,0,1,0),Font=Enum.Font.GothamBold,TS=10,Col=pal.fg,AX=Enum.TextXAlignment.Center,Alpha=1,AutoX=true,Z=7,Par=typeBadge})
 
         local ttl = Txt({T=data.Title,Sz=UDim2.new(1,0,0,18),Font=Enum.Font.GothamBold,TS=15,Col=T.TextHi,Alpha=1,Z=6,Par=cc})
         local msg = Txt({T=data.Content,Sz=UDim2.new(1,0,0,0),Font=Enum.Font.Gotham,TS=13,Col=T.TextMid,Alpha=1,Wrap=true,AutoY=true,Z=6,Par=cc})
 
-        -- Progress bar czasu trwania (u dołu)
-        local pBar = Box({Sz=UDim2.new(1,0,0,2),Pos=UDim2.new(0,0,1,-2),Bg=T.Border,BgA=0,R=0,Z=6,Par=card})
-        local pFill = Box({Sz=UDim2.new(1,0,1,0),Bg=pal.fg,BgA=1,R=0,Z=7,Par=pBar})
+        -- Dolna linia odliczania (subtelna)
+        local pTrack = Box({Sz=UDim2.new(1,-4,0,1),Pos=UDim2.new(0,2,1,-1),Bg=T.BG3,BgA=0,R=0,Z=6,Par=card})
+        local pFill  = Box({Sz=UDim2.new(1,0,1,0),Bg=pal.fg,BgA=0,R=0,Z=7,Par=pTrack})
 
-        -- Przycisk zamknięcia
-        local closeBtn = Box({Sz=UDim2.new(0,18,0,18),Pos=UDim2.new(1,-10,0,10),AP=Vector2.new(1,0),Bg=T.BG3,BgA=1,R=4,Z=8,Par=card})
-        local closeIco = Img({Ico="close",Sz=UDim2.new(0,8,0,8),Col=T.TextLo,Z=9,Par=closeBtn})
-        local closeCL  = Btn(closeBtn,10)
-        closeBtn.MouseEnter:Connect(function() tw(closeBtn,{BackgroundColor3=T.Error},TI_FAST); tw(closeIco,{ImageColor3=T.TextHi},TI_FAST) end)
-        closeBtn.MouseLeave:Connect(function() tw(closeBtn,{BackgroundColor3=T.BG3},TI_FAST); tw(closeIco,{ImageColor3=T.TextLo},TI_FAST) end)
+        -- Przycisk X (bardzo mały, prawy górny)
+        local xBtn = Box({
+            Sz=UDim2.new(0,16,0,16),
+            Pos=UDim2.new(1,-8,0,8),
+            AP=Vector2.new(1,0),
+            Bg=T.BG3,
+            BgA=1,
+            R=4,
+            Z=9,
+            Par=card,
+        })
+        local xIco = Img({Ico="close",Sz=UDim2.new(0,7,0,7),Col=T.TextLo,Z=10,Par=xBtn})
+        local xCL  = Btn(xBtn,11)
+        xBtn.MouseEnter:Connect(function() tw(xBtn,{BackgroundColor3=T.Error},TI_FAST); tw(xIco,{ImageColor3=T.TextHi},TI_FAST) end)
+        xBtn.MouseLeave:Connect(function() tw(xBtn,{BackgroundColor3=T.BG3},TI_FAST); tw(xIco,{ImageColor3=T.TextLo},TI_FAST) end)
 
         -- ── Animacja wejścia ──────────────────────────────────────────────────
         task.wait()
-        local cardH = cc.AbsoluteSize.Y
-        iconBg.Position = UDim2.new(0,14,0, cardH/2 - 17)
+        local cardH = cc.AbsoluteSize.Y + 4
+        iconRing.Position = UDim2.new(0,14,0, cardH/2 - 15)
 
-        -- Wjazd z prawej strony
-        card.Position = UDim2.new(1.1,0,1,0)
-        tw(card,{Size=UDim2.new(0,310,0,cardH)},TI_MED)
+        card.Size = UDim2.new(0,300,0,cardH)
+        card.Position = UDim2.new(1,320,1,0)
+
+        -- Wjazd z prawej
         tw(card,{BackgroundTransparency=0,Position=UDim2.new(0,0,1,0)},TI_CIRC)
-        tw(bgTint,{BackgroundTransparency=0},TI_FAST)
+        tw(bgFill,{BackgroundTransparency=0},TI_FAST)
+        tw(cardStroke,{Transparency=0.55},TI_MED)
         task.wait(0.06)
-        tw(card.UIStroke,{Transparency=0.55},TI_FAST)
-        tw(topAccent,{BackgroundTransparency=0},TI_FAST)
-        tw(iconBg,{BackgroundTransparency=0},TI_FAST)
-        if iconBg.UIStroke then tw(iconBg.UIStroke,{Transparency=0.2},TI_FAST) end
+        tw(accentBar,{BackgroundTransparency=0},TI_FAST)
+        tw(iconRingStroke,{Transparency=0.2},TI_FAST)
         tw(iconImg,{ImageTransparency=0},TI_MED)
+        tw(typeBadge,{BackgroundTransparency=0.88},TI_FAST)
+        tw(typeL,{TextTransparency=0},TI_MED)
         tw(ttl,{TextTransparency=0},TI_MED)
         tw(msg,{TextTransparency=0},TI_MED)
-        tw(pBar,{BackgroundTransparency=0},TI_FAST)
-        tw(closeBtn,{BackgroundTransparency=0},TI_FAST)
-
-        -- Progress bar odlicza czas
+        task.wait(0.1)
+        tw(pTrack,{BackgroundTransparency=0.6},TI_FAST)
+        tw(pFill,{BackgroundTransparency=0},TI_FAST)
         tw(pFill,{Size=UDim2.new(0,0,1,0)},TI(data.Duration,Enum.EasingStyle.Linear))
 
-        -- Hover — zatrzymuje auto-zamknięcie
         local paused = false
-        local pausedPct = 1
-        card.MouseEnter:Connect(function()
-            paused=true
-            tw(card,{BackgroundColor3=T.BG3},TI_FAST)
-        end)
-        card.MouseLeave:Connect(function()
-            paused=false
-            tw(card,{BackgroundColor3=T.BG1},TI_FAST)
-        end)
+        card.MouseEnter:Connect(function() paused=true; tw(card,{BackgroundColor3=T.BG3},TI_FAST) end)
+        card.MouseLeave:Connect(function() paused=false; tw(card,{BackgroundColor3=T.BG1},TI_FAST) end)
 
-        -- ── Czekaj na czas lub klik zamknij ──────────────────────────────────
         local dismissed = false
-        closeCL.MouseButton1Click:Connect(function() dismissed=true end)
-
+        xCL.MouseButton1Click:Connect(function() dismissed=true end)
         local elapsed=0
         repeat task.wait(0.05); if not paused then elapsed=elapsed+0.05 end
         until dismissed or elapsed >= data.Duration
 
-        -- ── Animacja wyjścia — wyjeżdża w prawo ──────────────────────────────
+        -- ── Animacja wyjścia ──────────────────────────────────────────────────
         tw(ttl,{TextTransparency=1},TI_FAST); tw(msg,{TextTransparency=1},TI_FAST)
-        tw(iconImg,{ImageTransparency=1},TI_FAST); tw(pFill,{BackgroundTransparency=1},TI_FAST)
-        tw(pBar,{BackgroundTransparency=1},TI_FAST); tw(topAccent,{BackgroundTransparency=1},TI_FAST)
-        tw(bgTint,{BackgroundTransparency=1},TI_FAST)
-        tw(card,{BackgroundTransparency=1},TI_FAST)
-        if card.UIStroke then tw(card.UIStroke,{Transparency=1},TI_FAST) end
-        tw(card,{Position=UDim2.new(1.1,0,1,0)},TI_CIRC)
+        tw(typeL,{TextTransparency=1},TI_FAST); tw(iconImg,{ImageTransparency=1},TI_FAST)
+        tw(pFill,{BackgroundTransparency=1},TI_FAST); tw(pTrack,{BackgroundTransparency=1},TI_FAST)
+        tw(accentBar,{BackgroundTransparency=1},TI_FAST); tw(bgFill,{BackgroundTransparency=1},TI_FAST)
+        tw(cardStroke,{Transparency=1},TI_FAST)
+        tw(card,{BackgroundTransparency=1,Position=UDim2.new(1,320,1,0)},TI_CIRC)
         task.wait(0.28)
-        tw(card,{Size=UDim2.new(0,310,0,0)},TI_MED,function() card:Destroy() end)
+        tw(card,{Size=UDim2.new(0,300,0,0)},TI_MED,function() card:Destroy() end)
     end)
 end
 
@@ -339,7 +384,9 @@ function Sentence:CreateWindow(cfg)
     local WW = math.clamp(vp.X-100,616,825)
     local WH = math.clamp(vp.Y-80, 440,550)
     local FULL = UDim2.fromOffset(WW,WH)
-    local MINI = UDim2.fromOffset(WW,44)
+    -- titlebar +5% wyższy: było 44, teraz ~46
+    local TB_H = 46
+    local MINI = UDim2.fromOffset(WW, TB_H+2)
 
     -- ── ScreenGui ────────────────────────────────────────────────────────────
     local gui=Instance.new("ScreenGui")
@@ -350,6 +397,51 @@ function Sentence:CreateWindow(cfg)
     elseif syn and syn.protect_gui then syn.protect_gui(gui);gui.Parent=CG
     elseif not IsStudio then gui.Parent=CG
     else gui.Parent=LP:WaitForChild("PlayerGui") end
+
+    -- ══════════════════════════════════════════════════════════════════════════
+    -- HUD: Ping / Players widget — górny prawy róg ekranu
+    -- ══════════════════════════════════════════════════════════════════════════
+    local hudWidget = Box({
+        Name="HudWidget",
+        Sz=UDim2.new(0,0,0,28),
+        Pos=UDim2.new(1,-12,0,12),
+        AP=Vector2.new(1,0),
+        Bg=T.BG1,
+        BgA=0,
+        R=6,
+        AutoX=true,
+        Z=100,
+        Par=gui,
+    })
+    hudWidget.AutomaticSize=Enum.AutomaticSize.X
+    Pad(hudWidget,0,0,10,10)
+    local hudStroke=Instance.new("UIStroke"); hudStroke.Color=T.Accent; hudStroke.Thickness=1; hudStroke.Transparency=0.72; hudStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; hudStroke.Parent=hudWidget
+
+    local hudRow=Instance.new("Frame"); hudRow.Size=UDim2.new(0,0,1,0); hudRow.AutomaticSize=Enum.AutomaticSize.X
+    hudRow.BackgroundTransparency=1; hudRow.BorderSizePixel=0; hudRow.ZIndex=101; hudRow.Parent=hudWidget
+    List(hudRow,8,Enum.FillDirection.Horizontal,nil,Enum.VerticalAlignment.Center)
+
+    local hudPingDot=Box({Sz=UDim2.new(0,6,0,6),Bg=T.Success,BgA=0,R=3,Z=102,Par=hudRow})
+    local hudPingL=Txt({T="—ms",Sz=UDim2.new(0,0,1,0),Font=Enum.Font.Code,TS=13,Col=T.TextMid,AX=Enum.TextXAlignment.Left,Alpha=1,AutoX=true,Z=102,Par=hudRow})
+    local hudSep=Txt({T="·",Sz=UDim2.new(0,8,1,0),Font=Enum.Font.Gotham,TS=12,Col=T.TextLo,AX=Enum.TextXAlignment.Center,Z=102,Par=hudRow})
+    local hudPlrsL=Txt({T="—/—",Sz=UDim2.new(0,0,1,0),Font=Enum.Font.Code,TS=13,Col=T.TextMid,AX=Enum.TextXAlignment.Left,Alpha=1,AutoX=true,Z=102,Par=hudRow})
+
+    task.spawn(function()
+        task.wait(0.5)
+        -- Wjazd HUD
+        hudWidget.BackgroundTransparency=1
+        tw(hudWidget,{BackgroundTransparency=0},TI_MED)
+        while task.wait(1.5) do
+            if not gui or not gui.Parent then break end
+            pcall(function()
+                local ms=math.floor(LP:GetNetworkPing()*1000)
+                hudPingL.Text=ms.."ms"
+                local col=ms<80 and T.Success or ms<150 and T.Warning or T.Error
+                hudPingL.TextColor3=col; hudPingDot.BackgroundColor3=col
+                hudPlrsL.Text=#Plrs:GetPlayers().."/"..Plrs.MaxPlayers
+            end)
+        end
+    end)
 
     -- ══════════════════════════════════════════════════════════════════════════
     -- SPLASH SCREEN
@@ -363,7 +455,6 @@ function Sentence:CreateWindow(cfg)
         splash.BorderSizePixel=0; splash.ZIndex=1000; splash.ClipsDescendants=true
         splash.Parent=gui
 
-        -- Narożniki
         local cLines={}
         local function MkCorner(ax,ay,rx,ry)
             local r=Instance.new("Frame"); r.Size=UDim2.new(0,36,0,36)
@@ -382,7 +473,6 @@ function Sentence:CreateWindow(cfg)
         MkCorner(0,0,24,24); MkCorner(1,0,-24,24)
         MkCorner(0,1,24,-24); MkCorner(1,1,-24,-24)
 
-        -- Glow blob (parallax)
         local glow=Instance.new("Frame"); glow.Size=UDim2.new(0,540,0,270)
         glow.Position=UDim2.new(0.5,0,0.5,0); glow.AnchorPoint=Vector2.new(0.5,0.5)
         glow.BackgroundColor3=T.Accent; glow.BackgroundTransparency=1
@@ -392,7 +482,6 @@ function Sentence:CreateWindow(cfg)
         gg.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.74),NumberSequenceKeypoint.new(1,1)}
         gg.Parent=glow
 
-        -- Linia skanowania
         local scan=Instance.new("Frame"); scan.Size=UDim2.new(0,2,1,0)
         scan.Position=UDim2.new(-0.02,0,0,0); scan.BackgroundColor3=T.Accent
         scan.BackgroundTransparency=0.5; scan.BorderSizePixel=0; scan.ZIndex=1020; scan.Parent=splash
@@ -402,7 +491,6 @@ function Sentence:CreateWindow(cfg)
             NumberSequenceKeypoint.new(0.62,0.35),NumberSequenceKeypoint.new(1,1)}
         sg.Rotation=90; sg.Parent=scan
 
-        -- Logo wrapper (spring: 48→160)
         local lw=Instance.new("Frame"); lw.Name="LW"; lw.Size=UDim2.new(0,48,0,48)
         lw.Position=UDim2.new(0.5,0,0.44,0); lw.AnchorPoint=Vector2.new(0.5,0.5)
         lw.BackgroundTransparency=1; lw.ZIndex=1004; lw.Parent=splash
@@ -416,7 +504,6 @@ function Sentence:CreateWindow(cfg)
         lgg.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.78),NumberSequenceKeypoint.new(1,1)}
         lgg.Parent=lglow
 
-        -- Pierścień zewnętrzny
         local ro=Instance.new("Frame"); ro.Size=UDim2.new(1,28,1,28)
         ro.Position=UDim2.new(0.5,0,0.5,0); ro.AnchorPoint=Vector2.new(0.5,0.5)
         ro.BackgroundTransparency=1; ro.BorderSizePixel=0; ro.ZIndex=1005; ro.Parent=lw
@@ -428,7 +515,6 @@ function Sentence:CreateWindow(cfg)
             NumberSequenceKeypoint.new(0.65,0.88),NumberSequenceKeypoint.new(1,0)}
         go.Parent=so
 
-        -- Pierścień wewnętrzny
         local ri=Instance.new("Frame"); ri.Size=UDim2.new(1,-16,1,-16)
         ri.Position=UDim2.new(0.5,0,0.5,0); ri.AnchorPoint=Vector2.new(0.5,0.5)
         ri.BackgroundTransparency=1; ri.BorderSizePixel=0; ri.ZIndex=1005; ri.Parent=lw
@@ -440,13 +526,11 @@ function Sentence:CreateWindow(cfg)
             NumberSequenceKeypoint.new(0.72,0),NumberSequenceKeypoint.new(1,0.85)}
         gi.Parent=si
 
-        -- Obrazek loga
         local limg=Instance.new("ImageLabel"); limg.Size=UDim2.new(1,0,1,0)
         limg.BackgroundTransparency=1; limg.Image=LOGO; limg.ImageTransparency=1
         limg.ScaleType=Enum.ScaleType.Fit; limg.ZIndex=1006; limg.Parent=lw
         Instance.new("UICorner",limg).CornerRadius=UDim.new(0,10)
 
-        -- Tekst SENTENCE HUB
         local tw2=Instance.new("Frame"); tw2.Size=UDim2.new(0,420,0,0)
         tw2.Position=UDim2.new(0.5,0,0.44,110); tw2.AnchorPoint=Vector2.new(0.5,0)
         tw2.BackgroundTransparency=1; tw2.AutomaticSize=Enum.AutomaticSize.Y
@@ -506,7 +590,6 @@ function Sentence:CreateWindow(cfg)
             ColorSequenceKeypoint.new(1,H("#8BC4FF"))}
         pfg.Parent=pf
 
-        -- Cząsteczki
         local parts={}
         for pi=1,7 do
             local px=Instance.new("Frame"); px.Size=UDim2.new(0,math.random(2,4),0,math.random(2,4))
@@ -520,7 +603,6 @@ function Sentence:CreateWindow(cfg)
                 rg=0.011+math.random()*0.017}
         end
 
-        -- ── Animacja splash ───────────────────────────────────────────────────
         tw(splash,{BackgroundTransparency=0},TI(.38,Enum.EasingStyle.Quad)); task.wait(0.14)
         for _,l in ipairs(cLines) do tw(l,{BackgroundTransparency=0},TI(.48,Enum.EasingStyle.Exponential)) end
         task.wait(0.16)
@@ -587,9 +669,10 @@ function Sentence:CreateWindow(cfg)
 
     -- ── Notif Holder ─────────────────────────────────────────────────────────
     local notifHolder=Instance.new("Frame"); notifHolder.Name="Notifs"
-    notifHolder.Size=UDim2.new(0,320,1,-16); notifHolder.Position=UDim2.new(0,10,0,8)
+    notifHolder.Size=UDim2.new(0,320,1,-16); notifHolder.Position=UDim2.new(1,-10,0,8)
+    notifHolder.AnchorPoint=Vector2.new(1,0)
     notifHolder.BackgroundTransparency=1; notifHolder.ZIndex=200; notifHolder.Parent=gui
-    local nList=List(notifHolder,8); nList.VerticalAlignment=Enum.VerticalAlignment.Bottom
+    local nList=List(notifHolder,6); nList.VerticalAlignment=Enum.VerticalAlignment.Top
     self._notifHolder=notifHolder
 
     -- ══════════════════════════════════════════════════════════════════════════
@@ -602,21 +685,17 @@ function Sentence:CreateWindow(cfg)
         Border=true,BorderCol=T.Border,BorderA=0,Z=1,Par=gui,
     })
 
-    -- Górna linia akcentu
     local topLine=Box({Name="TopLine",Sz=UDim2.new(1,0,0,2),Pos=UDim2.new(0,0,0,0),Bg=T.Accent,BgA=0,Z=6,Par=win})
 
-    -- Gradient w lewym górnym rogu (subtelny blask)
     local winGlow=Box({Name="WinGlow",Sz=UDim2.new(0,260,0,140),Pos=UDim2.new(0,0,0,0),Bg=T.Accent,BgA=0.9,R=0,Z=0,Par=win})
     local wgG=Instance.new("UIGradient")
     wgG.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.88),NumberSequenceKeypoint.new(1,1)}
     wgG.Rotation=130; wgG.Parent=winGlow
 
     -- ── Title Bar ─────────────────────────────────────────────────────────────
-    local TB_H=44
     local titleBar=Box({Name="TitleBar",Sz=UDim2.new(1,0,0,TB_H),Pos=UDim2.new(0,0,0,2),Bg=T.BG1,BgA=1,Z=4,Par=win})
     Draggable(titleBar,win)
 
-    -- Subtelna linia gradientu pod tytułem
     local tbLine=Instance.new("Frame"); tbLine.Size=UDim2.new(1,0,0,1)
     tbLine.Position=UDim2.new(0,0,1,-1); tbLine.BackgroundColor3=T.Border
     tbLine.BackgroundTransparency=0; tbLine.BorderSizePixel=0; tbLine.ZIndex=5; tbLine.Parent=titleBar
@@ -627,60 +706,73 @@ function Sentence:CreateWindow(cfg)
         ColorSequenceKeypoint.new(1,T.Border)}
     tbLineG.Parent=tbLine
 
-    -- Przyciski sterowania
-    local CTRL={{"X","close",T.Error},{"−","min",T.TextMid},{"·","hide",T.TextMid}}
+    -- ── Przyciski sterowania — PRAWA STRONA, nowy styl ────────────────────────
+    -- X: czerwony kwadrat z ikoną
+    -- −: szary z ikoną minus
+    -- ·: szary z ikoną oka / hide
     local ctrlBtns={}
-    for idx,cd in ipairs(CTRL) do
-        local xp=10+(idx-1)*30
-        local cb=Box({Name=cd[1],Sz=UDim2.new(0,22,0,22),Pos=UDim2.new(0,xp,0.5,0),AP=Vector2.new(0,0.5),Bg=T.BG3,BgA=0.7,R=5,Border=true,BorderCol=T.Border,BorderA=0.2,Z=5,Par=titleBar})
-        local ci=Img({Ico=cd[2],Sz=UDim2.new(0,11,0,11),Col=T.TextLo,Z=6,Par=cb})
+    local CTRL_DEFS={
+        {key="X",  lbl="×",  hoverBg=T.Error,   hoverTxt=T.TextHi},
+        {key="−",  lbl="−",  hoverBg=T.AccentDim,hoverTxt=T.TextHi},
+        {key="·",  lbl="⊙",  hoverBg=T.BG4,     hoverTxt=T.Accent},
+    }
+    -- rozmieszczenie od prawej: 3 przyciski po 28px z marginesem 6px między nimi, margin prawej=10
+    local CBTN_W=28; local CBTN_GAP=5; local CBTN_MARGIN=10
+    for idx,cd in ipairs(CTRL_DEFS) do
+        local xp = CBTN_MARGIN + (3-idx)*(CBTN_W+CBTN_GAP)
+        local cb=Box({
+            Name=cd.key,
+            Sz=UDim2.new(0,CBTN_W,0,CBTN_W),
+            Pos=UDim2.new(1,-xp-CBTN_W,0.5,0),
+            AP=Vector2.new(0,0.5),
+            Bg=T.BG3,
+            BgA=0,
+            R=5,
+            Z=5,
+            Par=titleBar
+        })
+        -- Obwódka
+        local cbStroke=Instance.new("UIStroke"); cbStroke.Color=T.Border; cbStroke.Thickness=1; cbStroke.Transparency=0.4; cbStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; cbStroke.Parent=cb
+        -- Etykieta tekstowa (czytelna, proporcjonalna)
+        local cbL=Instance.new("TextLabel"); cbL.Text=cd.lbl
+        cbL.Size=UDim2.new(1,0,1,0); cbL.BackgroundTransparency=1
+        cbL.Font=Enum.Font.GothamBold; cbL.TextSize=15
+        cbL.TextColor3=T.TextLo; cbL.TextXAlignment=Enum.TextXAlignment.Center
+        cbL.TextYAlignment=Enum.TextYAlignment.Center; cbL.ZIndex=6; cbL.BorderSizePixel=0
+        cbL.RichText=false; cbL.Parent=cb
         local cl=Btn(cb,7)
         cb.MouseEnter:Connect(function()
-            tw(cb,{BackgroundColor3=cd[3],BackgroundTransparency=0},TI_FAST)
-            tw(ci,{ImageColor3=T.TextHi},TI_FAST)
-            if cb.UIStroke then tw(cb.UIStroke,{Color=cd[3],Transparency=0.3},TI_FAST) end
+            tw(cb,{BackgroundColor3=cd.hoverBg,BackgroundTransparency=0},TI_FAST)
+            tw(cbL,{TextColor3=cd.hoverTxt},TI_FAST)
+            tw(cbStroke,{Color=cd.hoverBg,Transparency=0.5},TI_FAST)
         end)
         cb.MouseLeave:Connect(function()
-            tw(cb,{BackgroundColor3=T.BG3,BackgroundTransparency=0.7},TI_FAST)
-            tw(ci,{ImageColor3=T.TextLo},TI_FAST)
-            if cb.UIStroke then tw(cb.UIStroke,{Color=T.Border,Transparency=0.2},TI_FAST) end
+            tw(cb,{BackgroundColor3=T.BG3,BackgroundTransparency=0},TI_FAST)
+            tw(cbL,{TextColor3=T.TextLo},TI_FAST)
+            tw(cbStroke,{Color=T.Border,Transparency=0.4},TI_FAST)
         end)
-        ctrlBtns[cd[1]]={frame=cb,click=cl}
+        ctrlBtns[cd.key]={frame=cb,click=cl,label=cbL}
     end
 
-    -- Ikona + tytuł
-    local IX,IS=108,24
-    Img({Ico=cfg.Icon,Sz=UDim2.new(0,IS,0,IS),Pos=UDim2.new(0,IX,0.5,0),AP=Vector2.new(0,0.5),Col=T.TextHi,Z=5,Par=titleBar})
-    local nOff=cfg.Icon~="" and (IX+IS+6) or IX
+    -- ── Logo + tytuł — po lewej, logo na samej prawej ─────────────────────────
+    -- Tytuł i subtitle — od lewej (po sidebars)
+    local IX=108
+    local IS=22
+
+    -- Logo — na samej prawej z marginem 3, przed przyciskami ctrl
+    local ctrlTotalW = 3*(CBTN_W+CBTN_GAP)+CBTN_MARGIN
+    local logoPos = UDim2.new(1, -(ctrlTotalW + IS + 3), 0.5, 0)
+    Img({Ico=cfg.Icon,Sz=UDim2.new(0,IS,0,IS),Pos=logoPos,AP=Vector2.new(1,0.5),Col=T.TextHi,Z=5,Par=titleBar})
+
+    local nOff = cfg.Icon~="" and (IX+IS+6) or IX
     local nameLabel=Txt({T=cfg.Name,Sz=UDim2.new(0,220,0,20),Pos=UDim2.new(0,nOff,0,4),Font=Enum.Font.GothamBold,TS=17,Col=T.TextHi,Alpha=1,Z=5,Par=titleBar})
-    local subLabel =Txt({T=cfg.Subtitle~="" and "/ "..cfg.Subtitle or "/ v"..Sentence.Version,Sz=UDim2.new(0,200,0,13),Pos=UDim2.new(0,nOff,0,25),Font=Enum.Font.Gotham,TS=13,Col=T.TextLo,Alpha=1,Z=5,Par=titleBar})
-
-    -- Stat chips (ping / players)
-    local statWrap=Box({Sz=UDim2.new(0,160,0,26),Pos=UDim2.new(1,-10,0.5,0),AP=Vector2.new(1,0.5),Bg=T.BG3,BgA=0,R=5,Z=5,Par=titleBar})
-    local pingL=Txt({T="— ms",Sz=UDim2.new(0,72,1,0),Pos=UDim2.new(0,0,0,0),Font=Enum.Font.Code,TS=13,Col=T.TextMid,AX=Enum.TextXAlignment.Right,Z=6,Par=statWrap})
-    local sepL =Txt({T="|",   Sz=UDim2.new(0,14,1,0),Pos=UDim2.new(0,74,0,0), Font=Enum.Font.Gotham,TS=12,Col=T.TextLo,AX=Enum.TextXAlignment.Center,Z=6,Par=statWrap})
-    local plrsL=Txt({T="—/—", Sz=UDim2.new(0,64,1,0),Pos=UDim2.new(0,90,0,0), Font=Enum.Font.Code,TS=13,Col=T.TextMid,Z=6,Par=statWrap})
-
-    task.spawn(function()
-        while task.wait(1.5) do
-            if not win or not win.Parent then break end
-            pcall(function()
-                local ms=math.floor(LP:GetNetworkPing()*1000)
-                pingL.Text=ms.."ms"
-                pingL.TextColor3 = ms<80 and T.Success or ms<150 and T.Warning or T.Error
-                plrsL.Text=#Plrs:GetPlayers().."/"..Plrs.MaxPlayers
-            end)
-        end
-    end)
+    -- Subtitle bez "/" — bezpośrednio tekst
+    local subText = cfg.Subtitle~="" and cfg.Subtitle or "v"..Sentence.Version
+    local subLabel=Txt({T=subText,Sz=UDim2.new(0,200,0,13),Pos=UDim2.new(0,nOff,0,26),Font=Enum.Font.Gotham,TS=13,Col=T.TextLo,Alpha=1,Z=5,Par=titleBar})
 
     -- ── Sidebar ───────────────────────────────────────────────────────────────
     local SW=50
     local sidebar=Box({Name="Sidebar",Sz=UDim2.new(0,SW,1,-TB_H-2),Pos=UDim2.new(0,0,0,TB_H+2),Bg=T.BG2,BgA=0,Z=3,Par=win})
-
-    -- Gradient pionowy na sidebarze
-    local sbg=Instance.new("UIGradient")
-    sbg.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,T.BG2),ColorSequenceKeypoint.new(1,T.BG1)}
-    sbg.Rotation=90
 
     local sbWire=Wire(sidebar,true); sbWire.Position=UDim2.new(1,-1,0,0); sbWire.BackgroundColor3=T.Border
 
@@ -692,7 +784,6 @@ function Sentence:CreateWindow(cfg)
     List(tabList,4,Enum.FillDirection.Vertical,Enum.HorizontalAlignment.Center)
     Pad(tabList,4,4,0,0)
 
-    -- Avatar
     local avBox=Box({Sz=UDim2.new(0,34,0,34),Pos=UDim2.new(0.5,0,1,-12),AP=Vector2.new(0.5,1),Bg=T.BG2,R=5,Z=4,Par=sidebar})
     local avImg=Instance.new("ImageLabel"); avImg.Size=UDim2.new(1,0,1,0)
     avImg.BackgroundTransparency=1; avImg.ZIndex=5; avImg.Parent=avBox
@@ -700,7 +791,6 @@ function Sentence:CreateWindow(cfg)
     local avS=Instance.new("UIStroke"); avS.Color=T.Accent; avS.Thickness=1.5; avS.Transparency=0.5; avS.Parent=avImg
     pcall(function() avImg.Image=Plrs:GetUserThumbnailAsync(LP.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size48x48) end)
 
-    -- Tooltip
     local tooltip=Box({Name="TT",Sz=UDim2.new(0,0,0,28),Pos=UDim2.new(0,SW+6,0,0),Bg=T.BG3,R=5,Border=true,BorderCol=T.Border,BorderA=0,Z=20,Vis=false,Par=win})
     tooltip.AutomaticSize=Enum.AutomaticSize.X
     Pad(tooltip,0,0,10,10)
@@ -765,18 +855,15 @@ function Sentence:CreateWindow(cfg)
     tw(nameLabel,{TextTransparency=0},      TI_MED)
     tw(subLabel, {TextTransparency=0},      TI_MED)
 
-    -- ── Zamknięcie (close screen) ─────────────────────────────────────────────
+    -- ── Zamknięcie ─────────────────────────────────────────────────────────────
     local function DoClose()
-        -- Blokuj interakcję
         local blocker=Instance.new("Frame"); blocker.Size=UDim2.new(1,0,1,0)
         blocker.BackgroundTransparency=1; blocker.ZIndex=900; blocker.Parent=gui
         Btn(blocker,901)
 
-        -- Overlay ze SENTENCE HUB na srodku
         local ov=Box({Sz=UDim2.new(1,0,1,0),Bg=T.BG0,BgA=1,Z=500,Par=win})
         Instance.new("UICorner",ov).CornerRadius=UDim.new(0,6)
 
-        -- Logo
         local oLogo=Instance.new("ImageLabel"); oLogo.Size=UDim2.new(0,54,0,54)
         oLogo.Position=UDim2.new(0.5,0,0.5,-70); oLogo.AnchorPoint=Vector2.new(0.5,0.5)
         oLogo.BackgroundTransparency=1; oLogo.Image=LOGO; oLogo.ScaleType=Enum.ScaleType.Fit
@@ -785,16 +872,13 @@ function Sentence:CreateWindow(cfg)
         local oName=Txt({T=cfg.Name,Sz=UDim2.new(1,0,0,24),Pos=UDim2.new(0.5,0,0.5,-26),AP=Vector2.new(0.5,0.5),Font=Enum.Font.GothamBold,TS=22,Col=T.TextHi,AX=Enum.TextXAlignment.Center,Alpha=1,Z=501,Par=ov})
         local oSub =Txt({T="Closing...",Sz=UDim2.new(1,0,0,16),Pos=UDim2.new(0.5,0,0.5, 4),AP=Vector2.new(0.5,0.5),Font=Enum.Font.Code,TS=13,Col=T.TextLo,AX=Enum.TextXAlignment.Center,Alpha=1,Z=501,Par=ov})
 
-        -- Linia postępu zamykania
         local cl2=Box({Sz=UDim2.new(0,200,0,2),Pos=UDim2.new(0.5,0,0.5,30),AP=Vector2.new(0.5,0.5),Bg=T.BG3,R=2,Z=501,Par=ov})
         local cf =Box({Sz=UDim2.new(0,0,1,0),Bg=T.Accent,R=2,Z=502,Par=cl2})
 
-        -- Czerwona obwódka okna
         if win.UIStroke then
             tw(win.UIStroke,{Color=T.Error,Transparency=0.2},TI_MED)
         end
 
-        -- Animacja pojawiania się overlay
         tw(ov,{BackgroundTransparency=0},TI(.2,Enum.EasingStyle.Quad))
         tw(oLogo,{ImageTransparency=0},TI_MED)
         tw(oName,{TextTransparency=0},TI_MED)
@@ -803,16 +887,13 @@ function Sentence:CreateWindow(cfg)
         tw(cf,   {BackgroundTransparency=0},TI_FAST)
         task.wait(0.12)
 
-        -- Pasek postępu wypełnia się
         tw(cf,{Size=UDim2.new(1,0,1,0)},TI(.55,Enum.EasingStyle.Quad))
         task.wait(0.28)
 
-        -- Zmiana tekstu
         oSub.Text="See you soon."
         tw(cf,{BackgroundColor3=T.TextHi},TI_FAST)
         task.wait(0.22)
 
-        -- Cały win kurczy się i zanika jednocześnie
         tw(win,{Size=UDim2.fromOffset(WW,0),BackgroundTransparency=1},TI(.4,Enum.EasingStyle.Back,Enum.EasingDirection.In))
         if win.UIStroke then tw(win.UIStroke,{Transparency=1},TI(.3,Enum.EasingStyle.Quad)) end
         task.wait(0.42)
@@ -820,10 +901,8 @@ function Sentence:CreateWindow(cfg)
         Sentence:Destroy()
     end
 
-    -- Minimalizacja — nowa animacja (squeeze + bounce)
     local function DoMinimize()
         if W._minimized then
-            -- Rozwijanie: najpierw szerokość, potem pełna wysokość z bounce
             W._minimized=false
             win.ClipsDescendants=true
             tw(win,{Size=FULL},TI_SPRING,function()
@@ -833,7 +912,6 @@ function Sentence:CreateWindow(cfg)
         else
             W._minimized=true
             sidebar.Visible=false; contentArea.Visible=false
-            -- Zwijanie z efektem "squish"
             local squishH=MINI.Y.Offset+6
             tw(win,{Size=UDim2.fromOffset(WW,squishH)},TI(.18,Enum.EasingStyle.Quad,Enum.EasingDirection.Out))
             task.wait(0.10)
@@ -843,7 +921,6 @@ function Sentence:CreateWindow(cfg)
 
     local function HideW()
         W._visible=false
-        -- Wyjazd okna w dół ekranu
         tw(win,{Position=UDim2.new(0.5,0,1.2,0),Size=UDim2.fromOffset(WW*0.85,WH*0.85)},TI(.45,Enum.EasingStyle.Back,Enum.EasingDirection.In),function()
             win.Visible=false
             win.Size=W._minimized and MINI or FULL
@@ -888,14 +965,13 @@ function Sentence:CreateWindow(cfg)
         hPage.ZIndex=3; hPage.Visible=false; hPage.Parent=contentArea
         List(hPage,12); Pad(hPage,18,18,18,18)
 
-        -- ── Banner / karta profilu ──────────────────────────────────────────
-        local pCard=Box({Name="PCard",Sz=UDim2.new(1,0,0,86),Bg=T.BG2,BgA=0,R=6,Border=true,BorderCol=T.Border,Z=3,Par=hPage})
-        -- Gradient w tle karty
+        local pCard=Box({Name="PCard",Sz=UDim2.new(1,0,0,86),Bg=T.BG1,BgA=0,R=6,Z=3,Par=hPage})
+        -- Tylko niebieski border
+        local pcStroke=Instance.new("UIStroke"); pcStroke.Color=T.Accent; pcStroke.Thickness=1; pcStroke.Transparency=0.6; pcStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; pcStroke.Parent=pCard
         local pcBg=Box({Sz=UDim2.new(1,0,1,0),Bg=T.AccentLo,BgA=0,R=6,Z=3,Par=pCard})
         local pcBgG=Instance.new("UIGradient")
-        pcBgG.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,T.AccentLo),ColorSequenceKeypoint.new(1,T.BG2)}
+        pcBgG.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,T.AccentLo),ColorSequenceKeypoint.new(1,T.BG1)}
         pcBgG.Rotation=0; pcBgG.Parent=pcBg
-        -- Lewa linia akcentu
         Box({Sz=UDim2.new(0,3,0.7,0),Pos=UDim2.new(0,0,0.15,0),Bg=T.Accent,R=0,Z=5,Par=pCard})
         local pAv=Instance.new("ImageLabel"); pAv.Size=UDim2.new(0,52,0,52)
         pAv.Position=UDim2.new(0,16,0.5,0); pAv.AnchorPoint=Vector2.new(0,0.5)
@@ -906,11 +982,11 @@ function Sentence:CreateWindow(cfg)
         Txt({T=LP.DisplayName,Sz=UDim2.new(1,-96,0,22),Pos=UDim2.new(0,82,0,14),Font=Enum.Font.GothamBold,TS=19,Col=T.TextHi,Z=6,Par=pCard})
         Txt({T="@"..LP.Name,  Sz=UDim2.new(1,-96,0,16),Pos=UDim2.new(0,82,0,38),Font=Enum.Font.Code,TS=14,Col=T.TextMid,Z=6,Par=pCard})
 
-        -- ── Karta statystyk ─────────────────────────────────────────────────
-        local sCard=Box({Name="SCard",Sz=UDim2.new(1,0,0,108),Bg=T.BG2,BgA=0,R=6,Border=true,BorderCol=T.Border,Z=3,Par=hPage})
+        local sCard=Box({Name="SCard",Sz=UDim2.new(1,0,0,108),Bg=T.BG1,BgA=0,R=6,Z=3,Par=hPage})
+        -- Tylko niebieski border
+        local scStroke=Instance.new("UIStroke"); scStroke.Color=T.Accent; scStroke.Thickness=1; scStroke.Transparency=0.6; scStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; scStroke.Parent=sCard
         Txt({T="SRV",       Sz=UDim2.new(0,32,0,14),Pos=UDim2.new(0,14,0,10),Font=Enum.Font.GothamBold,TS=12,Col=T.Accent,Z=4,Par=sCard})
         Txt({T="STATISTICS",Sz=UDim2.new(1,-50,0,14),Pos=UDim2.new(0,48,0,10),Font=Enum.Font.GothamBold,TS=12,Col=T.TextLo,Z=4,Par=sCard})
-        -- Separator
         local sSep=Instance.new("Frame"); sSep.Size=UDim2.new(1,-28,0,1); sSep.Position=UDim2.new(0,14,0,28)
         sSep.BackgroundColor3=T.Border; sSep.BackgroundTransparency=0; sSep.BorderSizePixel=0; sSep.ZIndex=3; sSep.Parent=sCard
         local statVals={}
@@ -1019,22 +1095,32 @@ function Sentence:CreateWindow(cfg)
             local secCon=Box({Name="SC",Sz=UDim2.new(1,0,0,0),BgA=1,Z=3,AutoY=true,Ord=shRow.LayoutOrder+1,Par=tPage})
             List(secCon,5)
 
+            -- ── Elem: tło pasuje do BG1 (T.BG1), tylko niebieski border ──────
             local function Elem(h,autoY)
-                local f=Box({Sz=UDim2.new(1,0,0,h or 40),Bg=T.BG2,BgA=0,R=6,Border=true,BorderCol=T.Border,Z=3,Par=secCon})
+                local f=Box({
+                    Sz=UDim2.new(1,0,0,h or 40),
+                    Bg=T.BG1,
+                    BgA=0,
+                    R=6,
+                    Z=3,
+                    Par=secCon,
+                })
                 if autoY then f.AutomaticSize=Enum.AutomaticSize.Y end
-                -- Subtelny gradient tła
-                local fg=Instance.new("UIGradient"); fg.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,T.BG3),ColorSequenceKeypoint.new(1,T.BG2)}
-                fg.Rotation=180; fg.Parent=f
+                -- Tylko niebieski border (accent)
+                local es=Instance.new("UIStroke")
+                es.Color=T.Accent; es.Thickness=1; es.Transparency=0.72
+                es.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; es.Parent=f
                 return f
             end
+
             local function HoverEff(f)
                 f.MouseEnter:Connect(function()
-                    tw(f,{BackgroundColor3=T.BG3},TI_FAST)
-                    if f.UIStroke then tw(f.UIStroke,{Color=T.BorderHi},TI_FAST) end
+                    tw(f,{BackgroundColor3=T.BG2},TI_FAST)
+                    if f.UIStroke then tw(f.UIStroke,{Transparency=0.45},TI_FAST) end
                 end)
                 f.MouseLeave:Connect(function()
-                    tw(f,{BackgroundColor3=T.BG2},TI_FAST)
-                    if f.UIStroke then tw(f.UIStroke,{Color=T.Border},TI_FAST) end
+                    tw(f,{BackgroundColor3=T.BG1},TI_FAST)
+                    if f.UIStroke then tw(f.UIStroke,{Transparency=0.72},TI_FAST) end
                 end)
             end
 
@@ -1071,18 +1157,15 @@ function Sentence:CreateWindow(cfg)
                 bc=merge({Name="Button",Description=nil,Callback=function()end},bc or {})
                 local f=Elem(bc.Description and 58 or 40); f.ClipsDescendants=true
 
-                -- Ripple fill
                 local rFill=Box({Sz=UDim2.new(0,0,1,0),Bg=T.Accent,BgA=1,R=0,Z=3,Par=f})
                 local rGrad=Instance.new("UIGradient"); rGrad.Transparency=NumberSequence.new{NumberSequenceKeypoint.new(0,0.88),NumberSequenceKeypoint.new(1,1)}; rGrad.Parent=rFill
 
-                -- Akcent lewa krawędź
                 local pip=Box({Sz=UDim2.new(0,3,1,0),Pos=UDim2.new(0,0,0,0),Bg=T.Accent,BgA=1,R=0,Z=5,Par=f})
 
                 Txt({T=bc.Name,Sz=UDim2.new(1,-50,0,17),Pos=UDim2.new(0,16,0,bc.Description and 10 or 12),Font=Enum.Font.GothamSemibold,TS=16,Col=T.TextHi,Z=5,Par=f})
                 if bc.Description then
                     Txt({T=bc.Description,Sz=UDim2.new(1,-50,0,15),Pos=UDim2.new(0,16,0,30),Font=Enum.Font.Gotham,TS=14,Col=T.TextMid,Z=5,Par=f})
                 end
-                -- Chevron
                 local arr=Img({Ico="arr",Sz=UDim2.new(0,13,0,13),Pos=UDim2.new(1,-20,0.5,0),AP=Vector2.new(0,0.5),Col=T.Accent,IA=0.5,Z=6,Par=f})
 
                 local cl=Btn(f,7)
@@ -1090,13 +1173,13 @@ function Sentence:CreateWindow(cfg)
                     tw(rFill,{Size=UDim2.new(1,0,1,0),BackgroundTransparency=0},TI(.28,Enum.EasingStyle.Quad))
                     tw(pip,{BackgroundTransparency=0},TI_FAST)
                     tw(arr,{ImageTransparency=0,ImageColor3=T.TextHi},TI_FAST)
-                    if f.UIStroke then tw(f.UIStroke,{Color=T.Accent,Transparency=0.55},TI_FAST) end
+                    if f.UIStroke then tw(f.UIStroke,{Transparency=0.3},TI_FAST) end
                 end)
                 f.MouseLeave:Connect(function()
                     tw(rFill,{Size=UDim2.new(0,0,1,0),BackgroundTransparency=1},TI_MED)
                     tw(pip,{BackgroundTransparency=1},TI_FAST)
                     tw(arr,{ImageTransparency=0.5,ImageColor3=T.Accent},TI_FAST)
-                    if f.UIStroke then tw(f.UIStroke,{Color=T.Border,Transparency=0},TI_FAST) end
+                    if f.UIStroke then tw(f.UIStroke,{Transparency=0.72},TI_FAST) end
                 end)
                 cl.MouseButton1Click:Connect(function()
                     tw(rFill,{BackgroundColor3=T.TextHi},TI(.08,Enum.EasingStyle.Quad))
@@ -1114,11 +1197,8 @@ function Sentence:CreateWindow(cfg)
                 if tc.Description then
                     Txt({T=tc.Description,Sz=UDim2.new(1,-72,0,15),Pos=UDim2.new(0,14,0,30),Font=Enum.Font.Gotham,TS=14,Col=T.TextMid,Z=5,Par=f})
                 end
-                -- Track
                 local trk=Box({Sz=UDim2.new(0,46,0,24),Pos=UDim2.new(1,-58,0.5,0),AP=Vector2.new(0,0.5),Bg=T.BG3,R=12,Border=true,BorderCol=T.Border,Z=5,Par=f})
-                -- Knob
                 local knob=Box({Sz=UDim2.new(0,18,0,18),Pos=UDim2.new(0,3,0.5,0),AP=Vector2.new(0,0.5),Bg=T.TextLo,R=9,Z=6,Par=trk})
-                -- Knob wewnętrzna kropka (highlight)
                 local kDot=Box({Sz=UDim2.new(0,6,0,6),Pos=UDim2.new(0.5,0,0.5,0),AP=Vector2.new(0.5,0.5),Bg=T.TextHi,BgA=0.6,R=3,Z=7,Par=knob})
 
                 local TV={CurrentValue=tc.CurrentValue,Type="Toggle",Settings=tc}
@@ -1154,12 +1234,10 @@ function Sentence:CreateWindow(cfg)
                 local vL=Txt({T=tostring(sc.CurrentValue)..sc.Suffix,Sz=UDim2.new(0,0,1,0),Font=Enum.Font.Code,TS=14,Col=T.Accent,AX=Enum.TextXAlignment.Center,Z=6,Par=vc})
                 vL.AutomaticSize=Enum.AutomaticSize.X
 
-                -- Track
                 local bg=Box({Sz=UDim2.new(1,-28,0,5),Pos=UDim2.new(0,14,0,38),Bg=T.BG3,R=3,Z=5,Par=f})
                 local fill=Box({Sz=UDim2.new(0,0,1,0),Bg=T.Accent,R=3,Z=6,Par=bg})
                 local fillG=Instance.new("UIGradient"); fillG.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,H("#4580C9")),ColorSequenceKeypoint.new(1,H("#8BC4FF"))}; fillG.Parent=fill
                 local thumb=Box({Sz=UDim2.new(0,12,0,12),Pos=UDim2.new(0,0,0.5,0),AP=Vector2.new(0.5,0.5),Bg=T.TextHi,R=6,Z=7,Par=bg})
-                -- Glow na kciuku
                 local thG=Instance.new("UIStroke"); thG.Color=T.Accent; thG.Thickness=2; thG.Transparency=0.5; thG.Parent=thumb
 
                 local SV={CurrentValue=sc.CurrentValue,Type="Slider",Settings=sc}
