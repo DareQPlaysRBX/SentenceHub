@@ -1,12 +1,13 @@
 --[[
 ╔═══════════════════════════════════════════════════════════╗
-║  SENTENCE GUI · OG Sentence Edition  v2.6                 ║
+║  SENTENCE GUI · OG Sentence Edition  v2.7                 ║
 ║  Home page rewrite — full CreateSection API               ║
+║  + CreateBind / CreateInput / CreateDropdown              ║
 ╚═══════════════════════════════════════════════════════════╝
 --]]
 
 local Sentence = {
-    Version = "2.6",
+    Version = "2.7",
     Flags   = {},
     Options = {},
     _conns  = {},
@@ -91,6 +92,7 @@ local ICONS = {
     chev_d="rbxassetid://6031094687",chev_u="rbxassetid://6031094679",
     save="rbxassetid://6031280882",  reset="rbxassetid://6031094667",
     copy="rbxassetid://6034509993",  refresh="rbxassetid://6031094679",
+    keyboard="rbxassetid://6026568227",
 }
 local function ico(n)
     if not n or n=="" then return "" end
@@ -459,7 +461,6 @@ local function BuildSectionAPI(page, accentColor)
 
         function Sec:CreateColorPicker(cc2)
             cc2=merge({Name="Color",Flag=nil,Color=Color3.new(1,1,1),Callback=function()end},cc2 or {})
-            -- Minimal colour display (full picker is complex; shows swatch + callback)
             local f = Elem(secCon,40)
             Txt({T=cc2.Name, Sz=UDim2.new(1,-60,0,17), Pos=UDim2.new(0,14,0,12),
                 Font=Enum.Font.GothamSemibold, TS=16, Col=T.TextHi, Z=5, Par=f})
@@ -471,13 +472,626 @@ local function BuildSectionAPI(page, accentColor)
             return CV
         end
 
+        -- ══════════════════════════════════════════════════════════════════════
+        -- CreateBind / CreateKeybind
+        -- ══════════════════════════════════════════════════════════════════════
+        function Sec:CreateBind(bc)
+            bc = merge({
+                Name             = "Keybind",
+                Description      = nil,
+                CurrentBind      = "E",
+                HoldToInteract   = false,
+                Flag             = nil,
+                Callback         = function() end,
+                OnChangedCallback= function() end,
+            }, bc or {})
+
+            local h = bc.Description and 58 or 40
+            local f = Elem(secCon, h)
+
+            -- Name label
+            Txt({T=bc.Name,
+                Sz=UDim2.new(1,-110,0,17),
+                Pos=UDim2.new(0,14,0,bc.Description and 10 or 12),
+                Font=Enum.Font.GothamSemibold, TS=16, Col=T.TextHi, Z=5, Par=f})
+
+            -- Description (optional)
+            if bc.Description then
+                Txt({T=bc.Description,
+                    Sz=UDim2.new(1,-110,0,15),
+                    Pos=UDim2.new(0,14,0,30),
+                    Font=Enum.Font.Gotham, TS=14, Col=T.TextMid, Z=5, Par=f})
+            end
+
+            -- Hold-to-interact badge (small, top-right corner of key pill, only when enabled)
+            -- Key display pill
+            local pill = Box({
+                Sz=UDim2.new(0,0,0,26),
+                Pos=UDim2.new(1,-12,0.5,0),
+                AP=Vector2.new(1,0.5),
+                Bg=T.BG3, R=5,
+                Border=true, BorderCol=T.AccentDim, BorderA=0.4,
+                Z=5, Par=f
+            })
+            pill.AutomaticSize = Enum.AutomaticSize.X
+            Pad(pill, 0, 0, 10, 10)
+
+            local keyTxt = Txt({
+                T = bc.CurrentBind,
+                Sz=UDim2.new(0,0,1,0),
+                Font=Enum.Font.Code, TS=14,
+                Col=accentColor,
+                AX=Enum.TextXAlignment.Center,
+                AutoX=true, Z=6, Par=pill
+            })
+
+            -- Optional "HOLD" micro-badge beneath pill
+            local holdBadge
+            if bc.HoldToInteract then
+                holdBadge = Box({
+                    Sz=UDim2.new(0,0,0,13),
+                    Pos=UDim2.new(1,-12,1,-4),
+                    AP=Vector2.new(1,1),
+                    Bg=T.AccentLo, R=3,
+                    Border=true, BorderCol=T.AccentDim, BorderA=0.55,
+                    Z=6, Par=f
+                })
+                holdBadge.AutomaticSize = Enum.AutomaticSize.X
+                Pad(holdBadge,0,0,4,4)
+                Txt({T="HOLD", Sz=UDim2.new(0,0,1,0),
+                    Font=Enum.Font.GothamBold, TS=9,
+                    Col=accentColor,
+                    AX=Enum.TextXAlignment.Center,
+                    AutoX=true, Z=7, Par=holdBadge})
+            end
+
+            -- State
+            local BV = {CurrentBind=bc.CurrentBind, Type="Bind", Settings=bc}
+            local listening    = false
+            local holdActive   = false
+            local holdConn
+
+            -- Listening state visuals
+            local function setListening(v)
+                listening = v
+                if v then
+                    tw(pill, {BackgroundColor3=T.AccentLo}, TI_FAST)
+                    local s = pill:FindFirstChildOfClass("UIStroke")
+                    if s then tw(s,{Color=accentColor,Transparency=0.15},TI_FAST) end
+                    keyTxt.Text = "..."
+                else
+                    tw(pill, {BackgroundColor3=T.BG3}, TI_FAST)
+                    local s = pill:FindFirstChildOfClass("UIStroke")
+                    if s then tw(s,{Color=T.AccentDim,Transparency=0.4},TI_FAST) end
+                    keyTxt.Text = BV.CurrentBind
+                end
+            end
+
+            -- Click pill → enter listen mode
+            local pillBtn = Btn(pill, 8)
+            pillBtn.MouseButton1Click:Connect(function()
+                if listening then setListening(false); return end
+                setListening(true)
+            end)
+
+            -- Hover glow on pill
+            pill.MouseEnter:Connect(function()
+                if not listening then
+                    local s = pill:FindFirstChildOfClass("UIStroke")
+                    if s then tw(s,{Transparency=0.1},TI_FAST) end
+                end
+            end)
+            pill.MouseLeave:Connect(function()
+                if not listening then
+                    local s = pill:FindFirstChildOfClass("UIStroke")
+                    if s then tw(s,{Transparency=0.4},TI_FAST) end
+                end
+            end)
+
+            -- Global key capture
+            track(UIS.InputBegan:Connect(function(inp, proc)
+                -- While listening: capture next key press as new bind
+                if listening then
+                    if inp.UserInputType == Enum.UserInputType.Keyboard then
+                        local kn = inp.KeyCode.Name
+                        if kn == "Escape" then setListening(false); return end
+                        BV.CurrentBind = kn
+                        setListening(false)
+                        safe(bc.OnChangedCallback, kn)
+                    end
+                    return
+                end
+
+                if proc then return end
+
+                -- Normal trigger: match bound key
+                if inp.UserInputType == Enum.UserInputType.Keyboard
+                    and inp.KeyCode.Name == BV.CurrentBind then
+
+                    if bc.HoldToInteract then
+                        holdActive = true
+                        safe(bc.Callback, true)
+                    else
+                        safe(bc.Callback, true)
+                    end
+                end
+            end))
+
+            track(UIS.InputEnded:Connect(function(inp)
+                if bc.HoldToInteract
+                    and inp.UserInputType == Enum.UserInputType.Keyboard
+                    and inp.KeyCode.Name == BV.CurrentBind
+                    and holdActive then
+                    holdActive = false
+                    safe(bc.Callback, false)
+                end
+            end))
+
+            HoverEff(f)
+
+            function BV:Set(keyName)
+                BV.CurrentBind = keyName
+                keyTxt.Text    = keyName
+                safe(bc.OnChangedCallback, keyName)
+            end
+            function BV:Destroy() f:Destroy() end
+
+            if bc.Flag then Sentence.Flags[bc.Flag]=BV; Sentence.Options[bc.Flag]=BV end
+            return BV
+        end
+
+        -- Alias
+        Sec.CreateKeybind = Sec.CreateBind
+
+        -- ══════════════════════════════════════════════════════════════════════
+        -- CreateInput
+        -- ══════════════════════════════════════════════════════════════════════
+        function Sec:CreateInput(ic)
+            ic = merge({
+                Name                   = "Input",
+                Description            = nil,
+                PlaceholderText        = "Type here...",
+                CurrentValue           = "",
+                Numeric                = false,
+                MaxCharacters          = nil,
+                Enter                  = false,
+                RemoveTextAfterFocusLost = false,
+                Flag                   = nil,
+                Callback               = function() end,
+            }, ic or {})
+
+            local h = ic.Description and 72 or 56
+            local f = Elem(secCon, h)
+
+            -- Name label
+            Txt({T=ic.Name,
+                Sz=UDim2.new(1,-24,0,16),
+                Pos=UDim2.new(0,14,0,8),
+                Font=Enum.Font.GothamSemibold, TS=15, Col=T.TextHi, Z=5, Par=f})
+
+            -- Description
+            if ic.Description then
+                Txt({T=ic.Description,
+                    Sz=UDim2.new(1,-24,0,13),
+                    Pos=UDim2.new(0,14,0,26),
+                    Font=Enum.Font.Gotham, TS=13, Col=T.TextMid, Z=5, Par=f})
+            end
+
+            local fieldY = ic.Description and 42 or 28
+            local fieldH = 22
+
+            -- Input field background
+            local fieldBg = Box({
+                Sz=UDim2.new(1,-28,0,fieldH),
+                Pos=UDim2.new(0,14,0,fieldY),
+                Bg=T.BG1, R=4,
+                Border=true, BorderCol=T.Border, BorderA=0.2,
+                Z=5, Par=f
+            })
+            Pad(fieldBg, 0, 0, 8, ic.Numeric and 28 or 8)
+
+            -- Accent left pip on field
+            Box({Sz=UDim2.new(0,2,1,0), Pos=UDim2.new(0,0,0,0), Bg=accentColor, BgA=0.6, R=0, Z=6, Par=fieldBg})
+
+            -- "123" badge for numeric mode
+            if ic.Numeric then
+                local nb = Box({
+                    Sz=UDim2.new(0,20,1,0),
+                    Pos=UDim2.new(1,0,0,0), AP=Vector2.new(1,0),
+                    Bg=T.AccentLo, R=4, Z=6, Par=fieldBg
+                })
+                Txt({T="#",
+                    Sz=UDim2.new(1,0,1,0),
+                    Font=Enum.Font.GothamBold, TS=11,
+                    Col=accentColor, AX=Enum.TextXAlignment.Center,
+                    Z=7, Par=nb})
+            end
+
+            -- Actual TextBox
+            local tb = Instance.new("TextBox")
+            tb.Name         = "InputBox"
+            tb.Size         = UDim2.new(1,0,1,0)
+            tb.BackgroundTransparency = 1
+            tb.BorderSizePixel = 0
+            tb.PlaceholderText = ic.PlaceholderText
+            tb.PlaceholderColor3 = T.TextLo
+            tb.Text         = ic.CurrentValue
+            tb.Font         = Enum.Font.Code
+            tb.TextSize     = 13
+            tb.TextColor3   = T.TextHi
+            tb.TextXAlignment = Enum.TextXAlignment.Left
+            tb.ClearTextOnFocus = false
+            tb.ZIndex       = 7
+            tb.Parent       = fieldBg
+
+            local IV = {CurrentValue=ic.CurrentValue, Type="Input", Settings=ic}
+
+            -- Focus / unfocus styling
+            tb.Focused:Connect(function()
+                local s = fieldBg:FindFirstChildOfClass("UIStroke")
+                if s then tw(s,{Color=accentColor,Transparency=0},TI_FAST) end
+                tw(fieldBg,{BackgroundColor3=T.BG2},TI_FAST)
+            end)
+
+            tb.FocusLost:Connect(function(enterPressed)
+                local s = fieldBg:FindFirstChildOfClass("UIStroke")
+                if s then tw(s,{Color=T.Border,Transparency=0.2},TI_FAST) end
+                tw(fieldBg,{BackgroundColor3=T.BG1},TI_FAST)
+
+                local val = tb.Text
+
+                -- Numeric filter
+                if ic.Numeric then
+                    val = val:gsub("[^%d%.%-]","")
+                    tb.Text = val
+                end
+
+                -- Max characters
+                if ic.MaxCharacters and #val > ic.MaxCharacters then
+                    val = val:sub(1,ic.MaxCharacters)
+                    tb.Text = val
+                end
+
+                IV.CurrentValue = val
+
+                if ic.RemoveTextAfterFocusLost then
+                    tb.Text = ""
+                    IV.CurrentValue = ""
+                end
+
+                -- Fire callback: either on Enter-only or always on focus lost
+                if ic.Enter then
+                    if enterPressed then safe(ic.Callback, val) end
+                else
+                    safe(ic.Callback, val)
+                end
+            end)
+
+            -- Live numeric filter while typing
+            if ic.Numeric then
+                tb:GetPropertyChangedSignal("Text"):Connect(function()
+                    local clean = tb.Text:gsub("[^%d%.%-]","")
+                    if clean ~= tb.Text then tb.Text = clean end
+                    if ic.MaxCharacters and #tb.Text > ic.MaxCharacters then
+                        tb.Text = tb.Text:sub(1,ic.MaxCharacters)
+                    end
+                end)
+            elseif ic.MaxCharacters then
+                tb:GetPropertyChangedSignal("Text"):Connect(function()
+                    if #tb.Text > ic.MaxCharacters then
+                        tb.Text = tb.Text:sub(1,ic.MaxCharacters)
+                    end
+                end)
+            end
+
+            HoverEff(f)
+
+            function IV:Set(v)
+                v = tostring(v)
+                if ic.MaxCharacters and #v > ic.MaxCharacters then v = v:sub(1,ic.MaxCharacters) end
+                tb.Text        = v
+                IV.CurrentValue = v
+            end
+            function IV:Destroy() f:Destroy() end
+
+            if ic.Flag then Sentence.Flags[ic.Flag]=IV; Sentence.Options[ic.Flag]=IV end
+            return IV
+        end
+
+        -- ══════════════════════════════════════════════════════════════════════
+        -- CreateDropdown
+        -- ══════════════════════════════════════════════════════════════════════
+        function Sec:CreateDropdown(dc)
+            dc = merge({
+                Name            = "Dropdown",
+                Description     = nil,
+                Options         = {"Option 1","Option 2"},
+                CurrentOption   = nil,
+                MultipleOptions = false,
+                SpecialType     = nil,
+                Flag            = nil,
+                Callback        = function() end,
+            }, dc or {})
+
+            -- Player special type: auto-populate from server
+            local function resolveOptions()
+                if dc.SpecialType == "Player" then
+                    local t={}
+                    for _,p in ipairs(Plrs:GetPlayers()) do t[#t+1]=p.Name end
+                    return t
+                end
+                return dc.Options
+            end
+
+            -- Normalise current selection
+            local opts = resolveOptions()
+            local function defaultSel()
+                if dc.MultipleOptions then return {} end
+                return opts[1] or ""
+            end
+            local currentSel  -- string (single) or table (multi)
+            if dc.CurrentOption ~= nil then
+                currentSel = dc.CurrentOption
+            else
+                currentSel = defaultSel()
+            end
+
+            -- ── Frame ────────────────────────────────────────────────────────
+            local baseH = dc.Description and 72 or 56
+            local f = Elem(secCon, baseH, true)
+
+            -- Name
+            Txt({T=dc.Name,
+                Sz=UDim2.new(1,-24,0,16),
+                Pos=UDim2.new(0,14,0,8),
+                Font=Enum.Font.GothamSemibold, TS=15, Col=T.TextHi, Z=5, Par=f})
+
+            if dc.Description then
+                Txt({T=dc.Description,
+                    Sz=UDim2.new(1,-24,0,13),
+                    Pos=UDim2.new(0,14,0,26),
+                    Font=Enum.Font.Gotham, TS=13, Col=T.TextMid, Z=5, Par=f})
+            end
+
+            local headerY = dc.Description and 42 or 28
+            local headerH = 24
+
+            -- Display bar (closed state)
+            local headerBar = Box({
+                Sz=UDim2.new(1,-28,0,headerH),
+                Pos=UDim2.new(0,14,0,headerY),
+                Bg=T.BG1, R=5,
+                Border=true, BorderCol=T.Border, BorderA=0.2,
+                Z=5, Par=f
+            })
+            Pad(headerBar,0,0,10,34)
+
+            -- Left accent pip on bar
+            Box({Sz=UDim2.new(0,2,1,0), Pos=UDim2.new(0,0,0,0), Bg=accentColor, BgA=0.6, R=0, Z=6, Par=headerBar})
+
+            -- Current value text
+            local dispTxt = Txt({
+                T="",
+                Sz=UDim2.new(1,0,1,0),
+                Font=Enum.Font.Code, TS=13, Col=T.TextHi,
+                Z=6, Par=headerBar
+            })
+
+            -- Chevron
+            local chev = Img({Ico="chev_d",
+                Sz=UDim2.new(0,11,0,11),
+                Pos=UDim2.new(1,-18,0.5,0), AP=Vector2.new(0.5,0.5),
+                Col=T.TextLo, Z=7, Par=headerBar})
+
+            -- Dropdown panel (absolute, sits below header)
+            local panel = Box({
+                Name="DropPanel",
+                Sz=UDim2.new(1,-28,0,0),
+                Pos=UDim2.new(0,14,0,headerY+headerH+4),
+                Bg=T.BG1, R=5,
+                Border=true, BorderCol=T.AccentDim, BorderA=0.3,
+                Z=10, Clip=true, Par=f
+            })
+            panel.Visible = false
+            panel.AutomaticSize = Enum.AutomaticSize.None
+
+            local panelScroll = Instance.new("ScrollingFrame")
+            panelScroll.Size=UDim2.new(1,0,1,0)
+            panelScroll.BackgroundTransparency=1
+            panelScroll.BorderSizePixel=0
+            panelScroll.ScrollBarThickness=2
+            panelScroll.ScrollBarImageColor3=T.Border
+            panelScroll.CanvasSize=UDim2.new(0,0,0,0)
+            panelScroll.AutomaticCanvasSize=Enum.AutomaticSize.Y
+            panelScroll.ZIndex=11
+            panelScroll.Parent=panel
+            List(panelScroll,2); Pad(panelScroll,4,4,4,4)
+
+            local DV = {
+                CurrentOption=currentSel,
+                Type="Dropdown",
+                Settings=dc,
+                _open=false,
+                _items={}
+            }
+
+            -- Helper: get display string
+            local function dispStr()
+                if dc.MultipleOptions then
+                    if type(currentSel)=="table" and #currentSel>0 then
+                        return table.concat(currentSel,", ")
+                    end
+                    return "None"
+                else
+                    return tostring(currentSel)
+                end
+            end
+
+            -- Helper: is option selected?
+            local function isSelected(opt)
+                if dc.MultipleOptions then
+                    for _,v in ipairs(currentSel) do if v==opt then return true end end
+                    return false
+                else
+                    return currentSel==opt
+                end
+            end
+
+            -- Forward-declare rebuild so items can reference toggle
+            local rebuildItems
+
+            -- Open / close
+            local function openPanel()
+                DV._open = true
+                panel.Visible = true
+                local maxItems = math.min(#DV._items,5)
+                local panH = maxItems * 28 + (maxItems+1)*2 + 8
+                panel.Size = UDim2.new(1,-28,0,0)
+                tw(panel,{Size=UDim2.new(1,-28,0,panH)},TI_SPRING)
+                tw(chev,{Rotation=180,ImageColor3=accentColor},TI_FAST)
+                local s=headerBar:FindFirstChildOfClass("UIStroke")
+                if s then tw(s,{Color=accentColor,Transparency=0.1},TI_FAST) end
+            end
+
+            local function closePanel()
+                DV._open = false
+                tw(panel,{Size=UDim2.new(1,-28,0,0)},TI_MED,function()
+                    panel.Visible=false
+                end)
+                tw(chev,{Rotation=0,ImageColor3=T.TextLo},TI_FAST)
+                local s=headerBar:FindFirstChildOfClass("UIStroke")
+                if s then tw(s,{Color=T.Border,Transparency=0.2},TI_FAST) end
+            end
+
+            -- Build item rows
+            rebuildItems = function()
+                -- Clear old items
+                for _,i in ipairs(DV._items) do pcall(function() i:Destroy() end) end
+                DV._items = {}
+
+                local curOpts = resolveOptions()
+                for _,opt in ipairs(curOpts) do
+                    local row = Box({
+                        Sz=UDim2.new(1,0,0,26),
+                        Bg=T.BG2, R=4, Z=12, Par=panelScroll
+                    })
+                    row.BackgroundTransparency = isSelected(opt) and 0 or 1
+
+                    -- Tick mark
+                    local tick = Img({Ico="ok",
+                        Sz=UDim2.new(0,10,0,10),
+                        Pos=UDim2.new(1,-14,0.5,0), AP=Vector2.new(0.5,0.5),
+                        Col=accentColor, IA=isSelected(opt) and 0 or 1,
+                        Z=13, Par=row})
+
+                    Txt({T=opt,
+                        Sz=UDim2.new(1,-30,1,0),
+                        Pos=UDim2.new(0,10,0,0),
+                        Font=Enum.Font.GothamSemibold, TS=13,
+                        Col=isSelected(opt) and T.TextHi or T.TextMid,
+                        Z=13, Par=row})
+
+                    local rowBtn = Btn(row,14)
+                    row.MouseEnter:Connect(function()
+                        if not isSelected(opt) then
+                            tw(row,{BackgroundTransparency=0.6,BackgroundColor3=T.BG3},TI_FAST)
+                        end
+                    end)
+                    row.MouseLeave:Connect(function()
+                        if not isSelected(opt) then
+                            tw(row,{BackgroundTransparency=1},TI_FAST)
+                        end
+                    end)
+
+                    rowBtn.MouseButton1Click:Connect(function()
+                        if dc.MultipleOptions then
+                            -- Toggle in list
+                            if type(currentSel)~="table" then currentSel={} end
+                            local found=false
+                            for i2,v in ipairs(currentSel) do
+                                if v==opt then table.remove(currentSel,i2); found=true; break end
+                            end
+                            if not found then currentSel[#currentSel+1]=opt end
+                            DV.CurrentOption=currentSel
+                            dispTxt.Text=dispStr()
+                            safe(dc.Callback,currentSel)
+                            -- Refresh ticks without full rebuild
+                            rebuildItems()
+                        else
+                            currentSel=opt
+                            DV.CurrentOption=opt
+                            dispTxt.Text=dispStr()
+                            safe(dc.Callback,opt)
+                            closePanel()
+                        end
+                    end)
+
+                    DV._items[#DV._items+1] = row
+                end
+            end
+
+            -- Initialise display
+            rebuildItems()
+            dispTxt.Text = dispStr()
+
+            -- Toggle on header click
+            local hBtn = Btn(headerBar, 8)
+            hBtn.MouseButton1Click:Connect(function()
+                if DV._open then closePanel() else openPanel() end
+            end)
+
+            -- Hover on header
+            headerBar.MouseEnter:Connect(function()
+                tw(headerBar,{BackgroundColor3=T.BG2},TI_FAST)
+            end)
+            headerBar.MouseLeave:Connect(function()
+                tw(headerBar,{BackgroundColor3=T.BG1},TI_FAST)
+            end)
+
+            -- Public API
+            function DV:Set(options)
+                if dc.MultipleOptions then
+                    currentSel = type(options)=="table" and options or {options}
+                else
+                    currentSel = options
+                end
+                DV.CurrentOption = currentSel
+                dispTxt.Text     = dispStr()
+                if DV._open then rebuildItems() end
+                safe(dc.Callback, currentSel)
+            end
+
+            function DV:Refresh(newOptions)
+                dc.Options = newOptions or dc.Options
+                local wasOpen = DV._open
+                if wasOpen then closePanel() end
+                -- Reset selection to default
+                currentSel  = defaultSel()
+                DV.CurrentOption = currentSel
+                dispTxt.Text = dispStr()
+                rebuildItems()
+                if wasOpen then task.wait(0.05); openPanel() end
+            end
+
+            function DV:Destroy() f:Destroy() end
+
+            HoverEff(f)
+
+            if dc.Flag then Sentence.Flags[dc.Flag]=DV; Sentence.Options[dc.Flag]=DV end
+            return DV
+        end
+
         return Sec
     end
 
     -- ── Default section shortcut ───────────────────────────────────────────
     local _ds
     local function gds() if not _ds then _ds=API:CreateSection("") end; return _ds end
-    for _,m in ipairs({"CreateButton","CreateLabel","CreateParagraph","CreateToggle","CreateSlider","CreateDivider","CreateColorPicker"}) do
+    for _,m in ipairs({
+        "CreateButton","CreateLabel","CreateParagraph","CreateToggle",
+        "CreateSlider","CreateDivider","CreateColorPicker",
+        "CreateBind","CreateKeybind","CreateInput","CreateDropdown"
+    }) do
         API[m]=function(self,...) return gds()[m](gds(),...) end
     end
 
@@ -566,7 +1180,7 @@ function Sentence:Notify(data)
         tw(iconRingStroke,{Transparency=1},TI_OUT); tw(iconImg,{ImageTransparency=1},TI_OUT)
         tw(typeL,{TextTransparency=1},TI_OUT); tw(ttl,{TextTransparency=1},TI_OUT)
         tw(msg,{TextTransparency=1},TI_OUT); tw(cardStroke,{Transparency=1},TI_OUT); tw(xIco,{ImageTransparency=1},TI_OUT)
-        tw(card,{BackgroundTransparency=1,Position=UDim2.new(-1.1,0,1,0)},TI(.22,Enum.EasingStyle.Quad,Enum.EasingDirection.In))
+        tw(card,{BackgroundColor3=T.BG1,Position=UDim2.new(-1.1,0,1,0)},TI(.22,Enum.EasingStyle.Quad,Enum.EasingDirection.In))
         task.wait(0.24)
         tw(card,{Size=UDim2.new(0,300,0,0)},TI_MED,function() card:Destroy() end)
     end)
@@ -957,7 +1571,6 @@ function Sentence:CreateWindow(cfg)
         local hIco = Img({Ico=hCfg.Icon, Sz=UDim2.new(0,18,0,18), Col=T.TextLo, Z=6, Par=hBox})
         local hCL  = Btn(hBox,7)
 
-        -- Scrollable page
         local hPage = Instance.new("ScrollingFrame"); hPage.Name="HomePage"
         hPage.Size=UDim2.new(1,0,1,0); hPage.BackgroundTransparency=1; hPage.BorderSizePixel=0
         hPage.ScrollBarThickness=2; hPage.ScrollBarImageColor3=T.Border
@@ -968,12 +1581,9 @@ function Sentence:CreateWindow(cfg)
         -- ── BUILT-IN: Player Card ─────────────────────────────────────────────
         local pCard = Box({Name="PlayerCard", Sz=UDim2.new(1,0,0,86), Bg=T.BG1, BgA=0, R=8, Z=3, Par=hPage})
         local pcStroke=Instance.new("UIStroke"); pcStroke.Color=T.Accent; pcStroke.Thickness=1; pcStroke.Transparency=0.55; pcStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; pcStroke.Parent=pCard
-        -- Subtle blue gradient wash
         local pcBg=Box({Sz=UDim2.new(1,0,1,0), Bg=T.AccentLo, BgA=0, R=8, Z=3, Par=pCard})
         local pcBgG=Instance.new("UIGradient"); pcBgG.Color=ColorSequence.new{ColorSequenceKeypoint.new(0,T.AccentLo),ColorSequenceKeypoint.new(1,T.BG1)}; pcBgG.Rotation=0; pcBgG.Parent=pcBg
-        -- Left accent bar
         Box({Sz=UDim2.new(0,3,0.7,0), Pos=UDim2.new(0,0,0.15,0), Bg=T.Accent, R=0, Z=5, Par=pCard})
-        -- Avatar
         local pAv=Instance.new("ImageLabel"); pAv.Size=UDim2.new(0,52,0,52); pAv.Position=UDim2.new(0,16,0.5,0); pAv.AnchorPoint=Vector2.new(0,0.5)
         pAv.BackgroundTransparency=1; pAv.ZIndex=6; pAv.Parent=pCard
         Instance.new("UICorner",pAv).CornerRadius=UDim.new(0,6)
@@ -981,7 +1591,6 @@ function Sentence:CreateWindow(cfg)
         pcall(function() pAv.Image=Plrs:GetUserThumbnailAsync(LP.UserId,Enum.ThumbnailType.HeadShot,Enum.ThumbnailSize.Size150x150) end)
         Txt({T=LP.DisplayName, Sz=UDim2.new(1,-100,0,22), Pos=UDim2.new(0,82,0,14), Font=Enum.Font.GothamBold, TS=19, Col=T.TextHi,  Z=6, Par=pCard})
         Txt({T="@"..LP.Name,   Sz=UDim2.new(1,-100,0,16), Pos=UDim2.new(0,82,0,38), Font=Enum.Font.Code,       TS=14, Col=T.TextMid, Z=6, Par=pCard})
-        -- SENTENCE badge top-right
         local badge=Box({Sz=UDim2.new(0,0,0,18), Pos=UDim2.new(1,-12,0,10), AP=Vector2.new(1,0), Bg=T.AccentLo, R=4, Z=6, Par=pCard})
         badge.AutomaticSize=Enum.AutomaticSize.X; Pad(badge,0,0,6,6)
         local bs=Instance.new("UIStroke"); bs.Color=T.Accent; bs.Thickness=1; bs.Transparency=0.55; bs.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; bs.Parent=badge
@@ -990,7 +1599,6 @@ function Sentence:CreateWindow(cfg)
         -- ── BUILT-IN: Server Statistics Card ─────────────────────────────────
         local sCard = Box({Name="SrvCard", Sz=UDim2.new(1,0,0,108), Bg=T.BG1, BgA=0, R=8, Z=3, Par=hPage})
         local scStroke=Instance.new("UIStroke"); scStroke.Color=T.Accent; scStroke.Thickness=1; scStroke.Transparency=0.55; scStroke.ApplyStrokeMode=Enum.ApplyStrokeMode.Border; scStroke.Parent=sCard
-        -- Header
         Txt({T="SRV",        Sz=UDim2.new(0,32,0,14), Pos=UDim2.new(0,14,0,10), Font=Enum.Font.GothamBold, TS=12, Col=T.Accent,  Z=4, Par=sCard})
         Txt({T="STATISTICS", Sz=UDim2.new(1,-50,0,14), Pos=UDim2.new(0,48,0,10), Font=Enum.Font.GothamBold, TS=12, Col=T.TextLo,  Z=4, Par=sCard})
         local sSep=Instance.new("Frame"); sSep.Size=UDim2.new(1,-28,0,1); sSep.Position=UDim2.new(0,14,0,28)
@@ -1018,11 +1626,9 @@ function Sentence:CreateWindow(cfg)
             end
         end)
 
-        -- ── Section API — reuses shared BuildSectionAPI ───────────────────────
         local HomeObj = BuildSectionAPI(hPage, T.Accent)
         HomeObj.Activate = function() SwitchTab(id) end
 
-        -- Wire up tab button
         table.insert(W._tabs,{id=id,box=hBox,page=hPage,bar=hBar,ico=hIco})
         hCL.MouseButton1Click:Connect(function() SwitchTab(id) end)
         hBox.MouseEnter:Connect(function()
@@ -1063,7 +1669,6 @@ function Sentence:CreateWindow(cfg)
             Txt({T=tCfg.Name:upper(), Sz=UDim2.new(1,-24,0,18), Pos=UDim2.new(0,24,0.5,0), AP=Vector2.new(0,0.5), Font=Enum.Font.GothamBold, TS=18, Col=T.TextHi, Z=4, Par=tRow})
         end
 
-        -- Merge section API into Tab
         local secAPI = BuildSectionAPI(tPage, T.Accent)
         for k,v in pairs(secAPI) do Tab[k]=v end
         function Tab:Activate() SwitchTab(id) end
