@@ -42,11 +42,11 @@ end
 -- ── Color Theme — OG Sentence ─────────────────────────────────────────────────
 local T = {
     -- Backgrounds (charcoal / near-black)
-    BG0     = H("#111111"),  -- void (darker than primary)
-    BG1     = H("#1e1e1e"),  -- PrimaryBackground
+    BG0     = H("#0e0e0e"),  -- void (darker than primary)
+    BG1     = H("#181818"),  -- PrimaryBackground
     BG2     = H("#202020"),  -- SecondaryBackground
-    BG3     = H("#252525"),  -- TertiaryBackground
-    BG4     = H("#2b2b2b"),  -- ButtonNormalBackground / hover
+    BG3     = H("#1a1a1a"),  -- TertiaryBackground
+    BG4     = H("#1f1f1f"),  -- ButtonNormalBackground / hover
 
     -- Glass surfaces (warm charcoal tint)
     Glass   = H("#1a1a1a"),  -- glass tint (TertiaryBackground)
@@ -2502,7 +2502,7 @@ function Sentence:CreateWindow(cfg)
         AnchorPoint=Vector2.new(0.5,0.5),
         Color     = T.BG1,
         Alpha     = 0,
-        Radius    = 8,
+        Radius    = 4,
         Clip      = true,
         Z         = 1,
         Parent    = gui,
@@ -2630,8 +2630,8 @@ function Sentence:CreateWindow(cfg)
     -- Logo
     local logoI = Instance.new("ImageLabel")
     logoI.Name  = "WinLogo"
-    logoI.Size  = UDim2.new(0,30,0,30)
-    logoI.Position  = UDim2.new(0,14,0.5,0)
+    logoI.Size  = UDim2.new(0,36,0,36)
+    logoI.Position  = UDim2.new(0,10,0.5,0)
     logoI.AnchorPoint = Vector2.new(0,0.5)
     logoI.BackgroundTransparency = 1
     logoI.Image = cfg.Icon ~= "" and resolveIcon(cfg.Icon) or LOGO_ID
@@ -2658,7 +2658,7 @@ function Sentence:CreateWindow(cfg)
     local winSub = newText({
         Text     = subStr,
         Size     = UDim2.new(0,200,0,13),
-        Position = UDim2.new(0,txOff,0,22),
+        Position = UDim2.new(0,txOff,0,24),
         Font     = Enum.Font.Code,
         TextSize = FS.WinSubtitle,
         Color    = T.TextMid,
