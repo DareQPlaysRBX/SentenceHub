@@ -1,18 +1,17 @@
 --[[
 ╔══════════════════════════════════════════════════════════════════════╗
-║  FROST UI  ·  v1.0                                                  ║
+║  SENTENCE GUI  ·  v4.0                                              ║
 ║  Glassmorphism Executor Framework                                    ║
 ║  Professional · Animated · Modular                                  ║
 ╚══════════════════════════════════════════════════════════════════════╝
 
-  Theme  : Deep black / ice blue / polar white glassmorphism
+  Theme  : OG Sentence — charcoal black / steel blue glassmorphism
   Style  : Frosted glass cards, animated controls, layered depth
-  Target : Roblox Script Executors
 
 --]]
 
-local Frost = {
-    Version = "1.0",
+local Sentence = {
+    Version = "4.0",
     Flags   = {},
     Options = {},
     _conns  = {},
@@ -39,50 +38,50 @@ local function H(hex)
     )
 end
 
--- ── Color Theme ───────────────────────────────────────────────────────────────
+-- ── Color Theme — OG Sentence ─────────────────────────────────────────────────
 local T = {
-    -- Backgrounds (deep black-blue)
-    BG0     = H("#010409"),  -- void
-    BG1     = H("#050810"),  -- base window
-    BG2     = H("#080d1a"),  -- card
-    BG3     = H("#0c1220"),  -- elevated card
-    BG4     = H("#111828"),  -- hover state
+    -- Backgrounds (charcoal / near-black)
+    BG0     = H("#0e0e0e"),  -- void (darker than primary)
+    BG1     = H("#121212"),  -- PrimaryBackground
+    BG2     = H("#161616"),  -- SecondaryBackground
+    BG3     = H("#1a1a1a"),  -- TertiaryBackground
+    BG4     = H("#1f1f1f"),  -- ButtonNormalBackground / hover
 
-    -- Glass surfaces (simulated via transparency)
-    Glass   = H("#1a2540"),  -- glass tint
-    GlassHi = H("#243050"),  -- glass hover
+    -- Glass surfaces (warm charcoal tint)
+    Glass   = H("#1a1a1a"),  -- glass tint (TertiaryBackground)
+    GlassHi = H("#252525"),  -- glass hover (BorderColor)
 
     -- Borders
-    Border  = H("#1e2d4a"),  -- subtle
-    BorderHi= H("#2e4470"),  -- active
-    BorderGl= H("#4a6fa0"),  -- glass edge (light)
+    Border  = H("#252525"),  -- BorderColor
+    BorderHi= H("#2d2d2d"),  -- MenuBorder / active border
+    BorderGl= H("#3a3a3a"),  -- glass edge (slightly lighter for visibility)
 
-    -- Ice blue primary
-    Ice     = H("#7dd3fc"),  -- sky-300 (primary accent)
-    IceDim  = H("#38bdf8"),  -- sky-400
-    IceLo   = H("#0c1f35"),  -- faint ice bg
-    IceGlow = H("#bae6fd"),  -- bright ice
+    -- Steel blue primary accent  (#5A9FE8)
+    Ice     = H("#5A9FE8"),  -- AccentColor (primary)
+    IceDim  = H("#4580C9"),  -- NotificationPanelAccentGradientEnd (dim)
+    IceLo   = H("#0d1e33"),  -- faint accent bg (EditorSelection-inspired)
+    IceGlow = H("#8bbff0"),  -- bright accent highlight
 
-    -- Violet secondary
-    Violet  = H("#a78bfa"),  -- violet-400
-    VioletDim=H("#7c3aed"), -- dim
-    VioletLo= H("#130d2e"),  -- faint bg
+    -- Neutral secondary (no vivid violet — keep monochrome feel)
+    Violet  = H("#909090"),  -- TextSecondary (used as secondary accent)
+    VioletDim=H("#606060"),  -- dimmer grey
+    VioletLo= H("#181818"),  -- ConsoleBackground
 
-    -- Teal tertiary
-    Teal    = H("#5eead4"),  -- teal-300
-    TealDim = H("#14b8a6"),  -- teal-500
-    TealLo  = H("#061a18"),  -- faint bg
+    -- Subtle tertiary (near-white highlight)
+    Teal    = H("#c8c8c8"),  -- ButtonNormalForeground (used as tertiary)
+    TealDim = H("#a8a8a8"),  -- ScriptsPanelHeaderText
+    TealLo  = H("#151515"),  -- ConsoleContent
 
     -- Status
-    Success = H("#4ade80"),  -- green-400
-    Warning = H("#fbbf24"),  -- amber-400
-    Error   = H("#f87171"),  -- red-400
+    Success = H("#4ade80"),  -- green (unchanged)
+    Warning = H("#fbbf24"),  -- amber (unchanged)
+    Error   = H("#f87171"),  -- red (unchanged)
 
     -- Text
-    TextHi  = H("#f0f8ff"),  -- near white (alice blue)
-    TextMid = H("#7a9cc0"),  -- muted ice
-    TextLo  = H("#2a4060"),  -- dark muted
-    TextGhost=H("#1a2e48"), -- barely visible
+    TextHi  = H("#E8E8E8"),  -- TextPrimary
+    TextMid = H("#909090"),  -- TextSecondary
+    TextLo  = H("#505050"),  -- ButtonDisabledForeground
+    TextGhost=H("#2d2d2d"), -- barely visible (BorderHi)
 }
 
 -- ── Tween Helpers ─────────────────────────────────────────────────────────────
@@ -112,10 +111,10 @@ local function merge(defaults, overrides)
     end
     return overrides
 end
-local function track(c) table.insert(Frost._conns, c); return c end
+local function track(c) table.insert(Sentence._conns, c); return c end
 local function safe(fn, ...)
     local ok, err = pcall(fn, ...)
-    if not ok then warn("[FROST] " .. tostring(err)) end
+    if not ok then warn("[SENTENCE] " .. tostring(err)) end
 end
 
 -- ── Icon Assets ───────────────────────────────────────────────────────────────
@@ -792,7 +791,7 @@ local function buildSectionAPI(page, accent, secondary)
             function TV:Set(v)
                 TV.CurrentValue = v; refresh(); safe(cfg.Callback, v)
             end
-            if cfg.Flag then Frost.Flags[cfg.Flag]=TV; Frost.Options[cfg.Flag]=TV end
+            if cfg.Flag then Sentence.Flags[cfg.Flag]=TV; Sentence.Options[cfg.Flag]=TV end
             return TV
         end
 
@@ -973,7 +972,7 @@ local function buildSectionAPI(page, accent, secondary)
             addHover(card, strip, stroke)
 
             function SV:Set(v) setValue(v); safe(cfg.Callback, SV.CurrentValue) end
-            if cfg.Flag then Frost.Flags[cfg.Flag]=SV; Frost.Options[cfg.Flag]=SV end
+            if cfg.Flag then Sentence.Flags[cfg.Flag]=SV; Sentence.Options[cfg.Flag]=SV end
             return SV
         end
 
@@ -1016,7 +1015,7 @@ local function buildSectionAPI(page, accent, secondary)
                 swatch.BackgroundColor3 = c
                 safe(cfg.Callback, c)
             end
-            if cfg.Flag then Frost.Flags[cfg.Flag]=CV; Frost.Options[cfg.Flag]=CV end
+            if cfg.Flag then Sentence.Flags[cfg.Flag]=CV; Sentence.Options[cfg.Flag]=CV end
             return CV
         end
 
@@ -1181,7 +1180,7 @@ local function buildSectionAPI(page, accent, secondary)
                 safe(cfg.OnChangedCallback, k)
             end
             function BV:Destroy() card:Destroy() end
-            if cfg.Flag then Frost.Flags[cfg.Flag]=BV; Frost.Options[cfg.Flag]=BV end
+            if cfg.Flag then Sentence.Flags[cfg.Flag]=BV; Sentence.Options[cfg.Flag]=BV end
             return BV
         end
         Sec.CreateKeybind = Sec.CreateBind
@@ -1309,7 +1308,7 @@ local function buildSectionAPI(page, accent, secondary)
                 tb.Text = v; IV.CurrentValue = v
             end
             function IV:Destroy() card:Destroy() end
-            if cfg.Flag then Frost.Flags[cfg.Flag]=IV; Frost.Options[cfg.Flag]=IV end
+            if cfg.Flag then Sentence.Flags[cfg.Flag]=IV; Sentence.Options[cfg.Flag]=IV end
             return IV
         end
 
@@ -1590,7 +1589,7 @@ local function buildSectionAPI(page, accent, secondary)
                 if was then task.wait(0.05); openPanel() end
             end
             function DV:Destroy() card:Destroy() end
-            if cfg.Flag then Frost.Flags[cfg.Flag]=DV; Frost.Options[cfg.Flag]=DV end
+            if cfg.Flag then Sentence.Flags[cfg.Flag]=DV; Sentence.Options[cfg.Flag]=DV end
             return DV
         end
 
@@ -1625,7 +1624,7 @@ local NotifColors = {
     Error   = {fg=T.Error,   stroke=T.Error,   badge=T.BG3,      icon="✕"},
 }
 
-function Frost:Notify(data)
+function Sentence:Notify(data)
     task.spawn(function()
         data = merge({
             Title="Notice", Content="", Type="Info",
@@ -1918,16 +1917,16 @@ end
 -- ══════════════════════════════════════════════════════════════════════════════
 -- CREATE WINDOW
 -- ══════════════════════════════════════════════════════════════════════════════
-function Frost:CreateWindow(cfg)
+function Sentence:CreateWindow(cfg)
     cfg = merge({
-        Name           = "FROST",
+        Name           = "SENTENCE",
         Subtitle       = "",
         Icon           = "",
         ToggleBind     = Enum.KeyCode.RightControl,
         LoadingEnabled = true,
-        LoadingTitle   = "FROST",
+        LoadingTitle   = "SENTENCE",
         LoadingSubtitle= "Initializing…",
-        ConfigurationSaving = {Enabled=false, FolderName="Frost", FileName="config"},
+        ConfigurationSaving = {Enabled=false, FolderName="Sentence", FileName="config"},
     }, cfg)
 
     local vp   = Cam.ViewportSize
@@ -1940,7 +1939,7 @@ function Frost:CreateWindow(cfg)
 
     -- ── ScreenGui ─────────────────────────────────────────────────────────────
     local gui = Instance.new("ScreenGui")
-    gui.Name             = "FrostUI"
+    gui.Name             = "SentenceUI"
     gui.DisplayOrder     = 999999999
     gui.ZIndexBehavior   = Enum.ZIndexBehavior.Sibling
     gui.ResetOnSpawn     = false
@@ -1969,7 +1968,7 @@ function Frost:CreateWindow(cfg)
     self._notifHolder = notifHolder
 
     -- ══════════════════════════════════════════════════════════════════════════
-    -- SPLASH SCREEN — "Frost Genesis"
+    -- SPLASH SCREEN — "Sentence Genesis"
     -- Crystal materializing sequence
     -- ══════════════════════════════════════════════════════════════════════════
     task.spawn(function()
@@ -2600,7 +2599,7 @@ function Frost:CreateWindow(cfg)
         Z        = 6,
         Parent   = titleBar,
     })
-    local subStr = cfg.Subtitle ~= "" and cfg.Subtitle or ("v"..Frost.Version)
+    local subStr = cfg.Subtitle ~= "" and cfg.Subtitle or ("v"..Sentence.Version)
     local winSub = newText({
         Text     = subStr,
         Size     = UDim2.new(0,180,0,11),
@@ -2936,7 +2935,7 @@ function Frost:CreateWindow(cfg)
         },TI(.32,Enum.EasingStyle.Back,Enum.EasingDirection.In))
         tw(winStroke,{Transparency=1},TI(.28))
         task.wait(0.36)
-        Frost:Destroy()
+        Sentence:Destroy()
     end
 
     local function doMinimize()
@@ -2969,7 +2968,7 @@ function Frost:CreateWindow(cfg)
 
     ctrlButtons["×"].click.MouseButton1Click:Connect(doClose)
     ctrlButtons["·"].click.MouseButton1Click:Connect(function()
-        Frost:Notify({Title="Hidden",Content=cfg.ToggleBind.Name.." to reopen",Type="Info"})
+        Sentence:Notify({Title="Hidden",Content=cfg.ToggleBind.Name.." to reopen",Type="Info"})
         hideWindow()
     end)
     ctrlButtons["−"].click.MouseButton1Click:Connect(doMinimize)
@@ -3082,7 +3081,7 @@ function Frost:CreateWindow(cfg)
             Parent   = pCard,
         })
 
-        -- "FROST" badge
+        -- "SENTENCE" badge
         local badge = newFrame({
             Size      = UDim2.new(0,0,0,15),
             Position  = UDim2.new(1,-12,0,10),
@@ -3097,7 +3096,7 @@ function Frost:CreateWindow(cfg)
         newPadding(badge,0,0,5,5)
         newStroke(badge, T.Ice, 1, 0.50)
         newText({
-            Text     = "FROST UI",
+            Text     = "SENTENCE UI",
             Size     = UDim2.new(0,0,1,0),
             Font     = Enum.Font.GothamBold,
             TextSize = 9,
@@ -3347,7 +3346,7 @@ end
 -- ══════════════════════════════════════════════════════════════════════════════
 -- DESTROY
 -- ══════════════════════════════════════════════════════════════════════════════
-function Frost:Destroy()
+function Sentence:Destroy()
     for _, conn in ipairs(self._conns) do
         pcall(function() conn:Disconnect() end)
     end
@@ -3359,21 +3358,21 @@ function Frost:Destroy()
     self.Options = {}
 end
 
-return Frost
+return Sentence
 
 --[[
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  FROST UI v1.0  —  Quick-start Example
+  SENTENCE UI v1.0  —  Quick-start Example
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-local Frost = loadstring(game:HttpGet("YOUR_RAW_URL"))()
+local Sentence = loadstring(game:HttpGet("YOUR_RAW_URL"))()
 
-local Win = Frost:CreateWindow({
-    Name            = "FROST",
+local Win = Sentence:CreateWindow({
+    Name            = "SENTENCE",
     Subtitle        = "glassmorphism executor ui",
     ToggleBind      = Enum.KeyCode.RightControl,
     LoadingEnabled  = true,
-    LoadingTitle    = "FROST",
+    LoadingTitle    = "SENTENCE",
     LoadingSubtitle = "Initializing…",
 })
 
@@ -3414,9 +3413,9 @@ Sec:CreateBind({
     Callback    = function(held) print("Aim held:", held) end,
 })
 
-Frost:Notify({
+Sentence:Notify({
     Title    = "Loaded",
-    Content  = "Frost UI initialized successfully.",
+    Content  = "Sentence UI initialized successfully.",
     Type     = "Success",
     Duration = 5,
 })
