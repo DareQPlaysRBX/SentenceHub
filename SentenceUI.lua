@@ -129,8 +129,8 @@ local FS = {
     ElemSection = 10,  -- nagłówek sekcji (np. "01 · COMBAT")
 
     -- ── Title bar (górny pasek okna) ──────────────────────────────────────────
-    WinTitle    = 17,  -- główna nazwa okna (np. "SENTENCE")
-    WinSubtitle = 15,  -- subtitle pod nazwą (np. "v4.0")
+    WinTitle    = 16,  -- główna nazwa okna (np. "SENTENCE")
+    WinSubtitle = 14,  -- subtitle pod nazwą (np. "v4.0")
 
     -- ── Zakładki / sidebar ────────────────────────────────────────────────────
     TabHeader   = 14,  -- nagłówek zakładki (widoczny na stronie)
