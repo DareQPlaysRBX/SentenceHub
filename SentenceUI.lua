@@ -2295,7 +2295,7 @@ function Sentence:CreateWindow(cfg)
             TI(.30, Enum.EasingStyle.Quad),
             function() splash:Destroy() end)
     end)
-
+  
     -- ══════════════════════════════════════════════════════════════════════════
     -- MAIN WINDOW
     -- ══════════════════════════════════════════════════════════════════════════
