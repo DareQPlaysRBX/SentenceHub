@@ -1986,7 +1986,7 @@ function Sentence:CreateWindow(cfg)
     local WW   = math.clamp(vp.X - 100, 580, 820)
     local WH   = math.clamp(vp.Y -  80, 420, 560)
     local FULL = UDim2.fromOffset(WW, WH)
-    local TBH  = 48   -- title bar height (was 38)
+    local TBH  = 40   -- title bar height (was 38)
     local SBW  = 54   -- sidebar width (was 46)
     local MINI = UDim2.fromOffset(WW, TBH + 2)
 
@@ -2502,7 +2502,7 @@ function Sentence:CreateWindow(cfg)
         AnchorPoint=Vector2.new(0.5,0.5),
         Color     = T.BG1,
         Alpha     = 0,
-        Radius    = 8,
+        Radius    = 4,
         Clip      = true,
         Z         = 1,
         Parent    = gui,
