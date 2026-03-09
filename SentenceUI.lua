@@ -43,7 +43,7 @@ end
 local T = {
     -- Backgrounds (charcoal / near-black)
     BG0     = H("#000000"),  -- void (darker than primary)
-    BG1     = H("#0d0d0d"),  -- PrimaryBackground
+    BG1     = H("#141414"),  -- PrimaryBackground
     BG2     = H("#141414"),  -- SecondaryBackground
     BG3     = H("#1a1a1a"),  -- TertiaryBackground
     BG4     = H("#212121"),  -- ButtonNormalBackground / hover
