@@ -1,14 +1,9 @@
 --[[
 ╔══════════════════════════════════════════════════════════════════════╗
-║  SENTENCE GUI  ·  v4.0                                              ║
+║  SENTENCE GUI  ·  v1.0.12                                              ║
 ║  Glassmorphism Executor Framework                                    ║
 ║  Professional · Animated · Modular                                  ║
 ╚══════════════════════════════════════════════════════════════════════╝
-
-  Theme  : OG Sentence — charcoal black / steel blue glassmorphism
-  Style  : Frosted glass cards, animated controls, layered depth
-  Target : Roblox Script Executors
-
 --]]
 
 local Sentence = {
@@ -2023,276 +2018,443 @@ function Sentence:CreateWindow(cfg)
     self._notifHolder = notifHolder
 
     -- ══════════════════════════════════════════════════════════════════════════
-    -- SPLASH SCREEN — "Sentence App Style"
+    -- SPLASH SCREEN — "Sentence Cinematic"
     -- ══════════════════════════════════════════════════════════════════════════
     task.spawn(function()
+        local MASCOT_ID = "rbxassetid://116988669538286"
+        local spinAlive = true
+        local splashConns = {}
+
+        -- ── Root frame ────────────────────────────────────────────────────────
         local splash = newFrame({
             Name   = "Splash",
             Size   = UDim2.new(1,0,1,0),
-            Color  = H("#0a0a0a"),
+            Color  = H("#000000"),
             Alpha  = 0,
             Z      = 1000,
             Clip   = true,
             Parent = gui,
         })
 
-        -- Diagonal stripe lines (background texture like app)
-        for i = 1, 18 do
-            local stripe = newFrame({
-                Size      = UDim2.new(0, 2, 1, 400),
-                Position  = UDim2.new(0, i * 58 - 40, 0, -200),
-                AnchorPoint = Vector2.new(0, 0),
-                Color     = T.TextHi,
-                Alpha     = 0.965,
-                Z         = 1001,
-                Parent    = splash,
+        -- ── Diagonal stripe texture ───────────────────────────────────────────
+        local stripeHolder = newFrame({
+            Size  = UDim2.new(1,0,1,0),
+            Color = H("#000000"),
+            Alpha = 1,
+            Z     = 1001,
+            Parent= splash,
+        })
+        for i = 1, 22 do
+            local s = newFrame({
+                Size     = UDim2.new(0,1,1,500),
+                Position = UDim2.new(0, i*56 - 60, 0,-250),
+                Color    = T.TextHi,
+                Alpha    = 0.972,
+                Z        = 1001,
+                Parent   = stripeHolder,
             })
-            stripe.Rotation = -28
+            s.Rotation = -28
         end
 
-        -- Subtle vignette overlay (dark edges)
-        local vignette = newFrame({
-            Size    = UDim2.new(1,0,1,0),
+        -- ── Mascot (right side, large, faded) ────────────────────────────────
+        local mascotFrame = newFrame({
+            Size        = UDim2.new(0,380,0,480),
+            Position    = UDim2.new(1,60,0.5,0),
+            AnchorPoint = Vector2.new(0,0.5),
+            Color       = H("#000000"),
+            Alpha       = 1,
+            Z           = 1003,
+            Parent      = splash,
+        })
+        local mascotImg = Instance.new("ImageLabel")
+        mascotImg.Size                 = UDim2.new(1,0,1,0)
+        mascotImg.BackgroundTransparency = 1
+        mascotImg.Image                = MASCOT_ID
+        mascotImg.ScaleType            = Enum.ScaleType.Fit
+        mascotImg.ImageTransparency    = 1
+        mascotImg.ZIndex               = 1004
+        mascotImg.Parent               = mascotFrame
+
+        -- Gradient fade on left edge of mascot (blends into bg)
+        local mascotFade = newFrame({
+            Size    = UDim2.new(0,180,1,0),
             Color   = H("#000000"),
             Alpha   = 0,
-            Z       = 1002,
-            Parent  = splash,
+            Z       = 1005,
+            Parent  = mascotFrame,
         })
-        newGradient(vignette, nil, NumberSequence.new{
+        newGradient(mascotFade, nil, NumberSequence.new{
             NumberSequenceKeypoint.new(0,   0.0),
-            NumberSequenceKeypoint.new(0.4, 0.85),
-            NumberSequenceKeypoint.new(0.6, 0.85),
-            NumberSequenceKeypoint.new(1,   0.0),
+            NumberSequenceKeypoint.new(1,   1.0),
         }, 0)
 
-        -- Center content holder
-        local centerHolder = newFrame({
-            Size        = UDim2.new(0, 420, 0, 160),
-            Position    = UDim2.new(0.5, 0, 0.46, 0),
-            AnchorPoint = Vector2.new(0.5, 0.5),
-            Color       = H("#0a0a0a"),
+        -- ── Vignette (dark edges) ─────────────────────────────────────────────
+        local vigH = newFrame({
+            Size  = UDim2.new(1,0,1,0),
+            Color = H("#000000"),
+            Alpha = 1,
+            Z     = 1006,
+            Parent= splash,
+        })
+        newGradient(vigH, nil, NumberSequence.new{
+            NumberSequenceKeypoint.new(0,   0.0),
+            NumberSequenceKeypoint.new(0.35,0.88),
+            NumberSequenceKeypoint.new(0.65,0.88),
+            NumberSequenceKeypoint.new(1,   0.0),
+        }, 0)
+        local vigV = newFrame({
+            Size  = UDim2.new(1,0,1,0),
+            Color = H("#000000"),
+            Alpha = 1,
+            Z     = 1006,
+            Parent= splash,
+        })
+        newGradient(vigV, nil, NumberSequence.new{
+            NumberSequenceKeypoint.new(0,   0.0),
+            NumberSequenceKeypoint.new(0.25,0.90),
+            NumberSequenceKeypoint.new(0.75,0.90),
+            NumberSequenceKeypoint.new(1,   0.0),
+        }, 90)
+
+        -- ── Accent glow blob (top-left, ice blue) ─────────────────────────────
+        local glowBlob = newFrame({
+            Size        = UDim2.new(0,600,0,300),
+            Position    = UDim2.new(0,-180,0,-80),
+            Color       = T.Ice,
             Alpha       = 1,
-            Z           = 1005,
+            Radius      = 999,
+            Z           = 1002,
+            Parent      = splash,
+        })
+        newGradient(glowBlob, nil, NumberSequence.new{
+            NumberSequenceKeypoint.new(0, 0.82),
+            NumberSequenceKeypoint.new(1, 1.00),
+        })
+
+        -- ── Center content holder ─────────────────────────────────────────────
+        local contentX = -80  -- shift left to give mascot room
+        local content = newFrame({
+            Size        = UDim2.new(0,460,0,200),
+            Position    = UDim2.new(0.5,contentX,0.44,0),
+            AnchorPoint = Vector2.new(0.5,0.5),
+            Color       = H("#000000"),
+            Alpha       = 1,
+            Z           = 1007,
             Parent      = splash,
         })
 
-        -- Logo image (left side like app)
+        -- Logo
         local logoBox = newFrame({
-            Size        = UDim2.new(0, 72, 0, 72),
-            Position    = UDim2.new(0, 0, 0.5, 0),
-            AnchorPoint = Vector2.new(0, 0.5),
-            Color       = H("#0a0a0a"),
+            Size        = UDim2.new(0,68,0,68),
+            Position    = UDim2.new(0,0,0,0),
+            Color       = H("#000000"),
             Alpha       = 1,
-            Z           = 1006,
-            Parent      = centerHolder,
+            Z           = 1008,
+            Parent      = content,
         })
-        local logoImg = Instance.new("ImageLabel")
-        logoImg.Size                 = UDim2.new(1, 0, 1, 0)
-        logoImg.BackgroundTransparency = 1
-        logoImg.Image                = cfg.Icon ~= "" and resolveIcon(cfg.Icon) or LOGO_ID
-        logoImg.ScaleType            = Enum.ScaleType.Fit
-        logoImg.ImageTransparency    = 1
-        logoImg.ImageColor3          = T.TextHi
-        logoImg.ZIndex               = 1007
-        logoImg.Parent               = logoBox
+        local logoImg2 = Instance.new("ImageLabel")
+        logoImg2.Size                  = UDim2.new(1,0,1,0)
+        logoImg2.BackgroundTransparency= 1
+        logoImg2.Image                 = cfg.Icon ~= "" and resolveIcon(cfg.Icon) or LOGO_ID
+        logoImg2.ScaleType             = Enum.ScaleType.Fit
+        logoImg2.ImageTransparency     = 1
+        logoImg2.ImageColor3           = T.TextHi
+        logoImg2.ZIndex                = 1009
+        logoImg2.Parent                = logoBox
 
-        -- Right text block
-        local textBlock = newFrame({
-            Size        = UDim2.new(0, 310, 0, 80),
-            Position    = UDim2.new(0, 90, 0.5, 0),
-            AnchorPoint = Vector2.new(0, 0.5),
-            Color       = H("#0a0a0a"),
-            Alpha       = 1,
-            Z           = 1006,
-            Parent      = centerHolder,
-        })
-
-        -- Main title — spaced letters like "S E N T E N C E"
-        local titleLabel = newText({
-            Text        = cfg.Name:upper(),
-            Size        = UDim2.new(1, 0, 0, 48),
-            Position    = UDim2.new(0, 0, 0, 0),
-            Font        = Enum.Font.GothamBold,
-            TextSize    = 36,
-            Color       = T.TextHi,
-            Alpha       = 1,
-            AlignX      = Enum.TextXAlignment.Left,
-            Z           = 1007,
-            Parent      = textBlock,
+        -- Title
+        local titleLbl = newText({
+            Text     = cfg.Name:upper(),
+            Size     = UDim2.new(1,0,0,52),
+            Position = UDim2.new(0,86,0,-4),
+            Font     = Enum.Font.GothamBold,
+            TextSize = 38,
+            Color    = T.TextHi,
+            Alpha    = 1,
+            AlignX   = Enum.TextXAlignment.Left,
+            Z        = 1008,
+            Parent   = content,
         })
 
-        -- Subtitle line
-        local subtitleLabel = newText({
-            Text        = cfg.Subtitle ~= "" and cfg.Subtitle:upper() or "THE MOST ADVANCED HUB IN USE",
-            Size        = UDim2.new(1, 0, 0, 18),
-            Position    = UDim2.new(0, 0, 0, 50),
-            Font        = Enum.Font.Gotham,
-            TextSize    = 11,
-            Color       = T.TextMid,
-            Alpha       = 1,
-            AlignX      = Enum.TextXAlignment.Left,
-            Z           = 1007,
-            Parent      = textBlock,
+        -- Subtitle
+        local subLbl = newText({
+            Text     = cfg.Subtitle ~= "" and cfg.Subtitle:upper() or "THE MOST ADVANCED HUB IN USE",
+            Size     = UDim2.new(1,0,0,16),
+            Position = UDim2.new(0,88,0,46),
+            Font     = Enum.Font.Gotham,
+            TextSize = 11,
+            Color    = T.TextMid,
+            Alpha    = 1,
+            AlignX   = Enum.TextXAlignment.Left,
+            Z        = 1008,
+            Parent   = content,
         })
 
-        -- Thin accent line under subtitle
+        -- Accent line (animates width)
         local accentLine = newFrame({
-            Size        = UDim2.new(0, 0, 0, 1),
-            Position    = UDim2.new(0, 0, 0, 72),
-            Color       = T.Ice,
-            Alpha       = 1,
-            Z           = 1007,
-            Parent      = textBlock,
+            Size     = UDim2.new(0,0,0,1),
+            Position = UDim2.new(0,88,0,67),
+            Color    = T.Ice,
+            Alpha    = 1,
+            Z        = 1008,
+            Parent   = content,
         })
         newGradient(accentLine, ColorSequence.new{
             ColorSequenceKeypoint.new(0,   T.Ice),
-            ColorSequenceKeypoint.new(0.6, T.Violet),
+            ColorSequenceKeypoint.new(0.55,T.Violet),
             ColorSequenceKeypoint.new(1,   T.Border),
         })
 
-        -- Spinner (ring style like app)
-        local spinnerHolder = newFrame({
-            Size        = UDim2.new(0, 32, 0, 32),
-            Position    = UDim2.new(0.5, 0, 0.46, 110),
-            AnchorPoint = Vector2.new(0.5, 0),
-            Color       = H("#0a0a0a"),
-            Alpha       = 1,
-            Radius      = 999,
-            Z           = 1006,
-            Parent      = splash,
-        })
-        -- Spinner ring (arc effect via stroke)
-        local spinnerRing = newFrame({
-            Size        = UDim2.new(1, 0, 1, 0),
-            Color       = H("#0a0a0a"),
-            Alpha       = 1,
-            Radius      = 999,
-            Z           = 1007,
-            Parent      = spinnerHolder,
-        })
-        local spinStroke = newStroke(spinnerRing, T.Ice, 2, 0)
-        -- Outer dim ring
-        local spinnerBg = newFrame({
-            Size        = UDim2.new(1, 0, 1, 0),
-            Color       = H("#0a0a0a"),
-            Alpha       = 1,
-            Radius      = 999,
-            Z           = 1006,
-            Parent      = spinnerHolder,
-        })
-        newStroke(spinnerBg, T.Border, 2, 0.6)
-
-        -- Status text under spinner
-        local statusLabel = newText({
-            Text        = "initializing…",
-            Size        = UDim2.new(0, 260, 0, 14),
-            Position    = UDim2.new(0.5, 0, 0.46, 152),
-            AnchorPoint = Vector2.new(0.5, 0),
-            Font        = Enum.Font.Code,
-            TextSize    = 10,
-            Color       = T.TextLo,
-            Alpha       = 1,
-            AlignX      = Enum.TextXAlignment.Center,
-            Z           = 1006,
-            Parent      = splash,
-        })
-
-        -- Bottom branding bar (like app footer)
-        local bottomBar = newFrame({
-            Size        = UDim2.new(1, 0, 0, 32),
-            Position    = UDim2.new(0, 0, 1, -32),
-            Color       = H("#060606"),
+        -- Version tag (pill)
+        local verPill = newFrame({
+            Size        = UDim2.new(0,0,0,16),
+            Position    = UDim2.new(0,88,0,76),
+            Color       = T.IceLo,
             Alpha       = 0,
-            Z           = 1006,
-            Parent      = splash,
+            Radius      = 3,
+            Z           = 1008,
+            AutoX       = true,
+            Parent      = content,
         })
-        -- Top border of bottom bar
-        newFrame({
-            Size    = UDim2.new(1, 0, 0, 1),
-            Color   = T.Border,
-            Alpha   = 0,
-            Z       = 1007,
-            Parent  = bottomBar,
-        })
-        local brandLabel = newText({
-            Text        = "Version: "..Sentence.Version.." | Made by DareQPlaysRBX | Powered by SentenceUI",
-            Size        = UDim2.new(1, -24, 1, 0),
-            Position    = UDim2.new(0, 12, 0, 0),
-            Font        = Enum.Font.Gotham,
-            TextSize    = 10,
-            Color       = T.TextLo,
-            Alpha       = 1,
-            AlignX      = Enum.TextXAlignment.Left,
-            Z           = 1007,
-            Parent      = bottomBar,
+        newPadding(verPill, 0,0,6,6)
+        newStroke(verPill, T.Ice, 1, 0.55)
+        newText({
+            Text     = "v"..Sentence.Version,
+            Size     = UDim2.new(0,0,1,0),
+            Font     = Enum.Font.Code,
+            TextSize = 9,
+            Color    = T.Ice,
+            AutoX    = true,
+            AlignX   = Enum.TextXAlignment.Center,
+            Z        = 1009,
+            Parent   = verPill,
         })
 
-        -- ── Spinner rotation loop ─────────────────────────────────────────────
-        local spinAlive = true
+        -- ── Spinner ───────────────────────────────────────────────────────────
+        local spinHolder = newFrame({
+            Size        = UDim2.new(0,28,0,28),
+            Position    = UDim2.new(0.5,contentX,0.44,118),
+            AnchorPoint = Vector2.new(0.5,0),
+            Color       = H("#000000"),
+            Alpha       = 1,
+            Radius      = 999,
+            Z           = 1008,
+            Parent      = splash,
+        })
+        local spinRing = newFrame({
+            Size   = UDim2.new(1,0,1,0),
+            Color  = H("#000000"),
+            Alpha  = 1,
+            Radius = 999,
+            Z      = 1009,
+            Parent = spinHolder,
+        })
+        local spinStroke = newStroke(spinRing, T.Ice, 2, 1)
+        newStroke(newFrame({
+            Size   = UDim2.new(1,0,1,0),
+            Color  = H("#000000"),
+            Alpha  = 1,
+            Radius = 999,
+            Z      = 1008,
+            Parent = spinHolder,
+        }), T.Border, 2, 0.65)
+
+        -- Status text
+        local statusLbl = newText({
+            Text     = "initializing…",
+            Size     = UDim2.new(0,300,0,13),
+            Position = UDim2.new(0.5,contentX,0.44,154),
+            AnchorPoint= Vector2.new(0.5,0),
+            Font     = Enum.Font.Code,
+            TextSize = 10,
+            Color    = T.TextLo,
+            Alpha    = 1,
+            AlignX   = Enum.TextXAlignment.Center,
+            Z        = 1008,
+            Parent   = splash,
+        })
+
+        -- ── Bottom bar ────────────────────────────────────────────────────────
+        local bottomBar = newFrame({
+            Size     = UDim2.new(1,0,0,28),
+            Position = UDim2.new(0,0,1,-28),
+            Color    = H("#050505"),
+            Alpha    = 0,
+            Z        = 1008,
+            Parent   = splash,
+        })
+        newFrame({
+            Size   = UDim2.new(1,0,0,1),
+            Color  = T.Border,
+            Alpha  = 0,
+            Z      = 1009,
+            Parent = bottomBar,
+        })
+        newText({
+            Text     = "Version: "..Sentence.Version.."  ·  Made by DareQPlaysRBX  ·  Powered by SentenceUI",
+            Size     = UDim2.new(1,-24,1,0),
+            Position = UDim2.new(0,12,0,0),
+            Font     = Enum.Font.Gotham,
+            TextSize = 10,
+            Color    = T.TextLo,
+            Alpha    = 1,
+            AlignX   = Enum.TextXAlignment.Left,
+            Z        = 1009,
+            Parent   = bottomBar,
+        })
+
+        -- ── Spinner rotation ──────────────────────────────────────────────────
         local spinConn = RS.RenderStepped:Connect(function(dt)
             if not spinAlive then return end
-            spinnerRing.Rotation = spinnerRing.Rotation + 180 * dt
+            spinRing.Rotation = spinRing.Rotation + 200 * dt
         end)
+        table.insert(splashConns, spinConn)
 
-        -- ── Phase 1: Fade in background ───────────────────────────────────────
-        tw(splash, {BackgroundTransparency=0}, TI(.24, Enum.EasingStyle.Quad))
-        task.wait(0.20)
+        -- ── Subtle parallax on mascot ─────────────────────────────────────────
+        local parallaxConn = RS.RenderStepped:Connect(function()
+            local mp = UIS:GetMouseLocation()
+            local vs = Cam.ViewportSize
+            local ox  = (mp.X / vs.X - 0.5) * 18
+            local oy  = (mp.Y / vs.Y - 0.5) * 10
+            mascotFrame.Position = UDim2.new(1, 60 + ox, 0.5, oy)
+        end)
+        table.insert(splashConns, parallaxConn)
 
-        -- Phase 2: Bottom bar slides in
-        tw(bottomBar, {BackgroundTransparency=0.15}, TI_MED)
-        task.wait(0.12)
+        -- ══════════════════════════════════════════════════════════════════════
+        -- INTRO SEQUENCE
+        -- ══════════════════════════════════════════════════════════════════════
 
-        -- Phase 3: Logo appears
-        tw(logoImg, {ImageTransparency=0}, TI(.32, Enum.EasingStyle.Exponential))
-        task.wait(0.14)
-
-        -- Phase 4: Title types in
-        tw(titleLabel, {TextTransparency=0}, TI(.28, Enum.EasingStyle.Exponential))
-        task.wait(0.10)
-
-        -- Phase 5: Subtitle + accent line
-        tw(subtitleLabel, {TextTransparency=0.25}, TI_MED)
-        tw(accentLine, {Size=UDim2.new(0, 280, 0, 1), BackgroundTransparency=0},
-            TI(.40, Enum.EasingStyle.Exponential))
+        -- 1. Fade in black bg
+        tw(splash, {BackgroundTransparency=0}, TI(.20, Enum.EasingStyle.Quad))
         task.wait(0.18)
 
-        -- Phase 6: Spinner appears
+        -- 2. Glow blob breathes in
+        tw(glowBlob, {BackgroundTransparency=0.82}, TI(.50, Enum.EasingStyle.Quad))
+        task.wait(0.14)
+
+        -- 3. Bottom bar slides up
+        tw(bottomBar, {BackgroundTransparency=0.10}, TI_MED)
+        task.wait(0.10)
+
+        -- 4. Mascot slides in from right
+        mascotFrame.Position = UDim2.new(1, 120, 0.5, 30)
+        mascotImg.ImageTransparency = 1
+        tw(mascotImg,  {ImageTransparency=0.18}, TI(.55, Enum.EasingStyle.Exponential))
+        tw(mascotFrame,{Position=UDim2.new(1,60,0.5,0)}, TI(.55, Enum.EasingStyle.Exponential))
+        task.wait(0.22)
+
+        -- 5. Logo materializes
+        tw(logoImg2, {ImageTransparency=0}, TI(.32, Enum.EasingStyle.Exponential))
+        task.wait(0.12)
+
+        -- 6. Title slides in from left
+        titleLbl.Position = UDim2.new(0,110,0,-4)
+        titleLbl.TextTransparency = 1
+        tw(titleLbl, {
+            Position         = UDim2.new(0,86,0,-4),
+            TextTransparency = 0,
+        }, TI(.36, Enum.EasingStyle.Exponential))
+        task.wait(0.12)
+
+        -- 7. Subtitle fades
+        tw(subLbl, {TextTransparency=0.25}, TI_MED)
+        task.wait(0.08)
+
+        -- 8. Accent line sweeps right
+        tw(accentLine, {
+            Size                 = UDim2.new(0,280,0,1),
+            BackgroundTransparency = 0,
+        }, TI(.44, Enum.EasingStyle.Exponential))
+        task.wait(0.16)
+
+        -- 9. Version pill pops in
+        tw(verPill, {BackgroundTransparency=0}, TI_SPRING)
+        task.wait(0.12)
+
+        -- 10. Spinner appears
         tw(spinStroke, {Transparency=0.0}, TI_FAST)
         task.wait(0.10)
 
-        -- Phase 7: Status steps
+        -- 11. Status steps
         local steps = {
-            {label="loading modules…",   wait=0.28},
-            {label="injecting scripts…", wait=0.24},
-            {label="fetching assets…",   wait=0.22},
-            {label="building ui…",       wait=0.20},
-            {label="ready.",             wait=0.32},
+            {txt="loading modules…",    w=0.30},
+            {txt="injecting scripts…",  w=0.26},
+            {txt="fetching assets…",    w=0.24},
+            {txt="building ui…",        w=0.22},
+            {txt="almost there…",       w=0.20},
+            {txt="ready.",              w=0.36},
         }
         for _, step in ipairs(steps) do
-            tw(statusLabel, {TextTransparency=1}, TI(.06, Enum.EasingStyle.Quad))
-            task.wait(0.07)
-            statusLabel.Text = step.label
-            tw(statusLabel, {TextTransparency=0.40}, TI(.08, Enum.EasingStyle.Quad))
-            task.wait(step.wait)
+            tw(statusLbl, {TextTransparency=1}, TI(.07, Enum.EasingStyle.Quad))
+            task.wait(0.08)
+            statusLbl.Text = step.txt
+            tw(statusLbl, {TextTransparency=0.35}, TI(.09, Enum.EasingStyle.Quad))
+            task.wait(step.w)
         end
+
+        -- Pulse spinner green on ready
+        tw(spinStroke, {Color=T.Success}, TI_FAST)
+        task.wait(0.28)
+
+        -- ══════════════════════════════════════════════════════════════════════
+        -- OUTRO — clean horizontal wipe + elements dissolve
+        -- ══════════════════════════════════════════════════════════════════════
+        spinAlive = false
+        for _, c in ipairs(splashConns) do pcall(function() c:Disconnect() end) end
+
+        -- White flash overlay (cinematic punch)
+        local flashFrame = newFrame({
+            Size   = UDim2.new(1,0,1,0),
+            Color  = T.TextHi,
+            Alpha  = 1,
+            Z      = 1020,
+            Parent = splash,
+        })
+        tw(flashFrame, {BackgroundTransparency=0}, TI(.06, Enum.EasingStyle.Quad))
+        task.wait(0.07)
+        tw(flashFrame, {BackgroundTransparency=1}, TI(.22, Enum.EasingStyle.Quad))
+
+        -- Elements dissolve simultaneously
+        local TI_DISS = TI(.20, Enum.EasingStyle.Quad)
+        tw(spinStroke,  {Transparency=1},          TI_DISS)
+        tw(statusLbl,   {TextTransparency=1},       TI_DISS)
+        tw(verPill,     {BackgroundTransparency=1}, TI_DISS)
+        tw(accentLine,  {BackgroundTransparency=1, Size=UDim2.new(0,0,0,1)}, TI_DISS)
+        tw(subLbl,      {TextTransparency=1},       TI_DISS)
+        tw(titleLbl,    {TextTransparency=1,
+            Position=UDim2.new(0,62,0,-4)},         TI(.24, Enum.EasingStyle.Quad, Enum.EasingDirection.In))
+        tw(logoImg2,    {ImageTransparency=1},      TI_DISS)
+        tw(mascotImg,   {ImageTransparency=1},      TI(.28, Enum.EasingStyle.Quad))
+        tw(glowBlob,    {BackgroundTransparency=1}, TI_DISS)
+        tw(bottomBar,   {BackgroundTransparency=1}, TI_DISS)
         task.wait(0.20)
 
-        -- ── Outro ─────────────────────────────────────────────────────────────
-        spinAlive = false
-        spinConn:Disconnect()
+        -- Horizontal split wipe — top half slides up, bottom slides down
+        local topWipe = newFrame({
+            Size   = UDim2.new(1,0,0.5,0),
+            Color  = H("#000000"),
+            Alpha  = 0,
+            Z      = 1018,
+            Parent = splash,
+        })
+        local botWipe = newFrame({
+            Size     = UDim2.new(1,0,0.5,0),
+            Position = UDim2.new(0,0,0.5,0),
+            Color    = H("#000000"),
+            Alpha    = 0,
+            Z        = 1018,
+            Parent   = splash,
+        })
+        tw(topWipe, {BackgroundTransparency=0}, TI(.01))
+        tw(botWipe, {BackgroundTransparency=0}, TI(.01))
+        task.wait(0.02)
+        tw(topWipe, {Position=UDim2.new(0,0,-0.5,0)}, TI(.38, Enum.EasingStyle.Exponential, Enum.EasingDirection.In))
+        tw(botWipe, {Position=UDim2.new(0,0, 1.0,0)}, TI(.38, Enum.EasingStyle.Exponential, Enum.EasingDirection.In))
+        task.wait(0.32)
 
-        local TI_OUT = TI(.18, Enum.EasingStyle.Quad)
-        tw(logoImg,       {ImageTransparency=1},    TI_OUT)
-        tw(titleLabel,    {TextTransparency=1},     TI_OUT)
-        tw(subtitleLabel, {TextTransparency=1},     TI_OUT)
-        tw(accentLine,    {BackgroundTransparency=1, Size=UDim2.new(0,0,0,1)}, TI_OUT)
-        tw(spinStroke,    {Transparency=1},         TI_OUT)
-        tw(statusLabel,   {TextTransparency=1},     TI_OUT)
-        tw(bottomBar,     {BackgroundTransparency=1}, TI_OUT)
-        task.wait(0.16)
-
+        -- Final fade out
         tw(splash, {BackgroundTransparency=1},
-            TI(.30, Enum.EasingStyle.Quad),
+            TI(.18, Enum.EasingStyle.Quad),
             function() splash:Destroy() end)
     end)
   
