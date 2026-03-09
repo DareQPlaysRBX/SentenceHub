@@ -7,7 +7,6 @@
 
   Theme  : OG Sentence — charcoal black / steel blue glassmorphism
   Style  : Frosted glass cards, animated controls, layered depth
-  Target : Roblox Script Executors
 
 --]]
 
@@ -117,6 +116,47 @@ local function safe(fn, ...)
     local ok, err = pcall(fn, ...)
     if not ok then warn("[SENTENCE] " .. tostring(err)) end
 end
+
+-- ══════════════════════════════════════════════════════════════════════════════
+-- FONT SIZE CONFIGURATION
+-- Zmień tutaj rozmiary czcionek dla całego GUI.
+-- ══════════════════════════════════════════════════════════════════════════════
+local FS = {
+    -- ── Kontrolki (elementy w sekcjach) ───────────────────────────────────────
+    ElemName    = 14,  -- nazwa kontrolki (Toggle, Button, Slider…)
+    ElemDesc    = 12,  -- opis pod nazwą kontrolki
+    ElemValue   = 12,  -- wartość (badge slidera, pole input, dropdown)
+    ElemSection = 10,  -- nagłówek sekcji (np. "01 · COMBAT")
+
+    -- ── Title bar (górny pasek okna) ──────────────────────────────────────────
+    WinTitle    = 17,  -- główna nazwa okna (np. "SENTENCE")
+    WinSubtitle = 15,  -- subtitle pod nazwą (np. "v4.0")
+
+    -- ── Zakładki / sidebar ────────────────────────────────────────────────────
+    TabHeader   = 14,  -- nagłówek zakładki (widoczny na stronie)
+    Tooltip     = 12,  -- tooltip przy hover na ikonę zakładki
+
+    -- ── Notyfikacje ───────────────────────────────────────────────────────────
+    NotifType   = 10,  -- badge typu ("INFO", "SUCCESS"…)
+    NotifTitle  = 14,  -- tytuł notyfikacji
+    NotifBody   = 12,  -- treść notyfikacji
+
+    -- ── Splash screen ─────────────────────────────────────────────────────────
+    SplashTitle  = 38, -- litery tytułu na splash screen
+    SplashStatus = 10, -- tekst statusu postępu ("loading modules…")
+
+    -- ── Loading screen ────────────────────────────────────────────────────────
+    LoadTitle    = 20, -- tytuł na ekranie ładowania
+    LoadSubtitle = 12, -- podtytuł na ekranie ładowania
+    LoadPercent  = 11, -- "0%" / "100%"
+
+    -- ── Home tab — karta gracza i statystyki ──────────────────────────────────
+    HomePlayerName = 15, -- DisplayName gracza
+    HomePlayerUser = 11, -- @username
+    HomeStatKey    =  9, -- etykieta statystyki ("PLAYERS", "PING"…)
+    HomeStatVal    = 13, -- wartość statystyki
+}
+-- ══════════════════════════════════════════════════════════════════════════════
 
 -- ── Icon Assets ───────────────────────────────────────────────────────────────
 local ICONS = {
@@ -473,7 +513,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Text     = "·",
                 Size     = UDim2.new(0,0,1,0),
                 Font     = Enum.Font.GothamBold,
-                TextSize = 14,
+                TextSize = FS.ElemSection + 4,
                 Color    = accent,
                 AutoX    = true,
                 Z        = 6,
@@ -484,7 +524,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Text     = " "..name:upper(),
                 Size     = UDim2.new(0,0,1,0),
                 Font     = Enum.Font.GothamBold,
-                TextSize = 10,
+                TextSize = FS.ElemSection,
                 Color    = T.TextMid,
                 AutoX    = true,
                 Z        = 6,
@@ -539,7 +579,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Position = UDim2.new(0,14,0.5,0),
                 AnchorPoint=Vector2.new(0,0.5),
                 Font     = Enum.Font.GothamSemibold,
-                TextSize = 14,
+                TextSize = FS.ElemName,
                 Color    = col,
                 Z        = 5,
                 Parent   = card,
@@ -562,7 +602,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Text     = cfg.Title,
                 Size     = UDim2.new(1,0,0,17),
                 Font     = Enum.Font.GothamBold,
-                TextSize = 14,
+                TextSize = FS.ElemName,
                 Color    = T.TextHi,
                 Z        = 5,
                 Parent   = card,
@@ -571,7 +611,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Text     = cfg.Content,
                 Size     = UDim2.new(1,0,0,0),
                 Font     = Enum.Font.Gotham,
-                TextSize = 13,
+                TextSize = FS.ElemDesc,
                 Color    = T.TextMid,
                 Wrap     = true,
                 AutoY    = true,
@@ -622,7 +662,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Size     = UDim2.new(1,-48,0,15),
                 Position = UDim2.new(0,14,0, cfg.Description and 9 or 11),
                 Font     = Enum.Font.GothamBold,
-                TextSize = 14,
+                TextSize = FS.ElemName,
                 Color    = T.TextHi,
                 Z        = 6,
                 Parent   = card,
@@ -633,7 +673,7 @@ local function buildSectionAPI(page, accent, secondary)
                     Size     = UDim2.new(1,-48,0,13),
                     Position = UDim2.new(0,14,0,28),
                     Font     = Enum.Font.Gotham,
-                    TextSize = 12,
+                    TextSize = FS.ElemDesc,
                     Color    = T.TextMid,
                     Z        = 6,
                     Parent   = card,
@@ -693,7 +733,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Size     = UDim2.new(1,-70,0,15),
                 Position = UDim2.new(0,14,0, cfg.Description and 9 or 11),
                 Font     = Enum.Font.GothamBold,
-                TextSize = 14,
+                TextSize = FS.ElemName,
                 Color    = T.TextHi,
                 Z        = 5,
                 Parent   = card,
@@ -704,7 +744,7 @@ local function buildSectionAPI(page, accent, secondary)
                     Size     = UDim2.new(1,-70,0,13),
                     Position = UDim2.new(0,14,0,28),
                     Font     = Enum.Font.Gotham,
-                    TextSize = 12,
+                    TextSize = FS.ElemDesc,
                     Color    = T.TextMid,
                     Z        = 5,
                     Parent   = card,
@@ -812,7 +852,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Size     = UDim2.new(1,-96,0,15),
                 Position = UDim2.new(0,14,0,7),
                 Font     = Enum.Font.GothamBold,
-                TextSize = 14,
+                TextSize = FS.ElemName,
                 Color    = T.TextHi,
                 Z        = 5,
                 Parent   = card,
@@ -836,7 +876,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Text     = tostring(cfg.CurrentValue)..cfg.Suffix,
                 Size     = UDim2.new(0,0,1,0),
                 Font     = Enum.Font.Code,
-                TextSize = 12,
+                TextSize = FS.ElemValue,
                 Color    = accent,
                 AlignX   = Enum.TextXAlignment.Center,
                 AutoX    = true,
@@ -902,7 +942,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Text     = "",
                 Size     = UDim2.new(0,0,1,0),
                 Font     = Enum.Font.Code,
-                TextSize = 11,
+                TextSize = FS.ElemValue,
                 Color    = T.TextHi,
                 AlignX   = Enum.TextXAlignment.Center,
                 AutoX    = true,
@@ -1038,7 +1078,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Size     = UDim2.new(1,-114,0,15),
                 Position = UDim2.new(0,14,0, cfg.Description and 9 or 11),
                 Font     = Enum.Font.GothamBold,
-                TextSize = 14,
+                TextSize = FS.ElemName,
                 Color    = T.TextHi,
                 Z        = 5,
                 Parent   = card,
@@ -1049,7 +1089,7 @@ local function buildSectionAPI(page, accent, secondary)
                     Size     = UDim2.new(1,-114,0,13),
                     Position = UDim2.new(0,14,0,28),
                     Font     = Enum.Font.Gotham,
-                    TextSize = 12,
+                    TextSize = FS.ElemDesc,
                     Color    = T.TextMid,
                     Z        = 5,
                     Parent   = card,
@@ -1084,7 +1124,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Text     = cfg.CurrentBind,
                 Size     = UDim2.new(0,0,1,0),
                 Font     = Enum.Font.Code,
-                TextSize = 13,
+                TextSize = FS.ElemValue,
                 Color    = accent,
                 AlignX   = Enum.TextXAlignment.Center,
                 AutoX    = true,
@@ -1206,7 +1246,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Size     = UDim2.new(1,-24,0,15),
                 Position = UDim2.new(0,14,0,7),
                 Font     = Enum.Font.GothamBold,
-                TextSize = 14,
+                TextSize = FS.ElemName,
                 Color    = T.TextHi,
                 Z        = 5,
                 Parent   = card,
@@ -1217,7 +1257,7 @@ local function buildSectionAPI(page, accent, secondary)
                     Size     = UDim2.new(1,-24,0,13),
                     Position = UDim2.new(0,14,0,24),
                     Font     = Enum.Font.Gotham,
-                    TextSize = 12,
+                    TextSize = FS.ElemDesc,
                     Color    = T.TextMid,
                     Z        = 5,
                     Parent   = card,
@@ -1257,7 +1297,7 @@ local function buildSectionAPI(page, accent, secondary)
             tb.PlaceholderColor3  = T.TextLo
             tb.Text               = cfg.CurrentValue
             tb.Font               = Enum.Font.Code
-            tb.TextSize           = 12
+            tb.TextSize           = FS.ElemValue
             tb.TextColor3         = T.TextHi
             tb.TextXAlignment     = Enum.TextXAlignment.Left
             tb.ClearTextOnFocus   = false
@@ -1347,7 +1387,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Size     = UDim2.new(1,-24,0,15),
                 Position = UDim2.new(0,14,0,7),
                 Font     = Enum.Font.GothamBold,
-                TextSize = 14,
+                TextSize = FS.ElemName,
                 Color    = T.TextHi,
                 Z        = 5,
                 Parent   = card,
@@ -1358,7 +1398,7 @@ local function buildSectionAPI(page, accent, secondary)
                     Size     = UDim2.new(1,-24,0,13),
                     Position = UDim2.new(0,14,0,24),
                     Font     = Enum.Font.Gotham,
-                    TextSize = 12,
+                    TextSize = FS.ElemDesc,
                     Color    = T.TextMid,
                     Z        = 5,
                     Parent   = card,
@@ -1393,7 +1433,7 @@ local function buildSectionAPI(page, accent, secondary)
                 Text     = "",
                 Size     = UDim2.new(1,0,1,0),
                 Font     = Enum.Font.Code,
-                TextSize = 12,
+                TextSize = FS.ElemValue,
                 Color    = T.TextHi,
                 Z        = 6,
                 Parent   = header,
@@ -1743,7 +1783,7 @@ function Sentence:Notify(data)
             Text     = data.Type:upper(),
             Size     = UDim2.new(0,0,1,0),
             Font     = Enum.Font.GothamBold,
-            TextSize = 10,
+            TextSize = FS.NotifType,
             Color    = T.BG1,
             Alpha    = 1,
             AlignX   = Enum.TextXAlignment.Center,
@@ -1756,7 +1796,7 @@ function Sentence:Notify(data)
             Text     = data.Title,
             Size     = UDim2.new(1,0,0,16),
             Font     = Enum.Font.GothamBold,
-            TextSize = 14,
+            TextSize = FS.NotifTitle,
             Color    = T.TextHi,
             Alpha    = 1,
             Z        = 5,
@@ -1766,7 +1806,7 @@ function Sentence:Notify(data)
             Text     = data.Content,
             Size     = UDim2.new(1,0,0,0),
             Font     = Enum.Font.Gotham,
-            TextSize = 12,
+            TextSize = FS.NotifBody,
             Color    = T.TextMid,
             Alpha    = 1,
             Wrap     = true,
@@ -2601,7 +2641,7 @@ function Sentence:CreateWindow(cfg)
         Size     = UDim2.new(0,240,0,20),
         Position = UDim2.new(0,txOff,0,5),
         Font     = Enum.Font.GothamBold,
-        TextSize = 17,
+        TextSize = FS.WinTitle,
         Color    = T.TextHi,
         Alpha    = 1,
         Z        = 6,
@@ -2613,7 +2653,7 @@ function Sentence:CreateWindow(cfg)
         Size     = UDim2.new(0,200,0,13),
         Position = UDim2.new(0,txOff,0,27),
         Font     = Enum.Font.Code,
-        TextSize = 11,
+        TextSize = FS.WinSubtitle,
         Color    = T.TextMid,
         Alpha    = 1,
         Z        = 6,
@@ -2702,7 +2742,7 @@ function Sentence:CreateWindow(cfg)
         Text     = "",
         Size     = UDim2.new(0,0,1,0),
         Font     = Enum.Font.GothamSemibold,
-        TextSize = 12,
+        TextSize = FS.Tooltip,
         Color    = T.TextHi,
         Z        = 21,
         AutoX    = true,
@@ -2782,7 +2822,7 @@ function Sentence:CreateWindow(cfg)
             Position = UDim2.new(0.5,0,0.5,-10),
             AnchorPoint=Vector2.new(0.5,0.5),
             Font     = Enum.Font.GothamBold,
-            TextSize = 20,
+            TextSize = FS.LoadTitle,
             Color    = T.TextHi,
             Alpha    = 1,
             AlignX   = Enum.TextXAlignment.Center,
@@ -2795,7 +2835,7 @@ function Sentence:CreateWindow(cfg)
             Position = UDim2.new(0.5,0,0.5,16),
             AnchorPoint=Vector2.new(0.5,0.5),
             Font     = Enum.Font.Code,
-            TextSize = 12,
+            TextSize = FS.LoadSubtitle,
             Color    = T.TextMid,
             Alpha    = 1,
             AlignX   = Enum.TextXAlignment.Center,
@@ -2832,7 +2872,7 @@ function Sentence:CreateWindow(cfg)
             Position = UDim2.new(0.5,0,0.5,52),
             AnchorPoint=Vector2.new(0.5,0.5),
             Font     = Enum.Font.Code,
-            TextSize = 11,
+            TextSize = FS.LoadPercent,
             Color    = T.Ice,
             Alpha    = 1,
             AlignX   = Enum.TextXAlignment.Center,
@@ -3073,7 +3113,7 @@ function Sentence:CreateWindow(cfg)
             Size     = UDim2.new(1,-100,0,18),
             Position = UDim2.new(0,68,0,12),
             Font     = Enum.Font.GothamBold,
-            TextSize = 15,
+            TextSize = FS.HomePlayerName,
             Color    = T.TextHi,
             Z        = 6,
             Parent   = pCard,
@@ -3083,7 +3123,7 @@ function Sentence:CreateWindow(cfg)
             Size     = UDim2.new(1,-100,0,13),
             Position = UDim2.new(0,68,0,32),
             Font     = Enum.Font.Code,
-            TextSize = 11,
+            TextSize = FS.HomePlayerUser,
             Color    = T.TextMid,
             Z        = 6,
             Parent   = pCard,
@@ -3302,7 +3342,7 @@ function Sentence:CreateWindow(cfg)
                 Position = UDim2.new(0,20,0.5,0),
                 AnchorPoint=Vector2.new(0,0.5),
                 Font     = Enum.Font.GothamBold,
-                TextSize = 14,
+                TextSize = FS.TabHeader,
                 Color    = T.TextHi,
                 Z        = 4,
                 Parent   = tHead,
@@ -3367,66 +3407,3 @@ function Sentence:Destroy()
 end
 
 return Sentence
-
---[[
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  SENTENCE UI v1.0  —  Quick-start Example
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-local Sentence = loadstring(game:HttpGet("YOUR_RAW_URL"))()
-
-local Win = Sentence:CreateWindow({
-    Name            = "SENTENCE",
-    Subtitle        = "glassmorphism executor ui",
-    ToggleBind      = Enum.KeyCode.RightControl,
-    LoadingEnabled  = true,
-    LoadingTitle    = "SENTENCE",
-    LoadingSubtitle = "Initializing…",
-})
-
-local Home = Win:CreateHomeTab({ Icon = "home" })
-
-local Combat = Win:CreateTab({ Name = "Combat", Icon = "info" })
-local Sec = Combat:CreateSection("Aimbot")
-
-Sec:CreateToggle({
-    Name         = "Silent Aim",
-    Description  = "Lock onto nearest player silently",
-    CurrentValue = false,
-    Flag         = "SilentAim",
-    Callback     = function(v) print("Silent Aim:", v) end,
-})
-
-Sec:CreateSlider({
-    Name         = "FOV",
-    Range        = {10, 360},
-    Increment    = 5,
-    CurrentValue = 90,
-    Suffix       = "°",
-    Flag         = "AimFOV",
-    Callback     = function(v) print("FOV:", v) end,
-})
-
-Sec:CreateDropdown({
-    Name         = "Target Part",
-    Options      = {"Head", "Torso", "HumanoidRootPart"},
-    CurrentOption= "Head",
-    Flag         = "AimPart",
-    Callback     = function(v) print("Part:", v) end,
-})
-
-Sec:CreateBind({
-    Name        = "Aim Toggle",
-    CurrentBind = "Q",
-    Callback    = function(held) print("Aim held:", held) end,
-})
-
-Sentence:Notify({
-    Title    = "Loaded",
-    Content  = "Sentence UI initialized successfully.",
-    Type     = "Success",
-    Duration = 5,
-})
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
---]]
