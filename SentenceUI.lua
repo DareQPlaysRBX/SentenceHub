@@ -7,6 +7,7 @@
 
   Theme  : OG Sentence — charcoal black / steel blue glassmorphism
   Style  : Frosted glass cards, animated controls, layered depth
+  Target : Roblox Script Executors
 
 --]]
 
@@ -129,8 +130,8 @@ local FS = {
     ElemSection = 10,  -- nagłówek sekcji (np. "01 · COMBAT")
 
     -- ── Title bar (górny pasek okna) ──────────────────────────────────────────
-    WinTitle    = 16,  -- główna nazwa okna (np. "SENTENCE")
-    WinSubtitle = 14,  -- subtitle pod nazwą (np. "v4.0")
+    WinTitle    = 15,  -- główna nazwa okna (np. "SENTENCE")
+    WinSubtitle = 13,  -- subtitle pod nazwą (np. "v4.0")
 
     -- ── Zakładki / sidebar ────────────────────────────────────────────────────
     TabHeader   = 14,  -- nagłówek zakładki (widoczny na stronie)
@@ -794,43 +795,49 @@ local function buildSectionAPI(page, accent, secondary)
 
             local TV = {CurrentValue=cfg.CurrentValue, Type="Toggle", Settings=cfg}
 
-            local function refresh()
+            local function refresh(animate)
+                animate = animate ~= false  -- domyślnie true, przy init = false
+                local ti = animate and TI_MED or TI(.001)
+                local tf = animate and TI_FAST or TI(.001)
+                local te = animate and TI_ELASTIC or TI(.001)
                 if TV.CurrentValue then
-                    tw(track,      {BackgroundColor3=T.IceLo,  BackgroundTransparency=0},   TI_MED)
-                    tw(trackStroke,{Color=accent, Transparency=0.2},                         TI_MED)
-                    tw(tint,       {BackgroundTransparency=0.75},                            TI_MED)
-                    tw(knob,       {Position=UDim2.new(1,-19,0.5,0), BackgroundColor3=accent,BackgroundTransparency=0}, TI_ELASTIC)
-                    tw(knobStroke, {Color=accent, Transparency=0.0},                        TI_FAST)
-                    tw(strip,      {BackgroundColor3=accent, BackgroundTransparency=0},      TI_FAST)
-                    tw(stroke,     {Transparency=0.35, Color=accent},                       TI_FAST)
+                    tw(track,      {BackgroundColor3=T.IceLo,  BackgroundTransparency=0},   ti)
+                    tw(trackStroke,{Color=accent, Transparency=0.2},                         ti)
+                    tw(tint,       {BackgroundTransparency=0.75},                            ti)
+                    tw(knob,       {Position=UDim2.new(1,-19,0.5,0), BackgroundColor3=accent,BackgroundTransparency=0}, te)
+                    tw(knobStroke, {Color=accent, Transparency=0.0},                        tf)
+                    tw(strip,      {BackgroundColor3=accent, BackgroundTransparency=0},      tf)
+                    tw(stroke,     {Transparency=0.35, Color=accent},                       tf)
 
-                    -- Pulse effect when turning on
-                    task.spawn(function()
-                        tw(knob,{Size=UDim2.new(0,20,0,20)},TI(.12,Enum.EasingStyle.Back))
-                        task.wait(0.13)
-                        tw(knob,{Size=UDim2.new(0,16,0,16)},TI_FAST)
-                    end)
+                    -- Pulse tylko przy kliknięciu, nie przy init
+                    if animate then
+                        task.spawn(function()
+                            tw(knob,{Size=UDim2.new(0,20,0,20)},TI(.12,Enum.EasingStyle.Back))
+                            task.wait(0.13)
+                            tw(knob,{Size=UDim2.new(0,16,0,16)},TI_FAST)
+                        end)
+                    end
                 else
-                    tw(track,      {BackgroundColor3=T.BG3, BackgroundTransparency=0},       TI_MED)
-                    tw(trackStroke,{Color=T.Border, Transparency=0.4},                       TI_MED)
-                    tw(tint,       {BackgroundTransparency=1},                               TI_MED)
-                    tw(knob,       {Position=UDim2.new(0,3,0.5,0), BackgroundColor3=T.TextMid,BackgroundTransparency=0}, TI_ELASTIC)
-                    tw(knobStroke, {Color=T.Border, Transparency=0.3},                      TI_FAST)
-                    tw(strip,      {BackgroundTransparency=0.55},                           TI_FAST)
-                    tw(stroke,     {Transparency=0.78, Color=T.BorderGl},                  TI_FAST)
+                    tw(track,      {BackgroundColor3=T.BG3, BackgroundTransparency=0},       ti)
+                    tw(trackStroke,{Color=T.Border, Transparency=0.4},                       ti)
+                    tw(tint,       {BackgroundTransparency=1},                               ti)
+                    tw(knob,       {Position=UDim2.new(0,3,0.5,0), BackgroundColor3=T.TextMid,BackgroundTransparency=0}, te)
+                    tw(knobStroke, {Color=T.Border, Transparency=0.3},                      tf)
+                    tw(strip,      {BackgroundTransparency=0.55},                           tf)
+                    tw(stroke,     {Transparency=0.78, Color=T.BorderGl},                  tf)
                 end
             end
 
-            refresh()
+            refresh(false)  -- stan początkowy bez animacji
             addHover(card, strip, stroke)
             newButton(card, 7).MouseButton1Click:Connect(function()
                 TV.CurrentValue = not TV.CurrentValue
-                refresh()
+                refresh(true)  -- kliknięcie — z animacją
                 safe(cfg.Callback, TV.CurrentValue)
             end)
 
             function TV:Set(v)
-                TV.CurrentValue = v; refresh(); safe(cfg.Callback, v)
+                TV.CurrentValue = v; refresh(true); safe(cfg.Callback, v)
             end
             if cfg.Flag then Sentence.Flags[cfg.Flag]=TV; Sentence.Options[cfg.Flag]=TV end
             return TV
