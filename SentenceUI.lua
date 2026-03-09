@@ -42,11 +42,11 @@ end
 -- ── Color Theme — OG Sentence ─────────────────────────────────────────────────
 local T = {
     -- Backgrounds (charcoal / near-black)
-    BG0     = H("#0e0e0e"),  -- void (darker than primary)
-    BG1     = H("#181818"),  -- PrimaryBackground
-    BG2     = H("#202020"),  -- SecondaryBackground
+    BG0     = H("#000000"),  -- void (darker than primary)
+    BG1     = H("#0d0d0d"),  -- PrimaryBackground
+    BG2     = H("#141414"),  -- SecondaryBackground
     BG3     = H("#1a1a1a"),  -- TertiaryBackground
-    BG4     = H("#1f1f1f"),  -- ButtonNormalBackground / hover
+    BG4     = H("#212121"),  -- ButtonNormalBackground / hover
 
     -- Glass surfaces (warm charcoal tint)
     Glass   = H("#1a1a1a"),  -- glass tint (TertiaryBackground)
@@ -2023,472 +2023,276 @@ function Sentence:CreateWindow(cfg)
     self._notifHolder = notifHolder
 
     -- ══════════════════════════════════════════════════════════════════════════
-    -- SPLASH SCREEN — "Sentence Genesis"
-    -- Crystal materializing sequence
+    -- SPLASH SCREEN — "Sentence App Style"
     -- ══════════════════════════════════════════════════════════════════════════
     task.spawn(function()
-        local alive = true
-        local splashConns = {}
-
         local splash = newFrame({
             Name   = "Splash",
             Size   = UDim2.new(1,0,1,0),
-            Color  = T.BG0,
-            Alpha  = 1,
+            Color  = H("#0a0a0a"),
+            Alpha  = 0,
             Z      = 1000,
             Clip   = true,
             Parent = gui,
         })
 
-        -- Scanlines
-        for i = 1, 32 do
-            newFrame({
-                Size     = UDim2.new(1,0,0,1),
-                Position = UDim2.new(0,0,(i-1)/32,0),
-                Color    = T.TextHi,
-                Alpha    = 0.94,
-                Z        = 1030,
-                Parent   = splash,
-            })
-        end
-
-        -- Ambient glow orbs
-        local orb1 = newFrame({
-            Size      = UDim2.new(0,500,0,260),
-            Position  = UDim2.new(0.5,0,0.5,0),
-            AnchorPoint=Vector2.new(0.5,0.5),
-            Color     = T.Ice,
-            Alpha     = 1,
-            Radius    = 999,
-            Z         = 1001,
-            Parent    = splash,
-        })
-        newGradient(orb1, nil, NumberSequence.new{
-            NumberSequenceKeypoint.new(0, 0.80),
-            NumberSequenceKeypoint.new(1, 1.00),
-        })
-
-        local orb2 = newFrame({
-            Size      = UDim2.new(0,320,0,180),
-            Position  = UDim2.new(0.5,0,0.5,0),
-            AnchorPoint=Vector2.new(0.5,0.5),
-            Color     = T.Violet,
-            Alpha     = 1,
-            Radius    = 999,
-            Z         = 1001,
-            Parent    = splash,
-        })
-        newGradient(orb2, nil, NumberSequence.new{
-            NumberSequenceKeypoint.new(0, 0.84),
-            NumberSequenceKeypoint.new(1, 1.00),
-        })
-
-        -- Center point (the "origin")
-        local center = newFrame({
-            Size      = UDim2.new(0,4,0,4),
-            Position  = UDim2.new(0.5,0,0.44,0),
-            AnchorPoint=Vector2.new(0.5,0.5),
-            Color     = T.TextHi,
-            Alpha     = 1,
-            Radius    = 999,
-            Z         = 1010,
-            Parent    = splash,
-        })
-
-        -- Expanding rings (3 concentric)
-        local rings = {}
-        for i = 1, 3 do
-            local ring = newFrame({
-                Size      = UDim2.new(0,4,0,4),
-                Position  = UDim2.new(0.5,0,0.44,0),
-                AnchorPoint=Vector2.new(0.5,0.5),
-                Color     = T.BG0,
-                Alpha     = 1,
-                Radius    = 999,
-                Z         = 1008,
+        -- Diagonal stripe lines (background texture like app)
+        for i = 1, 18 do
+            local stripe = newFrame({
+                Size      = UDim2.new(0, 2, 1, 400),
+                Position  = UDim2.new(0, i * 58 - 40, 0, -200),
+                AnchorPoint = Vector2.new(0, 0),
+                Color     = T.TextHi,
+                Alpha     = 0.965,
+                Z         = 1001,
                 Parent    = splash,
             })
-            local rStroke = newStroke(ring,
-                i==1 and T.IceGlow or i==2 and T.Ice or T.Violet,
-                1.5 - i*0.3,
-                1
-            )
-            rings[i] = {frame=ring, stroke=rStroke}
+            stripe.Rotation = -28
         end
 
-        -- Crystal crack lines (6 directions)
-        local crackAngles = {0, 60, 120, 180, 240, 300}
-        local cracks = {}
-        for i, angle in ipairs(crackAngles) do
-            local rad = math.rad(angle)
-            local len = 0  -- starts at 0, grows outward
-            local line = newFrame({
-                Size      = UDim2.new(0,0,0,1),
-                Position  = UDim2.new(0.5,0,0.44,0),
-                AnchorPoint=Vector2.new(0,0.5),
-                Color     = i%2==0 and T.Ice or T.IceGlow,
-                Alpha     = 0,
-                Radius    = 0,
-                Z         = 1009,
-                Parent    = splash,
-            })
-            line.Rotation = angle
-            cracks[i] = line
-        end
-
-        -- Logo holder
-        local logoHolder = newFrame({
-            Size      = UDim2.new(0,56,0,56),
-            Position  = UDim2.new(0.5,0,0.44,0),
-            AnchorPoint=Vector2.new(0.5,0.5),
-            Color     = T.BG0,
-            Alpha     = 1,
-            Radius    = 10,
-            Z         = 1012,
-            Parent    = splash,
+        -- Subtle vignette overlay (dark edges)
+        local vignette = newFrame({
+            Size    = UDim2.new(1,0,1,0),
+            Color   = H("#000000"),
+            Alpha   = 0,
+            Z       = 1002,
+            Parent  = splash,
         })
-        local logoStroke = newStroke(logoHolder, T.Ice, 1, 1)
+        newGradient(vignette, nil, NumberSequence.new{
+            NumberSequenceKeypoint.new(0,   0.0),
+            NumberSequenceKeypoint.new(0.4, 0.85),
+            NumberSequenceKeypoint.new(0.6, 0.85),
+            NumberSequenceKeypoint.new(1,   0.0),
+        }, 0)
+
+        -- Center content holder
+        local centerHolder = newFrame({
+            Size        = UDim2.new(0, 420, 0, 160),
+            Position    = UDim2.new(0.5, 0, 0.46, 0),
+            AnchorPoint = Vector2.new(0.5, 0.5),
+            Color       = H("#0a0a0a"),
+            Alpha       = 1,
+            Z           = 1005,
+            Parent      = splash,
+        })
+
+        -- Logo image (left side like app)
+        local logoBox = newFrame({
+            Size        = UDim2.new(0, 72, 0, 72),
+            Position    = UDim2.new(0, 0, 0.5, 0),
+            AnchorPoint = Vector2.new(0, 0.5),
+            Color       = H("#0a0a0a"),
+            Alpha       = 1,
+            Z           = 1006,
+            Parent      = centerHolder,
+        })
         local logoImg = Instance.new("ImageLabel")
-        logoImg.Size              = UDim2.new(1,0,1,0)
+        logoImg.Size                 = UDim2.new(1, 0, 1, 0)
         logoImg.BackgroundTransparency = 1
-        logoImg.Image             = cfg.Icon ~= "" and resolveIcon(cfg.Icon) or LOGO_ID
-        logoImg.ScaleType         = Enum.ScaleType.Fit
-        logoImg.ImageTransparency = 1
-        logoImg.ZIndex            = 1013
-        logoImg.Parent            = logoHolder
-        Instance.new("UICorner", logoImg).CornerRadius = UDim.new(0,8)
+        logoImg.Image                = cfg.Icon ~= "" and resolveIcon(cfg.Icon) or LOGO_ID
+        logoImg.ScaleType            = Enum.ScaleType.Fit
+        logoImg.ImageTransparency    = 1
+        logoImg.ImageColor3          = T.TextHi
+        logoImg.ZIndex               = 1007
+        logoImg.Parent               = logoBox
 
-        -- HUD corner brackets
-        local brackets = {
-            {ax=0,ay=0,offX=80, offY=60},
-            {ax=1,ay=0,offX=-80,offY=60},
-            {ax=0,ay=1,offX=80, offY=-60},
-            {ax=1,ay=1,offX=-80,offY=-60},
-        }
-        local bracketFrames = {}
-        for _, b in ipairs(brackets) do
-            local bf = newFrame({
-                Size      = UDim2.new(0,18,0,18),
-                Position  = UDim2.new(b.ax,b.offX,b.ay,b.offY),
-                AnchorPoint=Vector2.new(b.ax,b.ay),
-                Color     = T.BG0,
-                Alpha     = 1,
-                Z         = 1010,
-                Parent    = splash,
-            })
-            local hLine = newFrame({
-                Size     = UDim2.new(1,0,0,1.5),
-                Position = b.ay==0 and UDim2.new(0,0,0,0) or UDim2.new(0,0,1,-1),
-                Color    = T.Ice,
-                Alpha    = 1,
-                Z        = 1011,
-                Parent   = bf,
-            })
-            local vLine = newFrame({
-                Size     = UDim2.new(0,1.5,1,0),
-                Position = b.ax==0 and UDim2.new(0,0,0,0) or UDim2.new(1,-1,0,0),
-                Color    = T.Violet,
-                Alpha    = 1,
-                Z        = 1011,
-                Parent   = bf,
-            })
-            bracketFrames[#bracketFrames+1] = {h=hLine, v=vLine, f=bf}
-        end
-
-        -- Title row (letters + subtitle)
-        local titleRow = newFrame({
-            Size      = UDim2.new(0,400,0,0),
-            Position  = UDim2.new(0.5,0,0.44,74),
-            AnchorPoint=Vector2.new(0.5,0),
-            Color     = T.BG0,
-            Alpha     = 1,
-            AutoXY    = true,
-            Z         = 1004,
-            Parent    = splash,
+        -- Right text block
+        local textBlock = newFrame({
+            Size        = UDim2.new(0, 310, 0, 80),
+            Position    = UDim2.new(0, 90, 0.5, 0),
+            AnchorPoint = Vector2.new(0, 0.5),
+            Color       = H("#0a0a0a"),
+            Alpha       = 1,
+            Z           = 1006,
+            Parent      = centerHolder,
         })
 
-        local letterRow = newFrame({
-            Size     = UDim2.new(0,0,0,0),
-            Color    = T.BG0,
-            Alpha    = 1,
-            AutoXY   = true,
-            Z        = 1005,
-            Parent   = titleRow,
+        -- Main title — spaced letters like "S E N T E N C E"
+        local titleLabel = newText({
+            Text        = cfg.Name:upper(),
+            Size        = UDim2.new(1, 0, 0, 48),
+            Position    = UDim2.new(0, 0, 0, 0),
+            Font        = Enum.Font.GothamBold,
+            TextSize    = 36,
+            Color       = T.TextHi,
+            Alpha       = 1,
+            AlignX      = Enum.TextXAlignment.Left,
+            Z           = 1007,
+            Parent      = textBlock,
         })
-        letterRow.AnchorPoint = Vector2.new(0.5,0)
-        letterRow.Position    = UDim2.new(0.5,0,0,0)
-        newLayout(letterRow, 1, Enum.FillDirection.Horizontal, nil, Enum.VerticalAlignment.Center)
 
-        -- Render title letter by letter
-        local titleStr  = cfg.Name:upper()
-        local letters   = {}
-        for i = 1, #titleStr do
-            local ch = titleStr:sub(i,i)
-            local lbl = newText({
-                Text     = ch,
-                Size     = UDim2.new(0,0,0,0),
-                Font     = Enum.Font.GothamBold,
-                TextSize = 38,
-                Color    = T.TextHi,
-                Alpha    = 1,
-                AutoXY   = true,
-                AlignX   = Enum.TextXAlignment.Center,
-                Order    = i,
-                Z        = 1006,
-                Parent   = letterRow,
-            })
-            letters[i] = lbl
-        end
-
-        -- Accent underline
-        local underline = newFrame({
-            Size      = UDim2.new(0,0,0,1.5),
-            Position  = UDim2.new(0.5,0,0,44),
-            AnchorPoint=Vector2.new(0.5,0),
-            Color     = T.Ice,
-            Alpha     = 1,
-            Radius    = 1,
-            Z         = 1005,
-            Parent    = titleRow,
+        -- Subtitle line
+        local subtitleLabel = newText({
+            Text        = cfg.Subtitle ~= "" and cfg.Subtitle:upper() or "THE MOST ADVANCED HUB IN USE",
+            Size        = UDim2.new(1, 0, 0, 18),
+            Position    = UDim2.new(0, 0, 0, 50),
+            Font        = Enum.Font.Gotham,
+            TextSize    = 11,
+            Color       = T.TextMid,
+            Alpha       = 1,
+            AlignX      = Enum.TextXAlignment.Left,
+            Z           = 1007,
+            Parent      = textBlock,
         })
-        newGradient(underline, ColorSequence.new{
+
+        -- Thin accent line under subtitle
+        local accentLine = newFrame({
+            Size        = UDim2.new(0, 0, 0, 1),
+            Position    = UDim2.new(0, 0, 0, 72),
+            Color       = T.Ice,
+            Alpha       = 1,
+            Z           = 1007,
+            Parent      = textBlock,
+        })
+        newGradient(accentLine, ColorSequence.new{
             ColorSequenceKeypoint.new(0,   T.Ice),
-            ColorSequenceKeypoint.new(0.5, T.Violet),
-            ColorSequenceKeypoint.new(1,   T.Teal),
+            ColorSequenceKeypoint.new(0.6, T.Violet),
+            ColorSequenceKeypoint.new(1,   T.Border),
         })
 
-        -- Subtitle
-        local subtitle = newText({
-            Text     = cfg.Subtitle ~= "" and cfg.Subtitle or "glassmorphism ui",
-            Size     = UDim2.new(1,0,0,14),
-            Position = UDim2.new(0.5,0,0,52),
-            AnchorPoint=Vector2.new(0.5,0),
-            Font     = Enum.Font.Code,
-            TextSize = 11,
-            Color    = T.TextMid,
-            Alpha    = 1,
-            AlignX   = Enum.TextXAlignment.Center,
-            Z        = 1005,
-            Parent   = titleRow,
+        -- Spinner (ring style like app)
+        local spinnerHolder = newFrame({
+            Size        = UDim2.new(0, 32, 0, 32),
+            Position    = UDim2.new(0.5, 0, 0.46, 110),
+            AnchorPoint = Vector2.new(0.5, 0),
+            Color       = H("#0a0a0a"),
+            Alpha       = 1,
+            Radius      = 999,
+            Z           = 1006,
+            Parent      = splash,
         })
+        -- Spinner ring (arc effect via stroke)
+        local spinnerRing = newFrame({
+            Size        = UDim2.new(1, 0, 1, 0),
+            Color       = H("#0a0a0a"),
+            Alpha       = 1,
+            Radius      = 999,
+            Z           = 1007,
+            Parent      = spinnerHolder,
+        })
+        local spinStroke = newStroke(spinnerRing, T.Ice, 2, 0)
+        -- Outer dim ring
+        local spinnerBg = newFrame({
+            Size        = UDim2.new(1, 0, 1, 0),
+            Color       = H("#0a0a0a"),
+            Alpha       = 1,
+            Radius      = 999,
+            Z           = 1006,
+            Parent      = spinnerHolder,
+        })
+        newStroke(spinnerBg, T.Border, 2, 0.6)
 
-        -- Progress bar
-        local progTrack = newFrame({
-            Size      = UDim2.new(0,220,0,2),
-            Position  = UDim2.new(0.5,0,0,72),
-            AnchorPoint=Vector2.new(0.5,0),
-            Color     = T.BG3,
-            Alpha     = 0,
-            Radius    = 1,
-            Z         = 1005,
-            Parent    = titleRow,
-        })
-        local progFill = newFrame({
-            Size   = UDim2.new(0,0,1,0),
-            Color  = T.Ice,
-            Alpha  = 0,
-            Radius = 1,
-            Z      = 1006,
-            Parent = progTrack,
-        })
-        newGradient(progFill, ColorSequence.new{
-            ColorSequenceKeypoint.new(0,   T.Ice),
-            ColorSequenceKeypoint.new(0.5, T.Violet),
-            ColorSequenceKeypoint.new(1,   T.Teal),
-        })
-
+        -- Status text under spinner
         local statusLabel = newText({
-            Text     = "initializing",
-            Size     = UDim2.new(1,0,0,12),
-            Position = UDim2.new(0.5,0,0,80),
-            AnchorPoint=Vector2.new(0.5,0),
-            Font     = Enum.Font.Code,
-            TextSize = 10,
-            Color    = T.TextMid,
-            Alpha    = 1,
-            AlignX   = Enum.TextXAlignment.Center,
-            Z        = 1005,
-            Parent   = titleRow,
+            Text        = "initializing…",
+            Size        = UDim2.new(0, 260, 0, 14),
+            Position    = UDim2.new(0.5, 0, 0.46, 152),
+            AnchorPoint = Vector2.new(0.5, 0),
+            Font        = Enum.Font.Code,
+            TextSize    = 10,
+            Color       = T.TextLo,
+            Alpha       = 1,
+            AlignX      = Enum.TextXAlignment.Center,
+            Z           = 1006,
+            Parent      = splash,
         })
 
-        -- Floating particles
-        local particles = {}
-        for pi = 1, 11 do
-            local pf = newFrame({
-                Size     = UDim2.new(0, math.random(2,4), 0, math.random(2,4)),
-                Position = UDim2.new(math.random(8,92)/100, 0, math.random(8,92)/100, 0),
-                AnchorPoint=Vector2.new(0.5,0.5),
-                Color    = pi%3==0 and T.Ice or pi%3==1 and T.Violet or T.Teal,
-                Alpha    = 0.5 + math.random()*0.4,
-                Radius   = 999,
-                Z        = 1002,
-                Parent   = splash,
-            })
-            particles[pi] = {
-                f  = pf,
-                bx = math.random(8,92)/100,
-                by = math.random(8,92)/100,
-                ph = math.random() * math.pi * 2,
-                sp = 0.18 + math.random() * 0.28,
-                rg = 0.010 + math.random() * 0.014,
-            }
-        end
+        -- Bottom branding bar (like app footer)
+        local bottomBar = newFrame({
+            Size        = UDim2.new(1, 0, 0, 32),
+            Position    = UDim2.new(0, 0, 1, -32),
+            Color       = H("#060606"),
+            Alpha       = 0,
+            Z           = 1006,
+            Parent      = splash,
+        })
+        -- Top border of bottom bar
+        newFrame({
+            Size    = UDim2.new(1, 0, 0, 1),
+            Color   = T.Border,
+            Alpha   = 0,
+            Z       = 1007,
+            Parent  = bottomBar,
+        })
+        local brandLabel = newText({
+            Text        = "Version: "..Sentence.Version.." | Made by DareQPlaysRBX | Powered by SentenceUI",
+            Size        = UDim2.new(1, -24, 1, 0),
+            Position    = UDim2.new(0, 12, 0, 0),
+            Font        = Enum.Font.Gotham,
+            TextSize    = 10,
+            Color       = T.TextLo,
+            Alpha       = 1,
+            AlignX      = Enum.TextXAlignment.Left,
+            Z           = 1007,
+            Parent      = bottomBar,
+        })
 
-        -- Animation loop
-        local rsConn = RS.RenderStepped:Connect(function(dt)
-            if not alive then return end
-            -- Gentle orb parallax
-            local mp = UIS:GetMouseLocation()
-            local vs = Cam.ViewportSize
-            orb1.Position = UDim2.new(0.5,(mp.X/vs.X-0.5)*30, 0.5,(mp.Y/vs.Y-0.5)*16)
-            orb2.Position = UDim2.new(0.5,(mp.X/vs.X-0.5)*-20,0.5,(mp.Y/vs.Y-0.5)*-12)
-            -- Particles float
-            for _, p in ipairs(particles) do
-                local t = tick() * p.sp + p.ph
-                p.f.Position = UDim2.new(
-                    p.bx + math.sin(t)      * p.rg, 0,
-                    p.by + math.cos(t*1.4) * p.rg, 0
-                )
-            end
+        -- ── Spinner rotation loop ─────────────────────────────────────────────
+        local spinAlive = true
+        local spinConn = RS.RenderStepped:Connect(function(dt)
+            if not spinAlive then return end
+            spinnerRing.Rotation = spinnerRing.Rotation + 180 * dt
         end)
-        table.insert(splashConns, rsConn)
 
-        -- ── Phase 1: Origin point appears ─────────────────────────────────────
-        tw(splash, {BackgroundTransparency=0}, TI(.30, Enum.EasingStyle.Quad))
-        task.wait(0.15)
+        -- ── Phase 1: Fade in background ───────────────────────────────────────
+        tw(splash, {BackgroundTransparency=0}, TI(.24, Enum.EasingStyle.Quad))
+        task.wait(0.20)
 
-        tw(orb1, {BackgroundTransparency=0.80}, TI(.50, Enum.EasingStyle.Quad))
-        tw(orb2, {BackgroundTransparency=0.86}, TI(.50, Enum.EasingStyle.Quad))
+        -- Phase 2: Bottom bar slides in
+        tw(bottomBar, {BackgroundTransparency=0.15}, TI_MED)
         task.wait(0.12)
 
-        -- Brackets reveal
-        for _, br in ipairs(bracketFrames) do
-            tw(br.h, {BackgroundTransparency=0}, TI(.36, Enum.EasingStyle.Exponential))
-            tw(br.v, {BackgroundTransparency=0}, TI(.36, Enum.EasingStyle.Exponential))
-        end
+        -- Phase 3: Logo appears
+        tw(logoImg, {ImageTransparency=0}, TI(.32, Enum.EasingStyle.Exponential))
         task.wait(0.14)
 
-        -- ── Phase 2: Rings expand from center ──────────────────────────────────
-        tw(center, {BackgroundTransparency=0}, TI_FAST)
-        task.wait(0.06)
-
-        for i, ring in ipairs(rings) do
-            task.spawn(function()
-                task.wait((i-1)*0.14)
-                local sz = 56 + i * 26
-                tw(ring.frame,  {Size=UDim2.new(0,sz,0,sz), BackgroundTransparency=1}, TI(.44, Enum.EasingStyle.Exponential))
-                tw(ring.stroke, {Transparency=0.40 + i*0.15},                          TI(.44, Enum.EasingStyle.Exponential))
-            end)
-        end
-        task.wait(0.48)
-
-        -- ── Phase 3: Crystal cracks radiate outward ───────────────────────────
-        for i, crack in ipairs(cracks) do
-            task.spawn(function()
-                task.wait((i-1)*0.04)
-                crack.BackgroundTransparency = 0
-                tw(crack, {Size=UDim2.new(0, 70 + math.random(20,60), 0, 1)},
-                    TI(.38, Enum.EasingStyle.Exponential))
-            end)
-        end
-        task.wait(0.44)
-
-        -- ── Phase 4: Logo materializes ────────────────────────────────────────
-        tw(logoHolder, {Size=UDim2.new(0,64,0,64), BackgroundTransparency=0.80}, TI_SPRING)
-        tw(logoStroke, {Transparency=0.40},                                       TI_MED)
-        tw(logoImg,    {ImageTransparency=0},     TI(.40, Enum.EasingStyle.Exponential))
-        task.wait(0.32)
-
-        -- ── Phase 5: Letters appear one by one (glitch flash) ─────────────────
-        for i, lbl in ipairs(letters) do
-            task.spawn(function()
-                task.wait((i-1) * 0.06)
-                lbl.TextColor3 = T.IceGlow
-                tw(lbl, {TextTransparency=0}, TI(.10, Enum.EasingStyle.Back))
-                task.wait(0.07)
-                tw(lbl, {TextColor3=T.TextHi}, TI(.12))
-            end)
-        end
-        task.wait(#letters * 0.06 + 0.18)
-
-        -- Underline & subtitle
-        tw(underline, {Size=UDim2.new(0,260,0,1.5), BackgroundTransparency=0},
-            TI(.38, Enum.EasingStyle.Exponential))
+        -- Phase 4: Title types in
+        tw(titleLabel, {TextTransparency=0}, TI(.28, Enum.EasingStyle.Exponential))
         task.wait(0.10)
-        tw(subtitle, {TextTransparency=0.30}, TI_MED)
 
-        -- ── Phase 6: Progress bar ─────────────────────────────────────────────
-        tw(progTrack, {BackgroundTransparency=0.55}, TI_FAST)
-        tw(progFill,  {BackgroundTransparency=0},    TI_FAST)
+        -- Phase 5: Subtitle + accent line
+        tw(subtitleLabel, {TextTransparency=0.25}, TI_MED)
+        tw(accentLine, {Size=UDim2.new(0, 280, 0, 1), BackgroundTransparency=0},
+            TI(.40, Enum.EasingStyle.Exponential))
+        task.wait(0.18)
 
+        -- Phase 6: Spinner appears
+        tw(spinStroke, {Transparency=0.0}, TI_FAST)
+        task.wait(0.10)
+
+        -- Phase 7: Status steps
         local steps = {
-            {label="loading modules",   pct=0.18},
-            {label="injecting scripts", pct=0.40},
-            {label="fetching assets",   pct=0.62},
-            {label="building ui",       pct=0.84},
-            {label="ready",             pct=1.00},
+            {label="loading modules…",   wait=0.28},
+            {label="injecting scripts…", wait=0.24},
+            {label="fetching assets…",   wait=0.22},
+            {label="building ui…",       wait=0.20},
+            {label="ready.",             wait=0.32},
         }
         for _, step in ipairs(steps) do
-            tw(statusLabel, {TextTransparency=1},    TI(.06, Enum.EasingStyle.Quad)); task.wait(0.07)
+            tw(statusLabel, {TextTransparency=1}, TI(.06, Enum.EasingStyle.Quad))
+            task.wait(0.07)
             statusLabel.Text = step.label
-            tw(statusLabel, {TextTransparency=0.30}, TI(.08, Enum.EasingStyle.Quad))
-            tw(progFill, {Size=UDim2.new(step.pct,0,1,0)},
-                TI(.30, Enum.EasingStyle.Quad))
-            task.wait(step.pct == 1 and 0.32 or 0.22)
+            tw(statusLabel, {TextTransparency=0.40}, TI(.08, Enum.EasingStyle.Quad))
+            task.wait(step.wait)
         end
-        task.wait(0.30)
+        task.wait(0.20)
 
-        -- ── Phase 7: Outro — shatter outward ──────────────────────────────────
-        alive = false
-        for _, c in ipairs(splashConns) do pcall(function() c:Disconnect() end) end
+        -- ── Outro ─────────────────────────────────────────────────────────────
+        spinAlive = false
+        spinConn:Disconnect()
 
-        -- Letters fly away
-        for i = #letters, 1, -1 do
-            task.spawn(function()
-                local delay = (#letters - i) * 0.03
-                task.wait(delay)
-                local angle = math.rad((i / #letters) * 360)
-                local dist  = math.random(60, 140)
-                tw(letters[i], {
-                    TextTransparency = 1,
-                    Position = letters[i].Position + UDim2.fromOffset(
-                        math.cos(angle)*dist, math.sin(angle)*dist * 0.5
-                    ),
-                }, TI(.30, Enum.EasingStyle.Exponential, Enum.EasingDirection.In))
-            end)
-        end
-        tw(subtitle,  {TextTransparency=1}, TI(.14, Enum.EasingStyle.Quad))
-        tw(underline, {BackgroundTransparency=1, Size=UDim2.new(0,0,0,1.5)},
-            TI(.26, Enum.EasingStyle.Exponential))
-        task.wait(0.12)
+        local TI_OUT = TI(.18, Enum.EasingStyle.Quad)
+        tw(logoImg,       {ImageTransparency=1},    TI_OUT)
+        tw(titleLabel,    {TextTransparency=1},     TI_OUT)
+        tw(subtitleLabel, {TextTransparency=1},     TI_OUT)
+        tw(accentLine,    {BackgroundTransparency=1, Size=UDim2.new(0,0,0,1)}, TI_OUT)
+        tw(spinStroke,    {Transparency=1},         TI_OUT)
+        tw(statusLabel,   {TextTransparency=1},     TI_OUT)
+        tw(bottomBar,     {BackgroundTransparency=1}, TI_OUT)
+        task.wait(0.16)
 
-        tw(statusLabel,{TextTransparency=1}, TI_FAST)
-        tw(progFill,   {BackgroundTransparency=1}, TI_FAST)
-        tw(progTrack,  {BackgroundTransparency=1}, TI_FAST)
-        tw(logoImg,    {ImageTransparency=1}, TI(.20, Enum.EasingStyle.Quad))
-        tw(logoStroke, {Transparency=1},      TI(.18))
-
-        -- Cracks fade
-        for _, cr in ipairs(cracks) do
-            tw(cr, {BackgroundTransparency=1}, TI(.16, Enum.EasingStyle.Quad))
-        end
-        for _, ring in ipairs(rings) do
-            tw(ring.stroke, {Transparency=1}, TI(.16))
-        end
-        -- Brackets retract
-        for _, br in ipairs(bracketFrames) do
-            tw(br.h, {BackgroundTransparency=1}, TI(.14))
-            tw(br.v, {BackgroundTransparency=1}, TI(.14))
-        end
-        for _, p in ipairs(particles) do
-            tw(p.f, {BackgroundTransparency=1}, TI(.14))
-        end
-        task.wait(0.12)
-
-        tw(orb1,  {BackgroundTransparency=1}, TI(.26, Enum.EasingStyle.Quad))
-        tw(orb2,  {BackgroundTransparency=1}, TI(.26, Enum.EasingStyle.Quad))
-        tw(splash,{BackgroundTransparency=1},
-            TI(.36, Enum.EasingStyle.Quad),
+        tw(splash, {BackgroundTransparency=1},
+            TI(.30, Enum.EasingStyle.Quad),
             function() splash:Destroy() end)
     end)
 
