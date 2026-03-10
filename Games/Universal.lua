@@ -1,20 +1,30 @@
--- ── STANDALONE BOOTSTRAP (odkomentuj jeśli uruchamiasz bez main.lua) ──
- local Lib    = loadstring(game:HttpGet("https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/SentenceUI.lua"))()
+-- ════════════════════════════════════════════════════════════
+-- SENTENCE Hub  -  Universal Script  v2.3
+-- Autor: DareQPlaysRBX
+-- ════════════════════════════════════════════════════════════
+-- Użycie standalone (poza main loaderem):
+--   Ustaw _G.Window i _G.Lib przed loadstring tego pliku,
+--   lub odkomentuj sekcję "STANDALONE BOOTSTRAP" poniżej.
+-- ════════════════════════════════════════════════════════════
 
- local Window = Lib:CreateWindow({
-     Name            = "SENTENCE Hub",
-     Subtitle        = "Universal Script",
-     Icon            = "117810891565979",
-     LoadingEnabled  = true,
-     LoadingTitle    = "SENTENCE HUB",
-     LoadingSubtitle = "Loading Universal script...",
-     ToggleBind      = Enum.KeyCode.RightControl,
-     ConfigurationSaving = {
-         Enabled    = false,
-         FolderName = "SentenceHub",
-         FileName   = "universal",
-     },
- })
+-- ── STANDALONE BOOTSTRAP (odkomentuj jeśli uruchamiasz bez main.lua) ──
+-- local Lib    = loadstring(game:HttpGet(
+--     "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/SentenceUI.lua"
+-- ))()
+-- local Window = Lib:CreateWindow({
+--     Name            = "SENTENCE Hub",
+--     Subtitle        = "Universal Script",
+--     Icon            = "117810891565979",
+--     LoadingEnabled  = true,
+--     LoadingTitle    = "SENTENCE HUB",
+--     LoadingSubtitle = "Loading Universal script...",
+--     ToggleBind      = Enum.KeyCode.RightControl,
+--     ConfigurationSaving = {
+--         Enabled    = false,
+--         FolderName = "SentenceHub",
+--         FileName   = "universal",
+--     },
+-- })
 
 local Lib    = _G.Lib    or error("[ SENTENCE ] Lib not found in _G")
 local Window = _G.Window or error("[ SENTENCE ] Window not found in _G")
