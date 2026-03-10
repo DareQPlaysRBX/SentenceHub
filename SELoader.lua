@@ -1,5 +1,5 @@
 local Lib = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/SentenceGUILibrary.lua"
+    "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/SentenceUI.lua"
 ))()
 
 -- ════════════════════════════════════════════════════════════
