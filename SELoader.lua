@@ -19,17 +19,21 @@ local SUPPORTED_GAMES = {
         url    = "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/Games/Bubblegumsimulatorinfinity.lua",
         config = "bgs-infinity",
     },
+    -- [PLACE_ID] = { name = "...", url = "...url.../Games/....lua", config = "..." },
 }
 
 -- ════════════════════════════════════════════════════════════
 -- AUTO-DETECTION
 -- ════════════════════════════════════════════════════════════
-local placeId   = game.PlaceId
-local gameData  = SUPPORTED_GAMES[placeId]
+local placeId     = game.PlaceId
+local gameData    = SUPPORTED_GAMES[placeId]
 local isSupported = gameData ~= nil
 
 local GAME_NAME   = isSupported and gameData.name   or "Universal"
 local CONFIG_FILE = isSupported and gameData.config  or "universal"
+local SCRIPT_URL  = isSupported
+    and gameData.url
+    or  "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/Games/Universal.lua"
 
 -- ════════════════════════════════════════════════════════════
 -- MAIN WINDOW
@@ -41,8 +45,8 @@ local Window = Lib:CreateWindow({
     LoadingEnabled  = true,
     LoadingTitle    = "SENTENCE HUB",
     LoadingSubtitle = isSupported
-        and ("Loading " .. GAME_NAME .. " script…")
-        or  "Loading Universal script…",
+        and ("Loading " .. GAME_NAME .. " script...")
+        or  "Loading Universal script...",
     ToggleBind      = Enum.KeyCode.RightControl,
     ConfigurationSaving = {
         Enabled    = true,
@@ -64,61 +68,74 @@ S_Welcome:CreateLabel({ Name = "Toggle UI:  RightControl  ·  Config auto-saved 
 if isSupported then
     S_Welcome:CreateLabel({ Name = "✔  Supported game detected — full feature set active." })
 else
-    S_Welcome:CreateLabel({ Name = "⚠  Unsupported game — running in Universal mode." })
+    S_Welcome:CreateLabel({ Name = "⚠  Unsupported game — Universal mode loaded automatically." })
     S_Welcome:CreateLabel({ Name = "Place ID: " .. tostring(placeId) })
+    S_Welcome:CreateLabel({ Name = "Main & Visuals tabs contain all universal features." })
 end
 
 -- Changelog section
 local S_CL = Home:CreateSection("Changelog")
+S_CL:CreateLabel({ Name = "v3.0 — Universal script is now a separate file, auto-loaded." })
+S_CL:CreateLabel({ Name = "v2.3 — OG Sentence theme, Corner boxes default, scaled fonts." })
+S_CL:CreateLabel({ Name = "v2.2 — ESP rewrite: Highlight chams, modern boxes." })
+S_CL:CreateLabel({ Name = "v2.1 — Universal ESP (Visuals tab) added." })
 S_CL:CreateLabel({ Name = "v2.0 — Auto game-detection, per-game config saving." })
-S_CL:CreateLabel({ Name = "v1.0 — Initial universal release." })
 
 -- Credits section
 local S_Cred = Home:CreateSection("Credits")
-S_Cred:CreateLabel({ Name = "Developer: DareQPlaysRBX",           Style = 2 })
-S_Cred:CreateLabel({ Name = "Library: SentenceLib  v2.6"                })
+S_Cred:CreateLabel({ Name = "Developer: DareQPlaysRBX",         Style = 2 })
+S_Cred:CreateLabel({ Name = "Library: SentenceLib  v2.6"               })
 S_Cred:CreateLabel({ Name = "GitHub: DareQPlaysRBX/SentenceHub"        })
-S_Cred:CreateLabel({ Name = "Discord: discord.gg/gQt5WeS5kn"            })
+S_Cred:CreateLabel({ Name = "Discord: discord.gg/gQt5WeS5kn"           })
 
 -- ════════════════════════════════════════════════════════════
--- GAME-SPECIFIC SCRIPT LOADER
+-- SCRIPT LOADER
 -- ════════════════════════════════════════════════════════════
-if isSupported then
-    -- ── Supported game: load dedicated script ──────────────
-    print("[ SENTENCE ] Detected supported game: " .. GAME_NAME .. " (PlaceId: " .. placeId .. ")")
+print(string.format(
+    "[ SENTENCE ] Loader v3.0 | PlaceId: %d | Mode: %s | Config: %s",
+    placeId, GAME_NAME, CONFIG_FILE
+))
 
-    -- Expose Window and Lib via _G so game scripts can reference them
-    _G.Window = Window
-    _G.Lib    = Lib
+_G.Window = Window
+_G.Lib    = Lib
 
-    local success, err = pcall(function()
-        loadstring(game:HttpGet(gameData.url))()
-    end)
+local success, err = pcall(function()
+    loadstring(game:HttpGet(SCRIPT_URL))()
+end)
 
-    -- Clean up globals after the game script has finished loading
-    _G.Window = nil
-    _G.Lib    = nil
+_G.Window = nil
+_G.Lib    = nil
 
-    if not success then
-        warn("[ SENTENCE ] Failed to load game script for " .. GAME_NAME .. ": " .. tostring(err))
+if not success then
+    warn("[ SENTENCE ] Script load failed: " .. tostring(err))
 
-        Lib:Notify({
-            Title    = "SENTENCE Hub",
-            Content  = "Failed to load " .. GAME_NAME .. " script. Falling back to Universal.",
-            Type     = "Error",
-            Duration = 6,
-        })
+    Lib:Notify({
+        Title    = "SENTENCE Hub",
+        Content  = "Failed to load " .. GAME_NAME .. " script. Check HTTP settings.",
+        Type     = "Error",
+        Duration = 6,
+    })
 
-        -- Fallback: show universal tab
-        local TabMain = Window:CreateTab({ Name = "Auto Farm", Icon = "rbxassetid://6031280882", ShowTitle = true })
+    -- If game script failed, attempt Universal as fallback
+    if isSupported then
+        warn("[ SENTENCE ] Falling back to Universal...")
+
+        _G.Window = Window
+        _G.Lib    = Lib
+
+        local ok2, err2 = pcall(function()
+            loadstring(game:HttpGet(
+                "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/Games/Universal.lua"
+            ))()
+        end)
+
+        _G.Window = nil
+        _G.Lib    = nil
+
+        if not ok2 then
+            warn("[ SENTENCE ] Universal fallback also failed: " .. tostring(err2))
+        end
     end
-
-else
-    -- ── Unsupported game: Universal tab ───────────────────
-    print("[ SENTENCE ] Unsupported game (PlaceId: " .. placeId .. ") — Universal mode.")
-
-    local TabMain = Window:CreateTab({ Name = "Main", Icon = "rbxassetid://6031280882", ShowTitle = true })
-
 end
 
 -- ════════════════════════════════════════════════════════════
@@ -126,23 +143,13 @@ end
 -- ════════════════════════════════════════════════════════════
 task.wait(1)
 
-if isSupported then
+if success then
     Lib:Notify({
         Title    = "SENTENCE Hub",
-        Content  = GAME_NAME .. " script loaded! Press RightControl to toggle UI.",
-        Type     = "Success",
+        Content  = isSupported
+            and (GAME_NAME .. " script loaded! Press RightControl to toggle UI.")
+            or  "Universal Script loaded! Press RightControl to toggle UI.",
+        Type     = isSupported and "Success" or "Info",
         Duration = 5,
     })
-else
-    Lib:Notify({
-        Title    = "SENTENCE Hub",
-        Content  = "Universal Script loaded — game not supported yet. Press RightControl to toggle UI.",
-        Type     = "Info",
-        Duration = 6,
-    })
 end
-
-print(string.format(
-    "[ SENTENCE ] Loader v2.0 — %s | PlaceId: %d | Config: %s",
-    GAME_NAME, placeId, CONFIG_FILE
-))
