@@ -7,7 +7,7 @@
 --]]
 
 local Sentence = {
-    Version = "4.0",
+    Version = "1.0",
     Flags   = {},
     Options = {},
     _conns  = {},
@@ -37,11 +37,11 @@ end
 -- ── Color Theme — OG Sentence ─────────────────────────────────────────────────
 local T = {
     -- Backgrounds — Midnight Sentence (eye-friendly)
-    BG0     = H("#000000"),  -- void
+    BG0     = H("#151515"),  -- void
     BG1     = H("#0e0e0e"),  -- PrimaryBackground
-    BG2     = H("#141414"),  -- SecondaryBackground
+    BG2     = H("#151515"),  -- SecondaryBackground
     BG3     = H("#1a1a1a"),  -- TertiaryBackground
-    BG4     = H("#202020"),  -- ButtonNormalBackground
+    BG4     = H("#151515"),  -- ButtonNormalBackground
 
     -- Glass surfaces
     Glass   = H("#181818"),  -- glass tint
@@ -52,7 +52,7 @@ local T = {
     BorderHi= H("#323232"),  -- aktywna krawędź
     BorderGl= H("#3a3a3a"),  -- krawędź szkła
 
-    -- 💎 Midnight Blue
+    -- Midnight Blue
     Ice     = H("#4AABF5"),  -- główny akcent
     IceDim  = H("#3080D0"),  -- przyciemniony akcent
     IceLo   = H("#081828"),  -- ledwo widoczne tło akcentu
@@ -2030,7 +2030,7 @@ function Sentence:CreateWindow(cfg)
             Clip   = true,
             Parent = gui,
         })
-
+ 
         -- Diagonal stripe lines (background texture like app)
         for i = 1, 18 do
             local stripe = newFrame({
@@ -2044,7 +2044,7 @@ function Sentence:CreateWindow(cfg)
             })
             stripe.Rotation = -28
         end
-
+ 
         -- Subtle vignette overlay (dark edges)
         local vignette = newFrame({
             Size   = UDim2.new(1,0,1,0),
@@ -2059,7 +2059,7 @@ function Sentence:CreateWindow(cfg)
             NumberSequenceKeypoint.new(0.6, 0.85),
             NumberSequenceKeypoint.new(1,   0.0),
         }, 0)
-
+ 
         -- Center content holder
         local centerHolder = newFrame({
             Size        = UDim2.new(0,420,0,160),
@@ -2070,10 +2070,10 @@ function Sentence:CreateWindow(cfg)
             Z           = 1005,
             Parent      = splash,
         })
-
+ 
         -- Logo image
         local logoBox = newFrame({
-            Size        = UDim2.new(0,72,0,72),
+            Size        = UDim2.new(0,82,0,82),
             Position    = UDim2.new(0,0,0.5,0),
             AnchorPoint = Vector2.new(0,0.5),
             Color       = H("#0a0a0a"),
@@ -2090,7 +2090,7 @@ function Sentence:CreateWindow(cfg)
         logoImg.ImageColor3            = T.TextHi
         logoImg.ZIndex                 = 1007
         logoImg.Parent                 = logoBox
-
+ 
         -- Right text block
         local textBlock = newFrame({
             Size        = UDim2.new(0,310,0,80),
@@ -2101,35 +2101,35 @@ function Sentence:CreateWindow(cfg)
             Z           = 1006,
             Parent      = centerHolder,
         })
-
+ 
         -- Main title
         local titleLabel = newText({
             Text   = cfg.Name:upper(),
             Size   = UDim2.new(1,0,0,48),
             Position = UDim2.new(0,0,0,0),
             Font   = Enum.Font.GothamBold,
-            TextSize = 36,
+            TextSize = 40,
             Color  = T.TextHi,
             Alpha  = 1,
             AlignX = Enum.TextXAlignment.Left,
             Z      = 1007,
             Parent = textBlock,
         })
-
+ 
         -- Subtitle line
         local subtitleLabel = newText({
             Text     = cfg.Subtitle ~= "" and cfg.Subtitle:upper() or "THE MOST ADVANCED HUB IN USE",
             Size     = UDim2.new(1,0,0,18),
             Position = UDim2.new(0,0,0,50),
             Font     = Enum.Font.Gotham,
-            TextSize = 11,
+            TextSize = 15,
             Color    = T.TextMid,
             Alpha    = 1,
             AlignX   = Enum.TextXAlignment.Left,
             Z        = 1007,
             Parent   = textBlock,
         })
-
+ 
         -- Thin accent line under subtitle
         local accentLine = newFrame({
             Size     = UDim2.new(0,0,0,1),
@@ -2144,7 +2144,7 @@ function Sentence:CreateWindow(cfg)
             ColorSequenceKeypoint.new(0.6, T.Violet),
             ColorSequenceKeypoint.new(1,   T.Border),
         })
-
+ 
         -- Spinner
         local spinnerHolder = newFrame({
             Size        = UDim2.new(0,32,0,32),
@@ -2174,7 +2174,7 @@ function Sentence:CreateWindow(cfg)
             Parent = spinnerHolder,
         })
         newStroke(spinnerBg, T.Border, 2, 0.6)
-
+ 
         -- Status text
         local statusLabel = newText({
             Text        = "initializing…",
@@ -2189,7 +2189,7 @@ function Sentence:CreateWindow(cfg)
             Z           = 1006,
             Parent      = splash,
         })
-
+ 
         -- Bottom branding bar
         local bottomBar = newFrame({
             Size     = UDim2.new(1,0,0,32),
@@ -2218,30 +2218,30 @@ function Sentence:CreateWindow(cfg)
             Z        = 1007,
             Parent   = bottomBar,
         })
-
+ 
         -- ── Spinner rotation loop ─────────────────────────────────────────────
         local spinAlive = true
         local spinConn = RS.RenderStepped:Connect(function(dt)
             if not spinAlive then return end
             spinnerRing.Rotation = spinnerRing.Rotation + 180 * dt
         end)
-
+ 
         -- ── Phase 1: Fade in background ───────────────────────────────────────
         tw(splash, {BackgroundTransparency=0}, TI(.24, Enum.EasingStyle.Quad))
         task.wait(0.20)
-
+ 
         -- Phase 2: Bottom bar slides in
         tw(bottomBar, {BackgroundTransparency=0.15}, TI_MED)
         task.wait(0.12)
-
+ 
         -- Phase 3: Logo appears
         tw(logoImg, {ImageTransparency=0}, TI(.32, Enum.EasingStyle.Exponential))
         task.wait(0.14)
-
+ 
         -- Phase 4: Title fades in
         tw(titleLabel, {TextTransparency=0}, TI(.28, Enum.EasingStyle.Exponential))
         task.wait(0.10)
-
+ 
         -- Phase 5: Subtitle + accent line
         tw(subtitleLabel, {TextTransparency=0.25}, TI_MED)
         tw(accentLine, {
@@ -2249,11 +2249,11 @@ function Sentence:CreateWindow(cfg)
             BackgroundTransparency = 0,
         }, TI(.40, Enum.EasingStyle.Exponential))
         task.wait(0.18)
-
+ 
         -- Phase 6: Spinner appears
         tw(spinStroke, {Transparency=0.0}, TI_FAST)
         task.wait(0.10)
-
+ 
         -- Phase 7: Status steps
         local steps = {
             {label="loading modules…",   wait=0.28},
@@ -2270,17 +2270,17 @@ function Sentence:CreateWindow(cfg)
             task.wait(step.wait)
         end
         task.wait(0.20)
-
+ 
         -- ══════════════════════════════════════════════════════════════════════
         -- OUTRO
         -- ══════════════════════════════════════════════════════════════════════
         spinAlive = false
         spinConn:Disconnect()
-
+ 
         -- Spinner zmienia kolor na zielony — sygnał "ready"
         tw(spinStroke, {Color=T.Success}, TI_FAST)
         task.wait(0.34)
-
+ 
         -- Accent line zwęża się symetrycznie do środka
         tw(accentLine, {
             Size                   = UDim2.new(0,0,0,1),
@@ -2288,38 +2288,38 @@ function Sentence:CreateWindow(cfg)
             AnchorPoint            = Vector2.new(0.5,0),
             BackgroundTransparency = 1,
         }, TI(.30, Enum.EasingStyle.Exponential, Enum.EasingDirection.In))
-
+ 
         -- Status i spinner gasną
         tw(spinStroke,  {Transparency=1},    TI(.22, Enum.EasingStyle.Quad))
         tw(statusLabel, {TextTransparency=1}, TI(.18, Enum.EasingStyle.Quad))
         task.wait(0.16)
-
+ 
         -- Subtitle odpływa w dół
         tw(subtitleLabel, {
             TextTransparency = 1,
             Position         = UDim2.new(0,0,0,58),
         }, TI(.24, Enum.EasingStyle.Quad, Enum.EasingDirection.In))
-
+ 
         -- Tytuł odpływa w górę
         tw(titleLabel, {
             TextTransparency = 1,
             Position         = UDim2.new(0,0,0,-12),
         }, TI(.28, Enum.EasingStyle.Exponential, Enum.EasingDirection.In))
-
+ 
         -- Logo maleje i znika
         tw(logoImg, {
             ImageTransparency = 1,
             Size              = UDim2.new(0.7,0,0.7,0),
         }, TI(.26, Enum.EasingStyle.Quad, Enum.EasingDirection.In))
         task.wait(0.22)
-
+ 
         -- Bottom bar odpływa w dół
         tw(bottomBar, {
             BackgroundTransparency = 1,
             Position               = UDim2.new(0,0,1,8),
         }, TI(.22, Enum.EasingStyle.Quad))
         task.wait(0.12)
-
+ 
         -- Biały flash — cinematic punch
         local flash = newFrame({
             Size   = UDim2.new(1,0,1,0),
@@ -2332,7 +2332,7 @@ function Sentence:CreateWindow(cfg)
         task.wait(0.05)
         tw(flash, {BackgroundTransparency=1}, TI(.28, Enum.EasingStyle.Exponential))
         task.wait(0.14)
-
+ 
         -- Całość fade out
         tw(splash, {BackgroundTransparency=1},
             TI(.26, Enum.EasingStyle.Quad),
