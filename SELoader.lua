@@ -5,10 +5,8 @@ local Lib = loadstring(game:HttpGet(
 -- ════════════════════════════════════════════════════════════
 -- SERVICES
 -- ════════════════════════════════════════════════════════════
-local RS         = game:GetService("RunService")
-local Players    = game:GetService("Players")
-local RepStorage = game:GetService("ReplicatedStorage")
-local LP         = Players.LocalPlayer
+local Players = game:GetService("Players")
+local LP      = Players.LocalPlayer
 
 -- ════════════════════════════════════════════════════════════
 -- GAME REGISTRY
@@ -60,20 +58,18 @@ local Window = Lib:CreateWindow({
 -- ════════════════════════════════════════════════════════════
 local Home = Window:CreateHomeTab({ Icon = "rbxassetid://117810891565979" })
 
--- Welcome section
 local S_Welcome = Home:CreateSection("Welcome")
 S_Welcome:CreateLabel({ Name = "SENTENCE Hub  ·  " .. GAME_NAME .. " Script", Style = 2 })
-S_Welcome:CreateLabel({ Name = "Toggle UI:  RightControl  ·  Config auto-saved on teleport" })
+S_Welcome:CreateLabel({ Name = "Toggle UI:  RightControl" })
 
 if isSupported then
-    S_Welcome:CreateLabel({ Name = "✔  Supported game detected — full feature set active." })
+    S_Welcome:CreateLabel({ Name = "Supported game detected — full feature set active." })
 else
-    S_Welcome:CreateLabel({ Name = "⚠  Unsupported game — Universal mode loaded automatically." })
+    S_Welcome:CreateLabel({ Name = "Unsupported game — Universal mode loaded automatically." })
     S_Welcome:CreateLabel({ Name = "Place ID: " .. tostring(placeId) })
     S_Welcome:CreateLabel({ Name = "Main & Visuals tabs contain all universal features." })
 end
 
--- Changelog section
 local S_CL = Home:CreateSection("Changelog")
 S_CL:CreateLabel({ Name = "v3.0 — Universal script is now a separate file, auto-loaded." })
 S_CL:CreateLabel({ Name = "v2.3 — OG Sentence theme, Corner boxes default, scaled fonts." })
@@ -81,7 +77,6 @@ S_CL:CreateLabel({ Name = "v2.2 — ESP rewrite: Highlight chams, modern boxes."
 S_CL:CreateLabel({ Name = "v2.1 — Universal ESP (Visuals tab) added." })
 S_CL:CreateLabel({ Name = "v2.0 — Auto game-detection, per-game config saving." })
 
--- Credits section
 local S_Cred = Home:CreateSection("Credits")
 S_Cred:CreateLabel({ Name = "Developer: DareQPlaysRBX",         Style = 2 })
 S_Cred:CreateLabel({ Name = "Library: SentenceLib  v2.6"               })
@@ -116,7 +111,7 @@ if not success then
         Duration = 6,
     })
 
-    -- If game script failed, attempt Universal as fallback
+    -- Fallback do Universal tylko jeśli załadowany game script się wywalił
     if isSupported then
         warn("[ SENTENCE ] Falling back to Universal...")
 
