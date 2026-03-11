@@ -1,31 +1,3 @@
--- ════════════════════════════════════════════════════════════
--- SENTENCE Hub  -  Universal Script  v2.3
--- Autor: DareQPlaysRBX
--- ════════════════════════════════════════════════════════════
--- Użycie standalone (poza main loaderem):
---   Ustaw _G.Window i _G.Lib przed loadstring tego pliku,
---   lub odkomentuj sekcję "STANDALONE BOOTSTRAP" poniżej.
--- ════════════════════════════════════════════════════════════
-
--- ── STANDALONE BOOTSTRAP (odkomentuj jeśli uruchamiasz bez main.lua) ──
--- local Lib    = loadstring(game:HttpGet(
---     "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/SentenceUI.lua"
--- ))()
--- local Window = Lib:CreateWindow({
---     Name            = "SENTENCE Hub",
---     Subtitle        = "Universal Script",
---     Icon            = "117810891565979",
---     LoadingEnabled  = true,
---     LoadingTitle    = "SENTENCE HUB",
---     LoadingSubtitle = "Loading Universal script...",
---     ToggleBind      = Enum.KeyCode.RightControl,
---     ConfigurationSaving = {
---         Enabled    = false,
---         FolderName = "SentenceHub",
---         FileName   = "universal",
---     },
--- })
-
 local Lib    = _G.Lib    or error("[ SENTENCE ] Lib not found in _G")
 local Window = _G.Window or error("[ SENTENCE ] Window not found in _G")
 
@@ -373,7 +345,7 @@ local CFG = {
     ShowHeadDot       = false,
     ShowHealthBar     = false,
     ShowChams         = false,
-    ShowTeam          = false,
+    TeamCheck         = false,  -- gdy true: ukrywa ESP dla graczy z tej samej drużyny
     RainbowMode       = false,
 
     MaxDistance       = 250,
@@ -657,10 +629,12 @@ RunService:BindToRenderStep(ESP_BIND, Enum.RenderPriority.Camera.Value + 1, func
         local root = char:FindFirstChild("HumanoidRootPart")
         local head = char:FindFirstChild("Head")
 
-        if not (hum and root and head)                                     then hidePlayerAll(d, player); continue end
-        if hum:GetState() == Enum.HumanoidStateType.Dead or hum.Health<=0  then hidePlayerAll(d, player); continue end
-        if not CFG.ShowTeam and isTeammate(player)                         then hidePlayerAll(d, player); continue end
-        if not CFG.Enabled                                                  then hidePlayerAll(d, player); continue end
+        if not (hum and root and head)                                    then hidePlayerAll(d, player); continue end
+        if hum:GetState() == Enum.HumanoidStateType.Dead or hum.Health<=0 then hidePlayerAll(d, player); continue end
+        if not CFG.Enabled                                                 then hidePlayerAll(d, player); continue end
+
+        -- TeamCheck: gdy włączony, ukryj ESP dla graczy z tej samej drużyny
+        if CFG.TeamCheck and isTeammate(player) then hidePlayerAll(d, player); continue end
 
         local dist = (camPos - head.Position).Magnitude
         if dist > CFG.MaxDistance then hidePlayerAll(d, player); continue end
