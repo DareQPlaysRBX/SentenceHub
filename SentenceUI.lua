@@ -1,15 +1,5 @@
---[[
-╔══════════════════════════════════════════════════════════════════════╗
-║  SENTENCE GUI  ·  v1.0.20                                              ║
-║  Glassmorphism Executor Framework                                    ║
-║  Professional · Animated · Modular                                  ║
-╚══════════════════════════════════════════════════════════════════════╝
---]]
-
-local Icons1 = loadstring(game:HttpGet('https://raw.githubusercontent.com/Footagesus/Icons/refs/heads/main/lucide/dist/Icons.lua'))()
-
 local Sentence = {
-    Version = "v1.0.20",
+    Version = "v1.0.23",
     Flags   = {},
     Options = {},
     _conns  = {},
@@ -129,19 +119,20 @@ local ICONS = {
     close   = "rbxassetid://6031094678",
     minimize= "rbxassetid://6031094687",
     hide    = "rbxassetid://6031075929",
-    home    = Icons1['id-card'],
-    info    = Icons1['info'],
-    warn    = Icons1['alert-triangle'],
-    ok      = Icons1['check-circle'],
-    arrow   = Icons1['arrow-right'],
-    unknown = Icons1['help-circle'],
-    notif   = Icons1['bell'],
-    chevD   = Icons1['chevron-down'],
-    chevU   = Icons1['chevron-up'],
-    settings= Icons1['settings'],
-    search  = Icons1['search'],
-    key     = Icons1['key'],
+    home    = "rbxassetid://75354294622640",
+    info    = "rbxassetid://124560466474914",
+    warn    = "rbxassetid://101829200081951",
+    ok      = "rbxassetid://76078495178149",
+    arrow   = "rbxassetid://113692007244654",
+    unknown = "rbxassetid://137726256442333",
+    notif   = "rbxassetid://97392696311902",
+    chevD   = "rbxassetid://134243273101015",
+    chevU   = "rbxassetid://122444883127455",
+    settings= "rbxassetid://80758916183665",
+    search  = "rbxassetid://97780235974933",
+    key     = "rbxassetid://96510194465420",
 }
+
 local LOGO_ID = "rbxassetid://117810891565979"
 
 local function resolveIcon(n)
