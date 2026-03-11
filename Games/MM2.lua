@@ -1,3 +1,8 @@
+-- ════════════════════════════════════════════════════════════
+-- SENTENCE Hub  -  Murder Mystery 2  v2.1
+-- Autor: DareQPlaysRBX
+-- ════════════════════════════════════════════════════════════
+
 local Lib    = _G.Lib    or error("[ SENTENCE ] Lib not found in _G")
 local Window = _G.Window or error("[ SENTENCE ] Window not found in _G")
 
@@ -230,340 +235,15 @@ local function Fling(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then
         Notify("MM2", "Invalid target.", "Warning") return
     end
-
     local lChar, lHum, lHRP = getChar()
     if not lChar or not lHum or not lHRP then return end
-
     local tChar = targetPlayer.Character
     local tHRP  = tChar:FindFirstChild("HumanoidRootPart")
-    if not tHRP then Notify("MM2", "Target has no HumanoidRootPart.", "Error") return end
-
-    local savedCF = lHRP.CFrame
-    local oldFPDH = workspace.FallenPartsDestroyHeight
-    workspace.FallenPartsDestroyHeight = -1e9
-
-    for _, state in ipairs({
-        Enum.HumanoidStateType.Seated,
-        Enum.HumanoidStateType.FallingDown,
-        Enum.HumanoidStateType.Ragdoll,
-    }) do
-        pcall(function() lHum:SetStateEnabled(state, false) end)
-    end
-
-    local bv = Instance.new("BodyVelocity")
-    bv.MaxForce = Vector3.new(1/0, 1/0, 1/0)
-    bv.Velocity = Vector3.zero
-    bv.Parent   = lHRP
-
-    local deadline = tick() + 2.5
-    local frame    = 0
-
-    repeat
-        frame += 1
-        if not tHRP.Parent or targetPlayer.Parent ~= Players then break end
-
-        -- alternate slight Y offset so overlap isn't perfectly static
-        local yOff = (frame % 2 == 0) and 0.3 or -0.3
-        lHRP.CFrame = tHRP.CFrame * CFrame.new(0, yOff, 0)
-
-        -- massive upward + outward velocity on us (transfers to target)
-        local dir = (frame % 3 == 0)
-            and Vector3.new( 9e5,  9e6 * 3,  9e5)
-            or  Vector3.new(-9e5,  9e6 * 3, -9e5)
-
-        lHRP.Velocity      = dir
-        lHRP.RotVelocity   = Vector3.new(9e6, 9e6, 9e6)
-        bv.Velocity        = dir
-
-        -- also stamp velocity directly onto target each frame
-        tHRP.AssemblyLinearVelocity  = dir * 1.5
-        tHRP.AssemblyAngularVelocity = Vector3.new(9e6, 9e6, 9e6)
-
-        task.wait()
-    until tHRP.AssemblyLinearVelocity.Magnitude > 8e4
-       or tick() > deadline
-       or targetPlayer.Parent ~= Players
-
-    -- final slam burst
-    pcall(function()
-        tHRP.AssemblyLinearVelocity  = Vector3.new(9e8, 9e8 * 20, 9e8)
-        tHRP.AssemblyAngularVelocity = Vector3.new(9e8, 9e8,      9e8)
-    end)
+    if not tHRP then Notify("MM2", "Target has no HumanoidRootPart.", "Warning") return end
+    lHRP.CFrame = tHRP.CFrame
     task.wait(0.05)
-
-    -- cleanup
-    bv:Destroy()
-    for _, state in ipairs({
-        Enum.HumanoidStateType.Seated,
-        Enum.HumanoidStateType.FallingDown,
-        Enum.HumanoidStateType.Ragdoll,
-    }) do
-        pcall(function() lHum:SetStateEnabled(state, true) end)
-    end
-    workspace.FallenPartsDestroyHeight = oldFPDH
-
-    -- snap back
-    lHRP.CFrame      = savedCF
-    lHRP.Velocity    = Vector3.zero
-    lHRP.RotVelocity = Vector3.zero
-    lHum:ChangeState(Enum.HumanoidStateType.GettingUp)
-
-    Notify("MM2", targetPlayer.Name .. " launched.", "Success")
-end
-
--- ════════════════════════════════════════════════════════════
--- TOGGLEABLE LOOPS
--- ════════════════════════════════════════════════════════════
-
--- NoClip
-local function startNoClip()
-    if Loops.noClip then return end
-    Loops.noClip = RunService.Stepped:Connect(function()
-        local c = LP.Character
-        if not c then return end
-        for _, p in ipairs(c:GetDescendants()) do
-            if p:IsA("BasePart") then p.CanCollide = false end
-        end
-    end)
-end
-local function stopNoClip() stopLoop("noClip") end
-
--- Auto Shoot
-local function startAutoShoot()
-    if Loops.autoShoot then return end
-    Loops.autoShoot = RunService.Heartbeat:Connect(function()
-        if FindSheriff() ~= LP then return end
-        local target = FindMurderer() or FindSheriffNotMe()
-        if not target or not target.Character then return end
-        local _, _, root = getChar()
-        local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
-        if not root or not tHRP then return end
-        local params = RaycastParams.new()
-        params.FilterType = Enum.RaycastFilterType.Exclude
-        params.FilterDescendantsInstances = {LP.Character}
-        local hit = workspace:Raycast(root.Position, (tHRP.Position - root.Position).Unit * 60, params)
-        if hit and hit.Instance.Parent ~= target.Character then return end
-        ShootAt(target)
-    end)
-end
-local function stopAutoShoot() stopLoop("autoShoot") end
-
--- Auto Knife
-local function startAutoKnife()
-    if Loops.autoKnife then return end
-    Loops.autoKnife = true
-    task.spawn(function()
-        while Loops.autoKnife do
-            KnifeThrow(true)
-            task.wait(State.knifeInterval)
-        end
-    end)
-end
-local function stopAutoKnife() Loops.autoKnife = false end
-
--- Kill Aura — hits ALL players in radius per frame
-local function startKillAura()
-    if Loops.killAura then return end
-    Loops.killAura = RunService.Heartbeat:Connect(function()
-        if FindMurderer() ~= LP then return end
-        local char, _, root = getChar()
-        if not root then return end
-        if not equipTool("Knife") then return end
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LP and p.Character then
-                local tHRP = p.Character:FindFirstChild("HumanoidRootPart")
-                if tHRP and (tHRP.Position - root.Position).Magnitude <= State.killAuraRadius then
-                    tHRP.Anchored = true
-                    tHRP.CFrame   = root.CFrame + root.CFrame.LookVector * 2
-                    task.wait(0.03)
-                    pcall(function() char.Knife.Stab:FireServer("Slash") end)
-                    task.delay(0.15, function() pcall(function() tHRP.Anchored = false end) end)
-                end
-            end
-        end
-    end)
-end
-local function stopKillAura() stopLoop("killAura") end
-
--- Anti-Fling — zeroes velocity and snaps back to last safe position
-local antiFlingLastPos = nil
-local function startAntiFling()
-    if Loops.antiFling then return end
-    Loops.antiFling = RunService.Heartbeat:Connect(function()
-        local _, _, root = getChar()
-        if not root then return end
-        local linMag = root.AssemblyLinearVelocity.Magnitude
-        local angMag = root.AssemblyAngularVelocity.Magnitude
-        if linMag > 200 or angMag > 200 then
-            root.AssemblyLinearVelocity  = Vector3.zero
-            root.AssemblyAngularVelocity = Vector3.zero
-            if antiFlingLastPos then
-                root.CFrame = CFrame.new(antiFlingLastPos)
-            end
-            Notify("Anti-Fling", "Fling blocked — position restored.", "Warning", 2)
-        elseif linMag < 50 then
-            antiFlingLastPos = root.Position
-        end
-    end)
-end
-local function stopAntiFling() stopLoop("antiFling") end
-
--- Follow Player
-local function startFollowPlayer(target)
-    stopLoop("follow")
-    if not target then return end
-    Loops.follow = RunService.Heartbeat:Connect(function()
-        if not target.Character then return end
-        local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
-        if not tHRP then return end
-        local char = LP.Character
-        if char then char:PivotTo(tHRP.CFrame * CFrame.new(0, 0, 3.5)) end
-    end)
-    Notify("MM2", "Following " .. target.Name .. ".", "Info", 2)
-end
-local function stopFollowPlayer()
-    stopLoop("follow")
-    Notify("MM2", "Follow stopped.", "Info", 2)
-end
-
--- God Mode
-local function startGodMode()
-    if Loops.godMode then return end
-    Loops.godMode = RunService.Heartbeat:Connect(function()
-        local _, hum = getChar()
-        if hum then hum.Health = hum.MaxHealth end
-    end)
-    Notify("MM2", "God Mode active.", "Success")
-end
-local function stopGodMode()
-    stopLoop("godMode")
-    Notify("MM2", "God Mode disabled.", "Info")
-end
-
--- ════════════════════════════════════════════════════════════
--- ESP — Highlight-based, no external module
--- ════════════════════════════════════════════════════════════
-local espHighlights = {}
-
-local function removeAllESP()
-    for _, h in pairs(espHighlights) do pcall(function() h:Destroy() end) end
-    espHighlights = {}
-end
-
-local function applyESP(player)
-    if not player.Character then return end
-    if espHighlights[player.Name] then
-        espHighlights[player.Name]:Destroy()
-        espHighlights[player.Name] = nil
-    end
-    local h = Instance.new("Highlight")
-    h.Adornee          = player.Character
-    h.DepthMode        = Enum.HighlightDepthMode.AlwaysOnTop
-    h.FillTransparency = 0.55
-    if FindMurderer() == player then
-        h.FillColor    = Color3.fromRGB(220, 40,  40)
-        h.OutlineColor = Color3.fromRGB(255, 80,  80)
-    elseif FindSheriff() == player then
-        h.FillColor    = Color3.fromRGB(40,  120, 255)
-        h.OutlineColor = Color3.fromRGB(80,  160, 255)
-    else
-        h.FillColor    = Color3.fromRGB(40,  200, 80)
-        h.OutlineColor = Color3.fromRGB(80,  255, 120)
-    end
-    h.Parent = game:GetService("CoreGui")
-    espHighlights[player.Name] = h
-end
-
-local function reloadESP()
-    removeAllESP()
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LP then applyESP(p) end
-    end
-end
-
-local function startESP()
-    if Loops.esp then return end
-    reloadESP()
-    Loops.espCharConns = {}
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LP then
-            local c = p.CharacterAdded:Connect(function()
-                task.wait(0.15)
-                if Loops.esp then applyESP(p) end
-            end)
-            table.insert(Loops.espCharConns, c)
-        end
-    end
-    Loops.esp = RunService.Heartbeat:Connect(function()
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LP and p.Character and not espHighlights[p.Name] then
-                applyESP(p)
-            end
-        end
-    end)
-end
-
-local function stopESP()
-    stopLoop("esp")
-    if Loops.espCharConns then
-        for _, c in ipairs(Loops.espCharConns) do c:Disconnect() end
-        Loops.espCharConns = nil
-    end
-    removeAllESP()
-end
-
--- ════════════════════════════════════════════════════════════
--- ROUND TIMER (premium label with pulse at <30s)
--- ════════════════════════════════════════════════════════════
-local timerLabel, timerTask = nil, nil
-
-local function showTimer()
-    if timerLabel then return end
-    timerLabel = Instance.new("TextLabel")
-    timerLabel.BackgroundColor3       = Color3.fromRGB(10, 10, 16)
-    timerLabel.BackgroundTransparency = 0.30
-    timerLabel.TextColor3             = Color3.fromRGB(200, 220, 255)
-    timerLabel.Font                   = Enum.Font.GothamBold
-    timerLabel.TextScaled             = true
-    timerLabel.AnchorPoint            = Vector2.new(0.5, 0)
-    timerLabel.Position               = UDim2.fromScale(0.5, 0.03)
-    timerLabel.Size                   = UDim2.fromOffset(144, 38)
-    timerLabel.Text                   = "⏱  --:--"
-    timerLabel.ZIndex                 = 10
-    Instance.new("UICorner",  timerLabel).CornerRadius = UDim.new(0, 8)
-    local stroke = Instance.new("UIStroke", timerLabel)
-    stroke.Color = Color3.fromRGB(80, 120, 255); stroke.Thickness = 1.2; stroke.Transparency = 0.35
-    timerLabel.Parent = game:GetService("CoreGui")
-
-    timerTask = task.spawn(function()
-        while timerLabel and timerLabel.Parent do
-            local ok, t = pcall(function()
-                return game.ReplicatedStorage
-                    :WaitForChild("Remotes",  2)
-                    :WaitForChild("Extras",   2)
-                    :WaitForChild("GetTimer", 2)
-                    :InvokeServer()
-            end)
-            if timerLabel then
-                local s = ok and (t or 0) or 0
-                timerLabel.Text      = ok and string.format("⏱  %d:%02d", math.floor(s/60), s%60) or "⏱  --:--"
-                timerLabel.TextColor3 = (ok and s < 30)
-                    and Color3.fromRGB(255, 80, 80)
-                    or  Color3.fromRGB(200, 220, 255)
-                if stroke then
-                    stroke.Color = (ok and s < 30)
-                        and Color3.fromRGB(255, 60, 60)
-                        or  Color3.fromRGB(80, 120, 255)
-                end
-            end
-            task.wait(0.5)
-        end
-    end)
-end
-
-local function hideTimer()
-    if timerLabel then timerLabel:Destroy(); timerLabel = nil end
-    if timerTask  then task.cancel(timerTask); timerTask = nil end
+    lHRP.AssemblyLinearVelocity = Vector3.new(math.random(-200,200), 400, math.random(-200,200))
+    Notify("MM2", "Fling sent to " .. targetPlayer.Name, "Success")
 end
 
 -- ════════════════════════════════════════════════════════════
@@ -623,7 +303,7 @@ local function SendRoles()
 end
 
 -- ════════════════════════════════════════════════════════════
--- COIN FARM (requires firetouchinterest executor API)
+-- COIN FARM
 -- ════════════════════════════════════════════════════════════
 local function startCoinFarm()
     if Loops.coinFarm then return end
@@ -659,70 +339,71 @@ local function stopCoinFarm()
 end
 
 -- ════════════════════════════════════════════════════════════
--- UNIVERSAL — FLY
+-- TOGGLEABLE LOOPS
 -- ════════════════════════════════════════════════════════════
-local flyBV, flyBG = nil, nil
 
+-- NoClip
+local function startNoClip()
+    if Loops.noClip then return end
+    Loops.noClip = RunService.Stepped:Connect(function()
+        local c = LP.Character
+        if not c then return end
+        for _, p in ipairs(c:GetDescendants()) do
+            if p:IsA("BasePart") then p.CanCollide = false end
+        end
+    end)
+end
+local function stopNoClip() stopLoop("noClip") end
+
+-- Fly
+local flyBV, flyBG
 local function startFly()
     if Loops.fly then return end
-    local char, hum, root = getChar()
+    local char, _, root = getChar()
     if not root then return end
-
     flyBV = Instance.new("BodyVelocity")
-    flyBV.MaxForce = Vector3.new(1e6, 1e6, 1e6)
+    flyBV.MaxForce = Vector3.new(1e5, 1e5, 1e5)
     flyBV.Velocity = Vector3.zero
     flyBV.Parent   = root
-
     flyBG = Instance.new("BodyGyro")
-    flyBG.MaxTorque = Vector3.new(1e6, 1e6, 1e6)
-    flyBG.P         = 1e4
+    flyBG.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
     flyBG.CFrame    = root.CFrame
     flyBG.Parent    = root
-
-    if hum then hum.PlatformStand = true end
-
     Loops.fly = RunService.Heartbeat:Connect(function()
-        local _, _, r = getChar()
-        if not r or not flyBV or not flyBG then return end
-        local speed = State.flySpeed
-        local dir   = Vector3.zero
-        if UIS:IsKeyDown(Enum.KeyCode.W)          then dir = dir + Camera.CFrame.LookVector  end
-        if UIS:IsKeyDown(Enum.KeyCode.S)          then dir = dir - Camera.CFrame.LookVector  end
-        if UIS:IsKeyDown(Enum.KeyCode.A)          then dir = dir - Camera.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.D)          then dir = dir + Camera.CFrame.RightVector end
-        if UIS:IsKeyDown(Enum.KeyCode.Space)      then dir = dir + Vector3.yAxis              end
-        if UIS:IsKeyDown(Enum.KeyCode.LeftShift)  then dir = dir - Vector3.yAxis              end
-        flyBV.Velocity = dir.Magnitude > 0 and dir.Unit * speed or Vector3.zero
+        local c2, _, r2 = getChar()
+        if not c2 or not r2 then return end
+        local dir = Vector3.zero
+        if UIS:IsKeyDown(Enum.KeyCode.W) then dir = dir + Camera.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.S) then dir = dir - Camera.CFrame.LookVector end
+        if UIS:IsKeyDown(Enum.KeyCode.A) then dir = dir - Camera.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.D) then dir = dir + Camera.CFrame.RightVector end
+        if UIS:IsKeyDown(Enum.KeyCode.Space) then dir = dir + Vector3.yAxis end
+        if UIS:IsKeyDown(Enum.KeyCode.LeftShift) then dir = dir - Vector3.yAxis end
+        flyBV.Velocity = dir.Magnitude > 0 and dir.Unit * State.flySpeed or Vector3.zero
         flyBG.CFrame   = Camera.CFrame
     end)
-
-    Notify("MM2", "Fly on — WASD · Space/Shift.", "Success")
+    Notify("MM2", "Fly enabled.", "Success")
 end
-
 local function stopFly()
     stopLoop("fly")
     if flyBV then flyBV:Destroy(); flyBV = nil end
     if flyBG then flyBG:Destroy(); flyBG = nil end
-    local _, hum = getChar()
-    if hum then hum.PlatformStand = false end
     Notify("MM2", "Fly disabled.", "Info")
 end
 
--- ════════════════════════════════════════════════════════════
--- UNIVERSAL — SPEED / JUMP / INF JUMP
--- ════════════════════════════════════════════════════════════
+-- Speed / Jump
 local function applySpeed(v)
+    local _, hum = getChar()
+    if hum then pcall(function() hum.WalkSpeed = v end) end
     State.walkSpeed = v
-    local _, hum = getChar()
-    if hum then hum.WalkSpeed = v end
 end
-
 local function applyJump(v)
-    State.jumpPower = v
     local _, hum = getChar()
-    if hum then hum.JumpPower = v; hum.UseJumpPower = true end
+    if hum then pcall(function() hum.JumpPower = v end) end
+    State.jumpPower = v
 end
 
+-- Infinite Jump
 local function startInfiniteJump()
     if Loops.infJump then return end
     Loops.infJump = UIS.JumpRequest:Connect(function()
@@ -732,35 +413,546 @@ local function startInfiniteJump()
 end
 local function stopInfiniteJump() stopLoop("infJump") end
 
--- Re-apply movement stats on respawn
-LP.CharacterAdded:Connect(function(char)
-    local hum = char:WaitForChild("Humanoid", 5)
-    if not hum then return end
-    task.wait(0.5)
-    hum.WalkSpeed    = State.walkSpeed
-    hum.JumpPower    = State.jumpPower
-    hum.UseJumpPower = true
-    if Loops.noClip    then stopNoClip();    task.wait(0.1); startNoClip()    end
-    if Loops.antiFling then stopAntiFling(); task.wait(0.1); startAntiFling() end
-    if Loops.fly       then stopFly();       task.wait(0.3); startFly()       end
-end)
+-- Auto Shoot
+local function startAutoShoot()
+    if Loops.autoShoot then return end
+    Loops.autoShoot = RunService.Heartbeat:Connect(function()
+        if FindSheriff() ~= LP then return end
+        local target = FindMurderer() or FindSheriffNotMe()
+        if not target or not target.Character then return end
+        local _, _, root = getChar()
+        local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
+        if not root or not tHRP then return end
+        local params = RaycastParams.new()
+        params.FilterType = Enum.RaycastFilterType.Exclude
+        params.FilterDescendantsInstances = {LP.Character}
+        local hit = workspace:Raycast(root.Position, (tHRP.Position - root.Position).Unit * 60, params)
+        if hit and hit.Instance.Parent ~= target.Character then return end
+        ShootAt(target)
+    end)
+end
+local function stopAutoShoot() stopLoop("autoShoot") end
+
+-- Auto Knife
+local function startAutoKnife()
+    if Loops.autoKnife then return end
+    Loops.autoKnife = true
+    task.spawn(function()
+        while Loops.autoKnife do
+            KnifeThrow(true)
+            task.wait(State.knifeInterval)
+        end
+    end)
+end
+local function stopAutoKnife() Loops.autoKnife = false end
+
+-- Kill Aura
+local function startKillAura()
+    if Loops.killAura then return end
+    Loops.killAura = RunService.Heartbeat:Connect(function()
+        if FindMurderer() ~= LP then return end
+        local char, _, root = getChar()
+        if not root then return end
+        if not equipTool("Knife") then return end
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= LP and p.Character then
+                local tHRP = p.Character:FindFirstChild("HumanoidRootPart")
+                if tHRP and (tHRP.Position - root.Position).Magnitude <= State.killAuraRadius then
+                    tHRP.Anchored = true
+                    tHRP.CFrame   = root.CFrame + root.CFrame.LookVector * 2
+                    task.wait(0.03)
+                    pcall(function() char.Knife.Stab:FireServer("Slash") end)
+                    task.delay(0.15, function() pcall(function() tHRP.Anchored = false end) end)
+                end
+            end
+        end
+    end)
+end
+local function stopKillAura() stopLoop("killAura") end
+
+-- Anti-Fling
+local antiFlingLastPos = nil
+local function startAntiFling()
+    if Loops.antiFling then return end
+    Loops.antiFling = RunService.Heartbeat:Connect(function()
+        local _, _, root = getChar()
+        if not root then return end
+        local linMag = root.AssemblyLinearVelocity.Magnitude
+        local angMag = root.AssemblyAngularVelocity.Magnitude
+        if linMag > 200 or angMag > 200 then
+            root.AssemblyLinearVelocity  = Vector3.zero
+            root.AssemblyAngularVelocity = Vector3.zero
+            if antiFlingLastPos then root.CFrame = CFrame.new(antiFlingLastPos) end
+            Notify("Anti-Fling", "Fling blocked — position restored.", "Warning", 2)
+        elseif linMag < 50 then
+            antiFlingLastPos = root.Position
+        end
+    end)
+end
+local function stopAntiFling() stopLoop("antiFling") end
+
+-- Follow Player
+local function startFollowPlayer(target)
+    stopLoop("follow")
+    if not target then return end
+    Loops.follow = RunService.Heartbeat:Connect(function()
+        if not target.Character then return end
+        local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
+        if not tHRP then return end
+        local char = LP.Character
+        if char then char:PivotTo(tHRP.CFrame * CFrame.new(0, 0, 3.5)) end
+    end)
+    Notify("MM2", "Following " .. target.Name .. ".", "Info", 2)
+end
+local function stopFollowPlayer()
+    stopLoop("follow")
+    Notify("MM2", "Follow stopped.", "Info", 2)
+end
 
 -- ════════════════════════════════════════════════════════════
--- GAME EVENTS
+-- TIMER
 -- ════════════════════════════════════════════════════════════
-local remotes = game.ReplicatedStorage:FindFirstChild("Remotes")
-if remotes then
-    local gameplay = remotes:FindFirstChild("Gameplay")
-    if gameplay then
-        local pdc = gameplay:FindFirstChild("PlayerDataChanged")
-        if pdc then
-            local c = pdc.OnClientEvent:Connect(function(data)
-                State.playerData = data
-                if Loops.esp then reloadESP() end
+local timerLabel, timerTask = nil, nil
+
+local function showTimer()
+    if timerLabel then return end
+    timerLabel = Instance.new("TextLabel")
+    timerLabel.Size              = UDim2.new(0, 160, 0, 36)
+    timerLabel.Position          = UDim2.new(0.5, -80, 0, 8)
+    timerLabel.BackgroundColor3  = Color3.fromRGB(12, 12, 14)
+    timerLabel.BackgroundTransparency = 0.25
+    timerLabel.BorderSizePixel   = 0
+    timerLabel.Font              = Enum.Font.GothamBold
+    timerLabel.TextSize          = 18
+    timerLabel.TextColor3        = Color3.fromRGB(200, 220, 255)
+    timerLabel.ZIndex            = 1006
+    local corner = Instance.new("UICorner", timerLabel)
+    corner.CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", timerLabel)
+    stroke.Color = Color3.fromRGB(80, 120, 255); stroke.Thickness = 1.2; stroke.Transparency = 0.35
+    timerLabel.Parent = game:GetService("CoreGui")
+
+    timerTask = task.spawn(function()
+        while timerLabel and timerLabel.Parent do
+            local ok, t = pcall(function()
+                return game.ReplicatedStorage
+                    :WaitForChild("Remotes",  2)
+                    :WaitForChild("Extras",   2)
+                    :WaitForChild("GetTimer", 2)
+                    :InvokeServer()
             end)
-            table.insert(Conn, c)
+            if timerLabel then
+                local s = ok and (t or 0) or 0
+                timerLabel.Text       = ok and string.format("⏱  %d:%02d", math.floor(s/60), s%60) or "⏱  --:--"
+                timerLabel.TextColor3 = (ok and s < 30)
+                    and Color3.fromRGB(255, 80, 80)
+                    or  Color3.fromRGB(200, 220, 255)
+                if stroke then
+                    stroke.Color = (ok and s < 30)
+                        and Color3.fromRGB(255, 60, 60)
+                        or  Color3.fromRGB(80, 120, 255)
+                end
+            end
+            task.wait(0.5)
+        end
+    end)
+end
+
+local function hideTimer()
+    if timerLabel then timerLabel:Destroy(); timerLabel = nil end
+    if timerTask  then task.cancel(timerTask); timerTask = nil end
+end
+
+-- ════════════════════════════════════════════════════════════
+-- ██████████████  ENHANCED ESP SYSTEM  ██████████████████████
+-- ════════════════════════════════════════════════════════════
+-- Hybrid: Highlight chams + Drawing-based overlay
+-- (names, distance, health bar, role tag, tracer)
+-- ════════════════════════════════════════════════════════════
+
+local ESPCfg = {
+    -- master
+    Enabled          = false,
+    -- highlight
+    Chams            = true,
+    MurdFill         = Color3.fromRGB(220, 40,  40),
+    MurdOutline      = Color3.fromRGB(255, 100, 100),
+    SherFill         = Color3.fromRGB(40,  120, 255),
+    SherOutline      = Color3.fromRGB(120, 180, 255),
+    InnFill          = Color3.fromRGB(40,  200, 80),
+    InnOutline       = Color3.fromRGB(100, 255, 140),
+    FillTransparency = 0.55,
+    OutlineTransparency = 0.0,
+    -- drawing layers
+    ShowNames        = true,
+    ShowRole         = true,
+    ShowDistance     = true,
+    ShowHealthBar    = true,
+    ShowHealthText   = false,
+    ShowBox          = false,
+    ShowTracers      = false,
+    -- params
+    MaxDistance      = 500,
+    TextSize         = 13,
+    TracerOrigin     = "Bottom",   -- "Bottom" | "Center" | "Mouse"
+    BoxPadding       = 4,
+}
+
+local espHighlights  = {}
+local espDrawings    = {}   -- [playerName] = { name, role, dist, hpBg, hpBar, hpTxt, box={}, tracer }
+local espCharConns   = {}
+
+local function getRole(p)
+    if FindMurderer() == p then return "Murderer" end
+    if FindSheriff()  == p then return "Sheriff"  end
+    return "Innocent"
+end
+
+local function roleColors(p)
+    local r = getRole(p)
+    if r == "Murderer" then return ESPCfg.MurdFill, ESPCfg.MurdOutline end
+    if r == "Sheriff"  then return ESPCfg.SherFill, ESPCfg.SherOutline end
+    return ESPCfg.InnFill, ESPCfg.InnOutline
+end
+
+local function roleTag(p)
+    local r = getRole(p)
+    if r == "Murderer" then return "🔪 MURDERER" end
+    if r == "Sheriff"  then return "🔫 SHERIFF"  end
+    return "😊 INNOCENT"
+end
+
+local function W2S(pos)
+    local s, vis = Camera:WorldToViewportPoint(pos)
+    return Vector2.new(s.X, s.Y), s.Z > 0 and vis, s.Z
+end
+
+local function newDrawing(dtype, props)
+    local ok, obj = pcall(Drawing.new, dtype)
+    if not ok then return nil end
+    obj.Visible = false
+    for k, v in pairs(props or {}) do pcall(function() obj[k] = v end) end
+    return obj
+end
+
+local function removePlayerESP(name)
+    local h = espHighlights[name]
+    if h then pcall(function() h:Destroy() end); espHighlights[name] = nil end
+    local d = espDrawings[name]
+    if d then
+        for _, obj in pairs(d) do
+            if type(obj) == "table" then
+                for _, line in pairs(obj) do pcall(function() line:Remove() end) end
+            else
+                pcall(function() obj:Remove() end)
+            end
+        end
+        espDrawings[name] = nil
+    end
+end
+
+local function removeAllESP()
+    for name in pairs(espHighlights) do removePlayerESP(name) end
+    for name in pairs(espDrawings)   do removePlayerESP(name) end
+end
+
+local function applyHighlight(p)
+    if espHighlights[p.Name] then espHighlights[p.Name]:Destroy() end
+    if not ESPCfg.Chams or not p.Character then return end
+    local h = Instance.new("Highlight")
+    h.Adornee            = p.Character
+    h.DepthMode          = Enum.HighlightDepthMode.AlwaysOnTop
+    local fill, outline  = roleColors(p)
+    h.FillColor          = fill
+    h.OutlineColor       = outline
+    h.FillTransparency   = ESPCfg.FillTransparency
+    h.OutlineTransparency = ESPCfg.OutlineTransparency
+    h.Parent             = game:GetService("CoreGui")
+    espHighlights[p.Name] = h
+end
+
+local function initDrawings(p)
+    removePlayerESP(p.Name)
+    local fill, outline = roleColors(p)
+    local d = {}
+
+    d.name = newDrawing("Text", {
+        Font     = Drawing.Fonts.GothamBold,
+        Size     = ESPCfg.TextSize,
+        Color    = Color3.new(1,1,1),
+        Outline  = true,
+        OutlineColor = Color3.new(0,0,0),
+        Center   = true,
+    })
+
+    d.role = newDrawing("Text", {
+        Font     = Drawing.Fonts.Gotham,
+        Size     = ESPCfg.TextSize - 1,
+        Color    = fill,
+        Outline  = true,
+        OutlineColor = Color3.new(0,0,0),
+        Center   = true,
+    })
+
+    d.dist = newDrawing("Text", {
+        Font     = Drawing.Fonts.Gotham,
+        Size     = ESPCfg.TextSize - 2,
+        Color    = Color3.fromRGB(200,200,200),
+        Outline  = true,
+        OutlineColor = Color3.new(0,0,0),
+        Center   = true,
+    })
+
+    d.hpBg = newDrawing("Line", {
+        Thickness = 4,
+        Color     = Color3.fromRGB(30,30,30),
+        Transparency = 0.4,
+    })
+    d.hpBar = newDrawing("Line", {
+        Thickness = 4,
+        Color     = Color3.fromRGB(80,220,80),
+    })
+    d.hpTxt = newDrawing("Text", {
+        Font     = Drawing.Fonts.Gotham,
+        Size     = ESPCfg.TextSize - 2,
+        Color    = Color3.fromRGB(180,255,180),
+        Outline  = true,
+        OutlineColor = Color3.new(0,0,0),
+        Center   = true,
+    })
+
+    -- box: 4 lines (top, bottom, left, right)
+    d.box = {}
+    for i = 1, 4 do
+        d.box[i] = newDrawing("Line", {
+            Thickness = 1.2,
+            Color     = outline,
+            Transparency = 0.1,
+        })
+    end
+
+    d.tracer = newDrawing("Line", {
+        Thickness = 1,
+        Color     = fill,
+        Transparency = 0.25,
+    })
+
+    espDrawings[p.Name] = d
+end
+
+local function updateESPFrame()
+    if not ESPCfg.Enabled then return end
+    local vp    = Camera.ViewportSize
+    local myRoot = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
+
+    -- tracer origin
+    local tracerFrom
+    if ESPCfg.TracerOrigin == "Center" then
+        tracerFrom = Vector2.new(vp.X / 2, vp.Y / 2)
+    elseif ESPCfg.TracerOrigin == "Mouse" then
+        local m = LP:GetMouse()
+        tracerFrom = Vector2.new(m.X, m.Y)
+    else
+        tracerFrom = Vector2.new(vp.X / 2, vp.Y)
+    end
+
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p == LP then continue end
+        local d = espDrawings[p.Name]
+        if not d then continue end
+
+        local char = p.Character
+        local hrp  = char and char:FindFirstChild("HumanoidRootPart")
+        local hum  = char and char:FindFirstChildOfClass("Humanoid")
+        local head = char and char:FindFirstChild("Head")
+
+        -- hide all if not visible
+        if not hrp or not head then
+            for _, obj in pairs(d) do
+                if type(obj) == "table" then
+                    for _, l in pairs(obj) do pcall(function() l.Visible = false end) end
+                else
+                    pcall(function() obj.Visible = false end)
+                end
+            end
+            continue
+        end
+
+        local dist = myRoot and (hrp.Position - myRoot.Position).Magnitude or 0
+        if dist > ESPCfg.MaxDistance then
+            for _, obj in pairs(d) do
+                if type(obj) == "table" then
+                    for _, l in pairs(obj) do pcall(function() l.Visible = false end) end
+                else
+                    pcall(function() obj.Visible = false end)
+                end
+            end
+            continue
+        end
+
+        local fill, outline = roleColors(p)
+
+        -- head + foot screen positions
+        local headPos, headVis = W2S(head.Position + Vector3.new(0, 0.7, 0))
+        local footPos, footVis = W2S(hrp.Position  - Vector3.new(0, 3.0, 0))
+        local corePos          = W2S(hrp.Position)
+
+        if not headVis and not footVis then
+            for _, obj in pairs(d) do
+                if type(obj) == "table" then
+                    for _, l in pairs(obj) do pcall(function() l.Visible = false end) end
+                else
+                    pcall(function() obj.Visible = false end)
+                end
+            end
+            continue
+        end
+
+        local boxH    = math.abs(headPos.Y - footPos.Y)
+        local boxW    = boxH * 0.5
+        local topLeft = Vector2.new(headPos.X - boxW / 2 - ESPCfg.BoxPadding, headPos.Y - ESPCfg.BoxPadding)
+        local botRight = Vector2.new(footPos.X + boxW / 2 + ESPCfg.BoxPadding, footPos.Y + ESPCfg.BoxPadding)
+        local topRight = Vector2.new(botRight.X, topLeft.Y)
+        local botLeft  = Vector2.new(topLeft.X,  botRight.Y)
+
+        -- ── NAME ──────────────────────────────────────────────
+        d.name.Visible  = ESPCfg.ShowNames
+        d.name.Text     = p.Name
+        d.name.Color    = Color3.new(1,1,1)
+        d.name.Size     = ESPCfg.TextSize
+        d.name.Position = Vector2.new(headPos.X, topLeft.Y - ESPCfg.TextSize - 2)
+
+        -- ── ROLE TAG ──────────────────────────────────────────
+        d.role.Visible  = ESPCfg.ShowRole
+        d.role.Text     = roleTag(p)
+        d.role.Color    = fill
+        d.role.Size     = ESPCfg.TextSize - 1
+        d.role.Position = Vector2.new(headPos.X, topLeft.Y - ESPCfg.TextSize * 2 - 4)
+
+        -- ── DISTANCE ──────────────────────────────────────────
+        d.dist.Visible  = ESPCfg.ShowDistance
+        d.dist.Text     = string.format("[%.0f st]", dist)
+        d.dist.Position = Vector2.new(headPos.X, botRight.Y + 2)
+
+        -- ── HEALTH BAR ────────────────────────────────────────
+        local hp    = hum and hum.Health    or 0
+        local maxHp = hum and hum.MaxHealth or 100
+        local hpPct = math.clamp(hp / math.max(maxHp, 1), 0, 1)
+        local hpColor = Color3.fromRGB(
+            math.floor(255 * (1 - hpPct)),
+            math.floor(255 * hpPct),
+            60
+        )
+        local barX   = botRight.X + 4
+        local barTop = Vector2.new(barX, topLeft.Y)
+        local barBot = Vector2.new(barX, botRight.Y)
+        local barFill = Vector2.new(barX, topLeft.Y + boxH * (1 - hpPct))
+
+        d.hpBg.Visible  = ESPCfg.ShowHealthBar
+        d.hpBg.From     = barTop
+        d.hpBg.To       = barBot
+
+        d.hpBar.Visible  = ESPCfg.ShowHealthBar
+        d.hpBar.From     = barFill
+        d.hpBar.To       = barBot
+        d.hpBar.Color    = hpColor
+
+        d.hpTxt.Visible  = ESPCfg.ShowHealthText
+        d.hpTxt.Text     = string.format("HP: %d/%d", math.floor(hp), math.floor(maxHp))
+        d.hpTxt.Position = Vector2.new(barX + 6, (barTop.Y + barBot.Y) / 2 - ESPCfg.TextSize / 2)
+
+        -- ── BOX ───────────────────────────────────────────────
+        local boxLines = {
+            {topLeft, topRight},
+            {botLeft, botRight},
+            {topLeft, botLeft},
+            {topRight, botRight},
+        }
+        for i = 1, 4 do
+            d.box[i].Visible     = ESPCfg.ShowBox
+            d.box[i].Color       = outline
+            if ESPCfg.ShowBox then
+                d.box[i].From = boxLines[i][1]
+                d.box[i].To   = boxLines[i][2]
+            end
+        end
+
+        -- ── TRACER ────────────────────────────────────────────
+        d.tracer.Visible     = ESPCfg.ShowTracers
+        d.tracer.Color       = fill
+        if ESPCfg.ShowTracers then
+            d.tracer.From = tracerFrom
+            d.tracer.To   = Vector2.new(footPos.X, footPos.Y)
+        end
+
+        -- sync highlight colors if chams changed
+        local hl = espHighlights[p.Name]
+        if hl then
+            hl.FillColor          = fill
+            hl.OutlineColor       = outline
+            hl.FillTransparency   = ESPCfg.FillTransparency
+            hl.OutlineTransparency = ESPCfg.OutlineTransparency
         end
     end
+end
+
+local function startESP()
+    if Loops.esp then return end
+    -- apply highlights + init drawings for all current players
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            applyHighlight(p)
+            initDrawings(p)
+        end
+    end
+    -- watch for respawns
+    espCharConns = {}
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then
+            espCharConns[p.Name] = p.CharacterAdded:Connect(function()
+                task.wait(0.2)
+                applyHighlight(p)
+                initDrawings(p)
+            end)
+        end
+    end
+    -- new players
+    espCharConns["_added"] = Players.PlayerAdded:Connect(function(p)
+        task.wait(0.5)
+        applyHighlight(p)
+        initDrawings(p)
+        espCharConns[p.Name] = p.CharacterAdded:Connect(function()
+            task.wait(0.2)
+            applyHighlight(p)
+            initDrawings(p)
+        end)
+    end)
+    espCharConns["_removing"] = Players.PlayerRemoving:Connect(function(p)
+        removePlayerESP(p.Name)
+        if espCharConns[p.Name] then
+            espCharConns[p.Name]:Disconnect()
+            espCharConns[p.Name] = nil
+        end
+    end)
+    -- render loop
+    Loops.esp = RunService.RenderStepped:Connect(updateESPFrame)
+    Notify("MM2", "ESP enabled.", "Success")
+end
+
+local function stopESP()
+    stopLoop("esp")
+    removeAllESP()
+    for k, c in pairs(espCharConns) do
+        pcall(function() c:Disconnect() end)
+        espCharConns[k] = nil
+    end
+    Notify("MM2", "ESP disabled.", "Info")
+end
+
+local function reloadESP()
+    if not ESPCfg.Enabled then return end
+    stopESP()
+    startESP()
 end
 
 -- ════════════════════════════════════════════════════════════
@@ -786,16 +978,35 @@ end
 Players.PlayerAdded:Connect(function()   task.wait(0.5); refreshDropdowns() end)
 Players.PlayerRemoving:Connect(function() task.wait(0.2); refreshDropdowns() end)
 
+-- subscribe to PlayerDataChanged for role-aware ESP refresh
+local gameplay = game.ReplicatedStorage:FindFirstChild("Gameplay")
+if gameplay then
+    local pdc = gameplay:FindFirstChild("PlayerDataChanged")
+    if pdc then
+        local c = pdc.OnClientEvent:Connect(function(data)
+            State.playerData = data
+            if Loops.esp then
+                -- refresh highlights to pick up new role colors
+                for _, p in ipairs(Players:GetPlayers()) do
+                    if p ~= LP then applyHighlight(p) end
+                end
+            end
+        end)
+        table.insert(Conn, c)
+    end
+end
+
 -- ─────────────────────────────────────────────────────────────
 --  TAB  ·  COMBAT
 -- ─────────────────────────────────────────────────────────────
 local TabCombat = Window:CreateTab({ Name = "Combat", Icon = Icons['swords'] })
 
+-- ── Murderer ─────────────────────────────────────────────────
 local sMurd = TabCombat:CreateSection("Murderer")
 
-sMurd:CreateButton({ Name = "Knife Throw",  Callback = function() KnifeThrow(false) end })
+sMurd:CreateButton({ Name = "Knife Throw",         Callback = function() KnifeThrow(false) end })
 sMurd:CreateButton({ Name = "Kill Nearest Player", Callback = KillNearest })
-sMurd:CreateButton({ Name = "Kill All Players",     Callback = KillAll     })
+sMurd:CreateButton({ Name = "Kill All Players",    Callback = KillAll     })
 
 sMurd:CreateToggle({
     Name = "Auto Knife Throw", CurrentValue = false, Flag = "MM2_AutoKnife",
@@ -816,9 +1027,10 @@ sMurd:CreateSlider({
     Callback = function(v) State.killAuraRadius = v end,
 })
 
+-- ── Sheriff ──────────────────────────────────────────────────
 local sSher = TabCombat:CreateSection("Sheriff")
 
-sSher:CreateButton({ Name = "Shoot Murderer",          Callback = function() ShootAt(FindMurderer())       end })
+sSher:CreateButton({ Name = "Shoot Murderer",            Callback = function() ShootAt(FindMurderer())       end })
 sSher:CreateButton({ Name = "Shoot Murderer  [Instant]", Callback = function() ShootAt(FindMurderer(), true) end })
 
 sSher:CreateToggle({
@@ -835,13 +1047,19 @@ sSher:CreateSlider({
     CurrentValue = 1.0, Flag = "MM2_PingMult",
     Callback = function(v) State.offsetToPingMult = v end,
 })
+-- [MOVED FROM PLAYERS > TELEPORT]
+sSher:CreateButton({
+    Name = "Pick Up Dropped Gun",
+    Callback = TeleportToGun,
+})
 
 -- ─────────────────────────────────────────────────────────────
 --  TAB  ·  PLAYERS
 -- ─────────────────────────────────────────────────────────────
 local TabPlayers = Window:CreateTab({ Name = "Players", Icon = Icons['circle-user-round'] })
 
-local sInfo = TabPlayers:CreateSection("Intelligence")
+-- [RENAMED: Intelligence → GAME INFO]
+local sInfo = TabPlayers:CreateSection("GAME INFO")
 
 sInfo:CreateButton({ Name = "Broadcast Roles", Callback = SendRoles })
 sInfo:CreateButton({
@@ -853,8 +1071,12 @@ sInfo:CreateButton({
     end,
 })
 sInfo:CreateToggle({
-    Name = "Player ESP", CurrentValue = false, Flag = "MM2_ESP",
-    Callback = function(v) if v then startESP() else stopESP() end end,
+    Name = "Show Timer", CurrentValue = false, Flag = "MM2_Timer",
+    Callback = function(v) if v then showTimer() else hideTimer() end end,
+})
+sInfo:CreateToggle({
+    Name = "Coin Farm", CurrentValue = false, Flag = "MM2_CoinFarm",
+    Callback = function(v) if v then startCoinFarm() else stopCoinFarm() end end,
 })
 
 -- ── Teleport ─────────────────────────────────────────────────
@@ -877,8 +1099,8 @@ sTP:CreateButton({
         TeleportToPlayer(Players:FindFirstChild(tpTarget))
     end,
 })
-sTP:CreateButton({ Name = "→ Random Spawn",  Callback = TeleportToMap })
-sTP:CreateButton({ Name = "Pickup Dropped Gun", Callback = TeleportToGun })
+sTP:CreateButton({ Name = "→ Random Spawn", Callback = TeleportToMap })
+-- NOTE: "Pick Up Dropped Gun" moved to Combat > Sheriff
 
 -- ── Follow ───────────────────────────────────────────────────
 local sFollow      = TabPlayers:CreateSection("Follow")
@@ -925,7 +1147,6 @@ sFling:CreateButton({ Name = "Fling Sheriff", Callback = function()
     if not s then Notify("MM2", "Sheriff not found.", "Warning") return end
     Fling(s)
 end })
-
 sFling:CreateButton({
     Name = "Fling Selected",
     Callback = function()
@@ -936,9 +1157,120 @@ sFling:CreateButton({
 sFling:CreateButton({ Name = "Fling Nearest", Callback = function() Fling(FindNearest()) end })
 
 -- ─────────────────────────────────────────────────────────────
+--  TAB  ·  ESP
+-- ─────────────────────────────────────────────────────────────
+local TabESP = Window:CreateTab({ Name = "ESP", Icon = Icons['eye'] })
+
+-- ── Master toggle ─────────────────────────────────────────────
+local sESPMaster = TabESP:CreateSection("ESP Control")
+
+sESPMaster:CreateToggle({
+    Name = "Enable ESP", CurrentValue = false, Flag = "MM2_ESP",
+    Callback = function(v)
+        ESPCfg.Enabled = v
+        if v then startESP() else stopESP() end
+    end,
+})
+sESPMaster:CreateSlider({
+    Name = "Max Distance", Range = {50, 1000}, Increment = 10,
+    CurrentValue = 500, Suffix = " st", Flag = "MM2_ESPMaxDist",
+    Callback = function(v) ESPCfg.MaxDistance = v end,
+})
+sESPMaster:CreateSlider({
+    Name = "Text Size", Range = {9, 22}, Increment = 1,
+    CurrentValue = 13, Flag = "MM2_ESPTextSize",
+    Callback = function(v) ESPCfg.TextSize = v end,
+})
+
+-- ── Overlay layers ────────────────────────────────────────────
+local sESPLayers = TabESP:CreateSection("Overlay Layers")
+
+sESPLayers:CreateToggle({
+    Name = "Show Names", CurrentValue = true, Flag = "MM2_ESPNames",
+    Callback = function(v) ESPCfg.ShowNames = v end,
+})
+sESPLayers:CreateToggle({
+    Name = "Show Role Tag", CurrentValue = true, Flag = "MM2_ESPRole",
+    Callback = function(v) ESPCfg.ShowRole = v end,
+})
+sESPLayers:CreateToggle({
+    Name = "Show Distance", CurrentValue = true, Flag = "MM2_ESPDist",
+    Callback = function(v) ESPCfg.ShowDistance = v end,
+})
+sESPLayers:CreateToggle({
+    Name = "Show Health Bar", CurrentValue = true, Flag = "MM2_ESPHPBar",
+    Callback = function(v) ESPCfg.ShowHealthBar = v end,
+})
+sESPLayers:CreateToggle({
+    Name = "Show Health Text", CurrentValue = false, Flag = "MM2_ESPHPTxt",
+    Callback = function(v) ESPCfg.ShowHealthText = v end,
+})
+sESPLayers:CreateToggle({
+    Name = "Show Box", CurrentValue = false, Flag = "MM2_ESPBox",
+    Callback = function(v) ESPCfg.ShowBox = v end,
+})
+sESPLayers:CreateToggle({
+    Name = "Show Tracers", CurrentValue = false, Flag = "MM2_ESPTracers",
+    Callback = function(v) ESPCfg.ShowTracers = v end,
+})
+sESPLayers:CreateDropdown({
+    Name = "Tracer Origin",
+    Options = {"Bottom", "Center", "Mouse"},
+    CurrentOption = "Bottom",
+    Flag = "MM2_ESPTracerOrigin",
+    Callback = function(v) ESPCfg.TracerOrigin = v end,
+})
+
+-- ── Chams / Highlight ─────────────────────────────────────────
+local sESPChams = TabESP:CreateSection("Chams (Highlight)")
+
+sESPChams:CreateToggle({
+    Name = "Enable Chams", CurrentValue = true, Flag = "MM2_ESPChams",
+    Callback = function(v) ESPCfg.Chams = v; reloadESP() end,
+})
+sESPChams:CreateSlider({
+    Name = "Fill Transparency", Range = {0, 100}, Increment = 5,
+    CurrentValue = 55, Suffix = "%", Flag = "MM2_ESPFillTrans",
+    Callback = function(v) ESPCfg.FillTransparency = v / 100 end,
+})
+sESPChams:CreateSlider({
+    Name = "Outline Transparency", Range = {0, 100}, Increment = 5,
+    CurrentValue = 0, Suffix = "%", Flag = "MM2_ESPOutlineTrans",
+    Callback = function(v) ESPCfg.OutlineTransparency = v / 100 end,
+})
+
+-- ── Role Colors ───────────────────────────────────────────────
+local sESPColors = TabESP:CreateSection("Role Colors")
+
+sESPColors:CreateColorPicker({
+    Name = "Murderer Fill",    Color = ESPCfg.MurdFill,    Flag = "MM2_ESPMurdFill",
+    Callback = function(c) ESPCfg.MurdFill    = c end,
+})
+sESPColors:CreateColorPicker({
+    Name = "Murderer Outline", Color = ESPCfg.MurdOutline, Flag = "MM2_ESPMurdOutline",
+    Callback = function(c) ESPCfg.MurdOutline = c end,
+})
+sESPColors:CreateColorPicker({
+    Name = "Sheriff Fill",     Color = ESPCfg.SherFill,    Flag = "MM2_ESPSherFill",
+    Callback = function(c) ESPCfg.SherFill    = c end,
+})
+sESPColors:CreateColorPicker({
+    Name = "Sheriff Outline",  Color = ESPCfg.SherOutline, Flag = "MM2_ESPSherOutline",
+    Callback = function(c) ESPCfg.SherOutline = c end,
+})
+sESPColors:CreateColorPicker({
+    Name = "Innocent Fill",    Color = ESPCfg.InnFill,     Flag = "MM2_ESPInnFill",
+    Callback = function(c) ESPCfg.InnFill     = c end,
+})
+sESPColors:CreateColorPicker({
+    Name = "Innocent Outline", Color = ESPCfg.InnOutline,  Flag = "MM2_ESPInnOutline",
+    Callback = function(c) ESPCfg.InnOutline  = c end,
+})
+
+-- ─────────────────────────────────────────────────────────────
 --  TAB  ·  UNIVERSAL
 -- ─────────────────────────────────────────────────────────────
-local TabUniversal = Window:CreateTab({ Name = "Universal", Icons['globe'] })
+local TabUniversal = Window:CreateTab({ Name = "Universal", Icon = Icons['globe'] })
 
 local sMove = TabUniversal:CreateSection("Movement")
 
@@ -970,12 +1302,9 @@ sMove:CreateSlider({
     Callback = function(v) applyJump(v) end,
 })
 
+-- [GOD MODE REMOVED]
 local sPlayer = TabUniversal:CreateSection("Player")
 
-sPlayer:CreateToggle({
-    Name = "God Mode", CurrentValue = false, Flag = "UNI_GodMode",
-    Callback = function(v) if v then startGodMode() else stopGodMode() end end,
-})
 sPlayer:CreateToggle({
     Name = "Anti-Fling", CurrentValue = false, Flag = "UNI_AntiFling",
     Callback = function(v) if v then startAntiFling() else stopAntiFling() end end,
@@ -984,4 +1313,4 @@ sPlayer:CreateToggle({
 -- ════════════════════════════════════════════════════════════
 -- READY
 -- ════════════════════════════════════════════════════════════
-Notify("Murder Mystery 2", "v2.0 — ready.", "Success", 4)
+Notify("Murder Mystery 2", "v2.1 — ready.", "Success", 4)
