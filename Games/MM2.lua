@@ -1,6 +1,6 @@
 -- ════════════════════════════════════════════════════════════
 -- SENTENCE Hub  —  Murder Mystery 2  v1.1
--- Autor: DareQPlaysRBX
+-- Author: DareQPlaysRBX
 -- ════════════════════════════════════════════════════════════
 
 local Lib    = _G.Lib    or error("[ SENTENCE ] Lib not found in _G")
@@ -17,7 +17,7 @@ local LP        = Players.LocalPlayer
 local Camera    = workspace.CurrentCamera
 
 -- ════════════════════════════════════════════════════════════
--- NOTIFIKACJE
+-- NOTIFICATIONS
 -- ════════════════════════════════════════════════════════════
 local function Notify(title, content, ntype, duration)
     Lib:Notify({
@@ -29,7 +29,7 @@ local function Notify(title, content, ntype, duration)
 end
 
 -- ════════════════════════════════════════════════════════════
--- WEWNĘTRZNY STAN
+-- INTERNAL STATE
 -- ════════════════════════════════════════════════════════════
 local State = {
     shootOffset      = 2.8,
@@ -114,7 +114,7 @@ local function FindNearest()
 end
 
 -- ════════════════════════════════════════════════════════════
--- PREDYKCJA
+-- PREDICTION
 -- ════════════════════════════════════════════════════════════
 local function GetPredicted(target, offset)
     offset = offset or State.shootOffset
@@ -149,9 +149,9 @@ end
 -- SHOOT
 -- ════════════════════════════════════════════════════════════
 local function ShootAt(target, instant)
-    if FindSheriff() ~= LP then Notify("MM2", "Nie jesteś szeryfem!", "Warning") return end
-    if not target then Notify("MM2", "Brak celu.", "Warning") return end
-    if not equipTool("Gun") then Notify("MM2", "Nie masz pistoletu!", "Error") return end
+    if FindSheriff() ~= LP then Notify("MM2", "You are not the sheriff!", "Warning") return end
+    if not target then Notify("MM2", "No target found.", "Warning") return end
+    if not equipTool("Gun") then Notify("MM2", "You don't have a gun!", "Error") return end
     local char = LP.Character
     local tHRP = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
     if not tHRP then return end
@@ -165,16 +165,16 @@ end
 -- ════════════════════════════════════════════════════════════
 local function KnifeThrow(silent)
     if FindMurderer() ~= LP then
-        if not silent then Notify("MM2", "Nie jesteś mordercą!", "Warning") end
+        if not silent then Notify("MM2", "You are not the murderer!", "Warning") end
         return
     end
     if not equipTool("Knife") then
-        if not silent then Notify("MM2", "Nie masz noża!", "Error") end
+        if not silent then Notify("MM2", "You don't have a knife!", "Error") end
         return
     end
     local nearest = FindNearest()
     if not nearest or not nearest.Character then
-        if not silent then Notify("MM2", "Brak graczy w pobliżu.", "Warning") end
+        if not silent then Notify("MM2", "No players nearby.", "Warning") end
         return
     end
     local tHRP = nearest.Character:FindFirstChild("HumanoidRootPart")
@@ -191,10 +191,10 @@ end
 -- KILL NEAREST
 -- ════════════════════════════════════════════════════════════
 local function KillNearest()
-    if FindMurderer() ~= LP then Notify("MM2", "Nie jesteś mordercą!", "Warning") return end
-    if not equipTool("Knife") then Notify("MM2", "Nie masz noża!", "Error") return end
+    if FindMurderer() ~= LP then Notify("MM2", "You are not the murderer!", "Warning") return end
+    if not equipTool("Knife") then Notify("MM2", "You don't have a knife!", "Error") return end
     local nearest = FindNearest()
-    if not nearest or not nearest.Character then Notify("MM2", "Brak gracza w pobliżu.", "Warning") return end
+    if not nearest or not nearest.Character then Notify("MM2", "No players nearby.", "Warning") return end
     local char, _, root = getChar()
     local tHRP = nearest.Character:FindFirstChild("HumanoidRootPart")
     if not root or not tHRP then return end
@@ -209,8 +209,8 @@ end
 -- KILL ALL
 -- ════════════════════════════════════════════════════════════
 local function KillAll()
-    if FindMurderer() ~= LP then Notify("MM2", "Nie jesteś mordercą!", "Warning") return end
-    if not equipTool("Knife") then Notify("MM2", "Nie masz noża!", "Error") return end
+    if FindMurderer() ~= LP then Notify("MM2", "You are not the murderer!", "Warning") return end
+    if not equipTool("Knife") then Notify("MM2", "You don't have a knife!", "Error") return end
     local char, _, root = getChar()
     if not root then return end
     local anchored = {}
@@ -229,7 +229,7 @@ local function KillAll()
     task.delay(0.5, function()
         for _, hrp in ipairs(anchored) do pcall(function() hrp.Anchored = false end) end
     end)
-    Notify("MM2", "Zaatakowano wszystkich.", "Success")
+    Notify("MM2", "Attacked all players.", "Success")
 end
 
 -- ════════════════════════════════════════════════════════════
@@ -237,7 +237,7 @@ end
 -- ════════════════════════════════════════════════════════════
 local function Fling(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then
-        Notify("MM2", "Nieprawidłowy cel.", "Warning") return
+        Notify("MM2", "Invalid target.", "Warning") return
     end
     local lChar, lHum, lHRP = getChar()
     if not lChar then return end
@@ -291,11 +291,11 @@ local function Fling(targetPlayer)
         end
         task.wait()
     until (lHRP.Position - oldCF.p).Magnitude < 25 or tick() - t0 > 3
-    Notify("MM2", "Fling zakończony.", "Success")
+    Notify("MM2", "Fling complete.", "Success")
 end
 
 -- ════════════════════════════════════════════════════════════
--- PĘTLE / TOGGLES
+-- LOOPS / TOGGLES
 -- ════════════════════════════════════════════════════════════
 local Loops = {}
 
@@ -445,26 +445,26 @@ local function hideTimer()
 end
 
 -- ════════════════════════════════════════════════════════════
--- TELEPORTY
+-- TELEPORTS
 -- ════════════════════════════════════════════════════════════
 local function TeleportToMap()
     local map = getMap()
-    if not map then Notify("MM2", "Brak mapy.", "Warning") return end
+    if not map then Notify("MM2", "No map found.", "Warning") return end
     local spawns = map:FindFirstChild("Spawns")
     if not spawns then return end
     local list = spawns:GetChildren()
     local char = LP.Character
     if char and #list > 0 then
         char:MoveTo(list[math.random(#list)].Position)
-        Notify("MM2", "Teleportowano na spawnpoint.", "Success")
+        Notify("MM2", "Teleported to a spawnpoint.", "Success")
     end
 end
 
 local function TeleportToGun()
     local map = getMap()
-    if not map then Notify("MM2", "Brak mapy.", "Warning") return end
+    if not map then Notify("MM2", "No map found.", "Warning") return end
     local gun = map:FindFirstChild("GunDrop")
-    if not gun then Notify("MM2", "Brak upuszczonego pistoletu.", "Warning") return end
+    if not gun then Notify("MM2", "No dropped gun found.", "Warning") return end
     local char = LP.Character
     if not char then return end
     local prevCF = char:GetPivot()
@@ -472,17 +472,17 @@ local function TeleportToGun()
     LP.Backpack.ChildAdded:Wait()
     task.wait(0.1)
     char:PivotTo(prevCF)
-    Notify("MM2", "Podniesiono pistolet i powrócono.", "Success")
+    Notify("MM2", "Picked up gun and returned.", "Success")
 end
 
 local function TeleportToPlayer(target)
-    if not target or not target.Character then Notify("MM2", "Gracz niedostępny.", "Warning") return end
+    if not target or not target.Character then Notify("MM2", "Player unavailable.", "Warning") return end
     local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
     if not tHRP then return end
     local char = LP.Character
     if char then
         char:PivotTo(tHRP.CFrame + tHRP.CFrame.LookVector * 3)
-        Notify("MM2", "Teleportowano do " .. target.Name, "Success")
+        Notify("MM2", "Teleported to " .. target.Name, "Success")
     end
 end
 
@@ -492,17 +492,17 @@ end
 local function SendRoles()
     local m = FindMurderer()
     local s = FindSheriff()
-    local msg = string.format("🔪 Morderca: %s | 🔫 Szeryf: %s",
+    local msg = string.format("🔪 Murderer: %s | 🔫 Sheriff: %s",
         m and m.Name or "?", s and s.Name or "?")
     local channels = TextChatService:WaitForChild("TextChannels"):GetChildren()
     for _, ch in ipairs(channels) do
         if ch.Name ~= "RBXSystem" then pcall(function() ch:SendAsync(msg) end) end
     end
-    Notify("MM2", "Role wysłane do chatu.", "Success")
+    Notify("MM2", "Roles sent to chat.", "Success")
 end
 
 -- ════════════════════════════════════════════════════════════
--- EVENTY GAMY
+-- GAME EVENTS
 -- ════════════════════════════════════════════════════════════
 local remotes = game.ReplicatedStorage:FindFirstChild("Remotes")
 if remotes then
@@ -517,7 +517,7 @@ if remotes then
 end
 
 -- ════════════════════════════════════════════════════════════
--- HELPER — lista graczy do dropdowna
+-- HELPER — player list for dropdowns
 -- ════════════════════════════════════════════════════════════
 local function getPlayerNames()
     local names = {}
@@ -534,21 +534,21 @@ end
 -- ─── TAB: COMBAT ────────────────────────────────────────────
 local TabCombat = Window:CreateTab({ Name = "Combat", Icon = "rbxassetid://17714855134" })
 
--- MURDER
-local S_Murd = TabCombat:CreateSection("🔪 Morderca")
+-- MURDERER
+local S_Murd = TabCombat:CreateSection("🔪 Murderer")
 
 S_Murd:CreateButton({
-    Name     = "Rzut nożem (najbliższy)",
+    Name     = "Knife Throw (nearest)",
     Callback = function() KnifeThrow(false) end,
 })
 
 S_Murd:CreateButton({
-    Name     = "Zabij najbliższego",
+    Name     = "Kill Nearest",
     Callback = KillNearest,
 })
 
 S_Murd:CreateButton({
-    Name     = "Zabij WSZYSTKICH",
+    Name     = "Kill ALL",
     Callback = KillAll,
 })
 
@@ -571,7 +571,7 @@ S_Murd:CreateToggle({
 })
 
 S_Murd:CreateSlider({
-    Name         = "Kill Aura Zasięg",
+    Name         = "Kill Aura Radius",
     Range        = {3, 20},
     Increment    = 0.5,
     CurrentValue = 7,
@@ -581,15 +581,15 @@ S_Murd:CreateSlider({
 })
 
 -- SHERIFF
-local S_Sher = TabCombat:CreateSection("🔫 Szeryf")
+local S_Sher = TabCombat:CreateSection("🔫 Sheriff")
 
 S_Sher:CreateButton({
-    Name     = "Strzel do mordercy",
+    Name     = "Shoot Murderer",
     Callback = function() ShootAt(FindMurderer()) end,
 })
 
 S_Sher:CreateButton({
-    Name     = "Strzel do mordercy (instant kill)",
+    Name     = "Shoot Murderer (instant kill)",
     Callback = function() ShootAt(FindMurderer(), true) end,
 })
 
@@ -603,7 +603,7 @@ S_Sher:CreateToggle({
 })
 
 S_Sher:CreateSlider({
-    Name         = "Shoot Offset (predykcja)",
+    Name         = "Shoot Offset (prediction)",
     Range        = {0, 8},
     Increment    = 0.1,
     CurrentValue = 2.8,
@@ -620,22 +620,22 @@ S_Sher:CreateSlider({
     Callback     = function(v) State.offsetToPingMult = v end,
 })
 
--- ─── TAB: GRACZE ────────────────────────────────────────────
+-- ─── TAB: PLAYERS ───────────────────────────────────────────
 local TabPlayers = Window:CreateTab({ Name = "Players", Icon = "rbxassetid://17714848175" })
 
-local S_Roles = TabPlayers:CreateSection("🎭 Role")
+local S_Roles = TabPlayers:CreateSection("🎭 Roles")
 
 S_Roles:CreateButton({
-    Name     = "Ogłoś role w chacie",
+    Name     = "Announce Roles in Chat",
     Callback = SendRoles,
 })
 
 S_Roles:CreateButton({
-    Name     = "Wyświetl role (notify)",
+    Name     = "Show Roles (notify)",
     Callback = function()
         local m = FindMurderer()
         local s = FindSheriff()
-        Notify("Role",
+        Notify("Roles",
             string.format("🔪 %s  |  🔫 %s",
                 m and m.Name or "?",
                 s and s.Name or "?"
@@ -648,7 +648,7 @@ local S_TP = TabPlayers:CreateSection("⚡ Teleport")
 local tpTargetName = nil
 
 S_TP:CreateDropdown({
-    Name           = "Wybierz gracza",
+    Name           = "Select Player",
     Options        = getPlayerNames(),
     CurrentOption  = nil,
     Flag           = "MM2_TPTarget",
@@ -656,20 +656,20 @@ S_TP:CreateDropdown({
 })
 
 S_TP:CreateButton({
-    Name     = "Teleportuj do wybranego",
+    Name     = "Teleport to Selected",
     Callback = function()
-        if not tpTargetName then Notify("MM2", "Wybierz gracza z listy.", "Warning") return end
+        if not tpTargetName then Notify("MM2", "Select a player from the list.", "Warning") return end
         TeleportToPlayer(Players:FindFirstChild(tpTargetName))
     end,
 })
 
 S_TP:CreateButton({
-    Name     = "Teleportuj do spawnpointu",
+    Name     = "Teleport to Spawnpoint",
     Callback = TeleportToMap,
 })
 
 S_TP:CreateButton({
-    Name     = "Teleportuj do pistoletu (pickup)",
+    Name     = "Teleport to Gun (pickup)",
     Callback = TeleportToGun,
 })
 
@@ -678,7 +678,7 @@ local S_Fling = TabPlayers:CreateSection("💥 Fling")
 local flingTargetName = nil
 
 S_Fling:CreateDropdown({
-    Name          = "Wybierz cel flinga",
+    Name          = "Select Fling Target",
     Options       = getPlayerNames(),
     CurrentOption = nil,
     Flag          = "MM2_FlingTarget",
@@ -686,22 +686,22 @@ S_Fling:CreateDropdown({
 })
 
 S_Fling:CreateButton({
-    Name     = "Fling wybranego",
+    Name     = "Fling Selected",
     Callback = function()
-        if not flingTargetName then Notify("MM2", "Wybierz cel.", "Warning") return end
+        if not flingTargetName then Notify("MM2", "Select a target.", "Warning") return end
         Fling(Players:FindFirstChild(flingTargetName))
     end,
 })
 
 S_Fling:CreateButton({
-    Name     = "Fling najbliższego",
+    Name     = "Fling Nearest",
     Callback = function() Fling(FindNearest()) end,
 })
 
 -- ─── TAB: MISC ──────────────────────────────────────────────
 local TabMisc = Window:CreateTab({ Name = "Misc", Icon = "rbxassetid://17714831196" })
 
-local S_Move = TabMisc:CreateSection("🏃 Ruch")
+local S_Move = TabMisc:CreateSection("🏃 Movement")
 
 S_Move:CreateToggle({
     Name         = "NoClip",
@@ -721,10 +721,10 @@ S_Move:CreateToggle({
     end,
 })
 
-local S_Round = TabMisc:CreateSection("⏱ Runda")
+local S_Round = TabMisc:CreateSection("⏱ Round")
 
 S_Round:CreateToggle({
-    Name         = "Pokaż timer rundy",
+    Name         = "Show Round Timer",
     CurrentValue = false,
     Flag         = "MM2_Timer",
     Callback     = function(v)
@@ -733,13 +733,13 @@ S_Round:CreateToggle({
 })
 
 S_Round:CreateButton({
-    Name     = "Odśwież listę graczy (dropdowny)",
+    Name     = "Refresh Player List (dropdowns)",
     Callback = function()
-        Notify("MM2", "Otwórz dropdown ponownie — lista jest dynamiczna.", "Info")
+        Notify("MM2", "Re-open the dropdown — the list is dynamic.", "Info")
     end,
 })
 
 -- ════════════════════════════════════════════════════════════
--- GOTOWE
+-- READY
 -- ════════════════════════════════════════════════════════════
-Notify("Murder Mystery 2", "Skrypt załadowany! 🔪", "Success", 4)
+Notify("Murder Mystery 2", "Script loaded! 🔪", "Success", 4)
