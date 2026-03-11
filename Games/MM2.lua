@@ -789,7 +789,7 @@ Players.PlayerRemoving:Connect(function() task.wait(0.2); refreshDropdowns() end
 -- ─────────────────────────────────────────────────────────────
 --  TAB  ·  COMBAT
 -- ─────────────────────────────────────────────────────────────
-local TabCombat = Window:CreateTab({ Name = "Combat", Icon = "rbxassetid://17714855134" })
+local TabCombat = Window:CreateTab({ Name = "Combat", Icon = Icons['swords'] })
 
 local sMurd = TabCombat:CreateSection("Murderer")
 
@@ -938,7 +938,7 @@ sFling:CreateButton({ Name = "Fling Nearest", Callback = function() Fling(FindNe
 -- ─────────────────────────────────────────────────────────────
 --  TAB  ·  UNIVERSAL
 -- ─────────────────────────────────────────────────────────────
-local TabUniversal = Window:CreateTab({ Name = "Universal", Icon = "rbxassetid://17714831196" })
+local TabUniversal = Window:CreateTab({ Name = "Universal", Icons['globe'] })
 
 local sMove = TabUniversal:CreateSection("Movement")
 
