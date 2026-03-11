@@ -20,7 +20,7 @@ local SUPPORTED_GAMES = {
     [142823291] = {
         name   = "Murder Mystery 2",
         url    = "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/Games/MurderMystery2.lua",
-        config = "bgs-infinity",
+        config = "mm2",
     },
 }
 
