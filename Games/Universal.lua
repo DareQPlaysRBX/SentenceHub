@@ -1,20 +1,26 @@
+-- ════════════════════════════════════════════════════════════
+-- SENTENCE Hub  -  Universal Script  v2.4
+-- Autor: DareQPlaysRBX
+-- ════════════════════════════════════════════════════════════
+
 local Lib    = _G.Lib    or error("[ SENTENCE ] Lib not found in _G")
 local Window = _G.Window or error("[ SENTENCE ] Window not found in _G")
 
 -- ════════════════════════════════════════════════════════════
 -- SERVICES
 -- ════════════════════════════════════════════════════════════
-local RunService       = game:GetService("RunService")
-local Players          = game:GetService("Players")
-local UGS              = game:GetService("UserInputService")
-local LP               = Players.LocalPlayer
-local Workspace        = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
+local Players    = game:GetService("Players")
+local UGS        = game:GetService("UserInputService")
+local LP         = Players.LocalPlayer
+local Workspace  = game:GetService("Workspace")
 
+-- ── GUI parent: gethui() ukrywa GUI przed folderem gracza ──
 local _GUI_PARENT = (typeof(gethui) == "function" and gethui())
     or game:GetService("CoreGui")
 
 -- ════════════════════════════════════════════════════════════
--- SHARED STATE  (wszystko domyślnie wyłączone)
+-- SHARED STATE
 -- ════════════════════════════════════════════════════════════
 local UNI = {
     FlyEnabled       = false,
@@ -44,9 +50,9 @@ end
 local FlyConn, FlyBodyVel, FlyBodyGyro
 
 local function stopFly()
-    if FlyConn     then FlyConn:Disconnect();    FlyConn     = nil end
-    if FlyBodyVel  then FlyBodyVel:Destroy();    FlyBodyVel  = nil end
-    if FlyBodyGyro then FlyBodyGyro:Destroy();   FlyBodyGyro = nil end
+    if FlyConn     then FlyConn:Disconnect();  FlyConn     = nil end
+    if FlyBodyVel  then FlyBodyVel:Destroy();  FlyBodyVel  = nil end
+    if FlyBodyGyro then FlyBodyGyro:Destroy(); FlyBodyGyro = nil end
     local _, hum = getChar()
     if hum then pcall(function() hum.PlatformStand = false end) end
 end
@@ -58,12 +64,12 @@ local function startFly()
 
     hum.PlatformStand = true
 
-    FlyBodyVel = Instance.new("BodyVelocity")
-    FlyBodyVel.Velocity  = Vector3.zero
-    FlyBodyVel.MaxForce  = Vector3.new(1e5, 1e5, 1e5)
-    FlyBodyVel.Parent    = root
+    FlyBodyVel          = Instance.new("BodyVelocity")
+    FlyBodyVel.Velocity = Vector3.zero
+    FlyBodyVel.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+    FlyBodyVel.Parent   = root
 
-    FlyBodyGyro = Instance.new("BodyGyro")
+    FlyBodyGyro           = Instance.new("BodyGyro")
     FlyBodyGyro.MaxTorque = Vector3.new(1e5, 1e5, 1e5)
     FlyBodyGyro.P         = 1e4
     FlyBodyGyro.CFrame    = root.CFrame
@@ -210,7 +216,7 @@ LP.CharacterAdded:Connect(function()
 end)
 
 -- ════════════════════════════════════════════════════════════
--- MAIN TAB  UI
+-- MAIN TAB UI
 -- ════════════════════════════════════════════════════════════
 local TabMain = Window:CreateTab({
     Name      = "Main",
@@ -218,7 +224,6 @@ local TabMain = Window:CreateTab({
     ShowTitle = true,
 })
 
--- ── Movement ───────────────────────────────────────────────
 local M1 = TabMain:CreateSection("Movement")
 
 M1:CreateToggle({
@@ -275,7 +280,6 @@ M1:CreateSlider({
     Callback  = function(v) UNI.FlySpeed = v end,
 })
 
--- ── Protection ─────────────────────────────────────────────
 local M2 = TabMain:CreateSection("Protection")
 
 M2:CreateToggle({
@@ -294,7 +298,6 @@ M2:CreateSlider({
     Callback  = function(v) ANTI_FLING_THRESHOLD = v end,
 })
 
--- ── Utility ────────────────────────────────────────────────
 local M3 = TabMain:CreateSection("Utility")
 
 M3:CreateButton({
@@ -334,7 +337,6 @@ local DARK_BG     = Color3.fromRGB(18,  18,  18)
 local BORDER_DARK = Color3.fromRGB(37,  37,  37)
 local V2          = Vector2.new
 
--- ── Config ─────────────────────────────────────────────────
 local CFG = {
     Enabled           = false,
     ShowNames         = false,
@@ -345,7 +347,7 @@ local CFG = {
     ShowHeadDot       = false,
     ShowHealthBar     = false,
     ShowChams         = false,
-    TeamCheck         = false,  -- gdy true: ukrywa ESP dla graczy z tej samej drużyny
+    TeamCheck         = false,
     RainbowMode       = false,
 
     MaxDistance       = 250,
@@ -366,7 +368,6 @@ local CFG = {
     TeamColor  = Color3.fromRGB(90, 159, 232),
 }
 
--- ── Camera / utils ─────────────────────────────────────────
 local Camera = Workspace.CurrentCamera
 
 local function W2S(pos)
@@ -401,7 +402,6 @@ local function scaledTextSize(basePx, dist)
     return math.clamp(scaled, 9, basePx * 3)
 end
 
--- ── Drawing helpers ────────────────────────────────────────
 local AllDrawings = {}
 
 local function newDraw(dtype, props)
@@ -582,6 +582,21 @@ local function hidePlayerAll(d, player)
     destroyHighlight(player)
 end
 
+-- ── Team check helper ─────────────────────────────────────
+-- Wywołaj natychmiast przy zmianie togla — usuwa lub przywraca ESP drużyny
+local function applyTeamCheck()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == LP then continue end
+        if CFG.TeamCheck and isTeammate(player) then
+            removePlayerESP(player)
+        else
+            if not ESPObjects[player] then
+                makePlayerESP(player)
+            end
+        end
+    end
+end
+
 -- ── Cleanup ────────────────────────────────────────────────
 local ESP_BIND        = "SentenceHub_ESP_v23"
 local CharConnections = {}
@@ -633,8 +648,11 @@ RunService:BindToRenderStep(ESP_BIND, Enum.RenderPriority.Camera.Value + 1, func
         if hum:GetState() == Enum.HumanoidStateType.Dead or hum.Health<=0 then hidePlayerAll(d, player); continue end
         if not CFG.Enabled                                                 then hidePlayerAll(d, player); continue end
 
-        -- TeamCheck: gdy włączony, ukryj ESP dla graczy z tej samej drużyny
-        if CFG.TeamCheck and isTeammate(player) then hidePlayerAll(d, player); continue end
+        -- TeamCheck: usuń ESP gracza z drużyny
+        if CFG.TeamCheck and isTeammate(player) then
+            removePlayerESP(player)
+            continue
+        end
 
         local dist = (camPos - head.Position).Magnitude
         if dist > CFG.MaxDistance then hidePlayerAll(d, player); continue end
@@ -813,15 +831,22 @@ S1:CreateToggle({
         if not v then for p in pairs(AllHighlights) do destroyHighlight(p) end end
     end,
 })
-S1:CreateToggle({ Name="Team Check", Default=false, Callback=function(v) CFG.ShowTeam = v end })
+S1:CreateToggle({
+    Name     = "Team Check",
+    Default  = false,
+    Callback = function(v)
+        CFG.TeamCheck = v
+        applyTeamCheck()
+    end,
+})
 
 local S2 = TabVis:CreateSection("Appearance")
 
-S2:CreateDropdown({ Name="Box Style",     Options={"Corner","Full"},          Default="Corner", Callback=function(v) CFG.BoxStyle     = v end })
-S2:CreateDropdown({ Name="Tracer Origin", Options={"Bottom","Center","Mouse"},Default="Bottom", Callback=function(v) CFG.TracerOrigin = v end })
-S2:CreateSlider({ Name="Render Distance",    Range={50,10000}, Default=250, Increment=50, Callback=function(v) CFG.MaxDistance      = v end })
-S2:CreateSlider({ Name="Box Thickness",      Range={1,5},      Default=1,   Increment=1,  Callback=function(v) CFG.BoxThickness     = v end })
-S2:CreateSlider({ Name="Tracer Thickness",   Range={1,5},      Default=1,   Increment=1,  Callback=function(v) CFG.TracerThickness  = v end })
+S2:CreateDropdown({ Name="Box Style",     Options={"Corner","Full"},           Default="Corner", Callback=function(v) CFG.BoxStyle     = v end })
+S2:CreateDropdown({ Name="Tracer Origin", Options={"Bottom","Center","Mouse"}, Default="Bottom", Callback=function(v) CFG.TracerOrigin = v end })
+S2:CreateSlider({ Name="Render Distance",  Range={50,10000}, Default=250, Increment=50, Callback=function(v) CFG.MaxDistance     = v end })
+S2:CreateSlider({ Name="Box Thickness",    Range={1,5},      Default=1,   Increment=1,  Callback=function(v) CFG.BoxThickness    = v end })
+S2:CreateSlider({ Name="Tracer Thickness", Range={1,5},      Default=1,   Increment=1,  Callback=function(v) CFG.TracerThickness = v end })
 S2:CreateSlider({
     Name="Chams Fill Opacity", Range={0,100}, Default=55, Increment=5,
     Callback=function(v)
@@ -846,4 +871,4 @@ S3:CreateColorPicker({ Name="Team Color",  Default=CFG.TeamColor,  Callback=func
 -- ════════════════════════════════════════════════════════════
 -- DONE
 -- ════════════════════════════════════════════════════════════
-print("[ SENTENCE ] Universal script loaded.")
+print("[ SENTENCE ] Universal v2.4 loaded. GUI protected via gethui().")
