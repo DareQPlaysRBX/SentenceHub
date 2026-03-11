@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════
--- SENTENCE Hub  -  Murder Mystery 2  v2.7
+-- SENTENCE Hub  -  Murder Mystery 2  v2.8
 -- Autor: DareQPlaysRBX
 -- ════════════════════════════════════════════════════════════
 
@@ -67,15 +67,15 @@ local function getMap()
 end
 
 -- ════════════════════════════════════════════════════════════
--- COIN FARM  (natural walk-style tween, coin to coin)
+-- COIN FARM  (greedy nearest-coin-first, walk-style tween)
 -- ════════════════════════════════════════════════════════════
-local COIN_CONTAINERS  = { "CoinContainer", "CoinAreas" }
-local COIN_WALK_SPEED  = 16    -- studs per second (matches normal walk feel)
-local COIN_MIN_TWEEN   = 0.4   -- minimum tween duration even for nearby coins
-local COIN_PAUSE_MIN   = 0.8   -- minimum pause after collecting a coin
-local COIN_PAUSE_MAX   = 1.6   -- maximum pause (randomised to look human)
-local coinFarmEnabled  = false
-local coinTween        = nil
+local COIN_CONTAINERS = { "CoinContainer", "CoinAreas" }
+local COIN_SPEED      = 28     -- studs/s tween speed (faster than walk but not instant)
+local COIN_MIN_TWEEN  = 0.2   -- floor so nearby coins still look like movement
+local COIN_PAUSE_MIN  = 0.4   -- pause after collecting a coin (min)
+local COIN_PAUSE_MAX  = 0.8   -- pause after collecting a coin (max, randomised)
+local coinFarmEnabled = false
+local coinTween       = nil
 
 local function getAllCoins()
     local coins = {}
@@ -94,11 +94,23 @@ local function getAllCoins()
     return coins
 end
 
-local function sortCoinsByDistance(coins, origin)
-    table.sort(coins, function(a, b)
-        return (a.Position - origin).Magnitude < (b.Position - origin).Magnitude
-    end)
-    return coins
+-- Returns the single nearest valid coin to `origin`
+local function getNearestCoin(origin)
+    local best, bestDist = nil, math.huge
+    for _, mapObj in ipairs(workspace:GetChildren()) do
+        for _, containerName in ipairs(COIN_CONTAINERS) do
+            local container = mapObj:FindFirstChild(containerName, true)
+            if container then
+                for _, desc in ipairs(container:GetDescendants()) do
+                    if desc:IsA("BasePart") and desc.Name == "Coin_Server" and desc.Parent then
+                        local d = (desc.Position - origin).Magnitude
+                        if d < bestDist then bestDist = d; best = desc end
+                    end
+                end
+            end
+        end
+    end
+    return best, bestDist
 end
 
 local function cancelCoinTween()
@@ -110,74 +122,64 @@ local function startCoinFarm()
     coinFarmEnabled = true
     Loops.coinFarm  = true
 
+    -- Noclip via anonymous wrapper so forward ref is not an issue
+    task.spawn(function() startNoClip() end)
+
     task.spawn(function()
         while coinFarmEnabled do
-            local char, hum, root = getChar()
-            if not char or not hum or not root then task.wait(0.5); continue end
+            local _, _, root = getChar()
+            if not root then task.wait(0.5); continue end
 
-            local coins = getAllCoins()
-            if #coins == 0 then task.wait(2); continue end
+            -- Always pick the nearest coin at this moment
+            local coin, dist = getNearestCoin(root.Position)
 
-            sortCoinsByDistance(coins, root.Position)
-
-            for _, coin in ipairs(coins) do
-                if not coinFarmEnabled then break end
-                if not coin or not coin.Parent then continue end
-
-                local _, _, root2 = getChar()
-                if not root2 then break end
-
-                local dist = (coin.Position - root2.Position).Magnitude
-
-                -- Tween duration scales with distance, like walking
-                -- clamp to a minimum so short hops still look natural
-                local duration = math.max(dist / COIN_WALK_SPEED, COIN_MIN_TWEEN)
-
-                -- Target: same Y as player (stay on ground, just walk sideways)
-                local targetCF = CFrame.new(
-                    coin.Position.X,
-                    root2.Position.Y,
-                    coin.Position.Z
-                )
-
-                -- Smooth walk-style ease (Sine In-Out mimics footstep acceleration)
-                cancelCoinTween()
-                local ti = TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-                coinTween = TweenService:Create(root2, ti, { CFrame = targetCF })
-                coinTween:Play()
-                coinTween.Completed:Wait()
-                coinTween = nil
-
-                if not coinFarmEnabled then break end
-
-                -- Collect coin
-                local _, _, root3 = getChar()
-                if root3 and coin.Parent then
-                    pcall(function()
-                        firetouchinterest(root3, coin, 0)
-                        task.wait(0.05)
-                        firetouchinterest(root3, coin, 1)
-                    end)
-                end
-
-                -- Randomised human-like pause between coins
-                task.wait(COIN_PAUSE_MIN + math.random() * (COIN_PAUSE_MAX - COIN_PAUSE_MIN))
+            if not coin then
+                -- No coins left — wait and rescan
+                task.wait(1.5)
+                continue
             end
 
-            -- Brief rest before the next sweep
-            task.wait(2 + math.random())
+            -- Duration scales with distance; floor at COIN_MIN_TWEEN
+            local duration = math.max(dist / COIN_SPEED, COIN_MIN_TWEEN)
+
+            -- Walk-style tween: stay at player's current Y, glide horizontally
+            local _, _, root2 = getChar()
+            if not root2 then break end
+
+            local targetCF = CFrame.new(coin.Position.X, root2.Position.Y, coin.Position.Z)
+
+            cancelCoinTween()
+            local ti = TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            coinTween = TweenService:Create(root2, ti, { CFrame = targetCF })
+            coinTween:Play()
+            coinTween.Completed:Wait()  -- wait until arrival before touching coin
+            coinTween = nil
+
+            if not coinFarmEnabled then break end
+
+            -- Arrived — collect the coin
+            local _, _, root3 = getChar()
+            if root3 and coin.Parent then
+                pcall(function()
+                    firetouchinterest(root3, coin, 0)
+                    task.wait(0.04)
+                    firetouchinterest(root3, coin, 1)
+                end)
+            end
+
+            -- Short random pause before heading to next coin
+            task.wait(COIN_PAUSE_MIN + math.random() * (COIN_PAUSE_MAX - COIN_PAUSE_MIN))
         end
     end)
 
-    Notify("Coin Farm", "Started — walking to coins.", "Success")
-    task.defer(startNoClip)
+    Notify("Coin Farm", "Started.", "Success")
 end
 
 local function stopCoinFarm()
     coinFarmEnabled = false
     Loops.coinFarm  = false
     cancelCoinTween()
-    task.defer(stopNoClip)
+    task.spawn(function() stopNoClip() end)
     Notify("Coin Farm", "Stopped.", "Info")
 end
 
