@@ -1,146 +1,80 @@
--- ─────────────────────────────────────────────────
---  SERVICES
--- ─────────────────────────────────────────────────
-local Players        = game:GetService("Players")
-local RunService     = game:GetService("RunService")
-local TweenService   = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+-- ════════════════════════════════════════════════════════════
+-- SENTENCE Hub  —  Murder Mystery 2  v1.1
+-- Autor: DareQPlaysRBX
+-- ════════════════════════════════════════════════════════════
+
+local Lib    = _G.Lib    or error("[ SENTENCE ] Lib not found in _G")
+local Window = _G.Window or error("[ SENTENCE ] Window not found in _G")
+
+-- ════════════════════════════════════════════════════════════
+-- SERVICES
+-- ════════════════════════════════════════════════════════════
+local Players          = game:GetService("Players")
+local RunService       = game:GetService("RunService")
 local TextChatService  = game:GetService("TextChatService")
 
-local LocalPlayer  = Players.LocalPlayer
-local Character    = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local Camera       = workspace.CurrentCamera
+local LP        = Players.LocalPlayer
+local Camera    = workspace.CurrentCamera
 
--- ─────────────────────────────────────────────────
---  MODULE TABLE
--- ─────────────────────────────────────────────────
-local MM2 = {}
-MM2.__index = MM2
-MM2.Name    = "Murder Mystery 2"
-MM2.GameId  = 142823291   -- oficjalne GameId MM2
+-- ════════════════════════════════════════════════════════════
+-- NOTIFIKACJE
+-- ════════════════════════════════════════════════════════════
+local function Notify(title, content, ntype, duration)
+    Lib:Notify({
+        Title    = title or "MM2",
+        Content  = content or "",
+        Type     = ntype or "Info",
+        Duration = duration or 3,
+    })
+end
 
--- ─────────────────────────────────────────────────
---  WEWNĘTRZNY STAN
--- ─────────────────────────────────────────────────
+-- ════════════════════════════════════════════════════════════
+-- WEWNĘTRZNY STAN
+-- ════════════════════════════════════════════════════════════
 local State = {
-    -- ESP
-    playerESP   = false,
-    gunDropESP  = false,
-    trapESP     = false,
-
-    -- Mechaniki
-    autoShoot        = false,
-    autoKnifeThrow   = false,
-    killAura         = false,
-    antiFling        = false,
-    noClip           = false,
-    roundTimer       = false,
-
-    -- Predykcja
-    shootOffset        = 2.8,
-    offsetToPingMult   = 1.0,
-
-    -- Coin farm (placeholder, firetouchinterest wymagane)
-    coinFarm  = false,
-
-    -- Dane ról (z eventu PlayerDataChanged)
-    playerData = {},
+    shootOffset      = 2.8,
+    offsetToPingMult = 1.0,
+    killAuraRadius   = 7,
+    playerData       = {},
 }
 
--- Aktywne połączenia RBX (do czyszczenia)
 local Connections = {}
 
--- Referencja do hub-notify (ustawiana przez :Init)
-local HubNotify = function(msg, color)
-    print("[MM2] " .. tostring(msg))
-end
-local HubDialog = function(title, desc, buttons)
-    -- fallback — zwraca pierwszy przycisk
-    return buttons[1]
-end
-
--- ─────────────────────────────────────────────────
---  HELPERS — CHARAKTER
--- ─────────────────────────────────────────────────
-local function getLocalChar()
-    return LocalPlayer.Character
+-- ════════════════════════════════════════════════════════════
+-- HELPERS
+-- ════════════════════════════════════════════════════════════
+local function getChar()
+    local c = LP.Character
+    if not c then return nil, nil, nil end
+    return c, c:FindFirstChildOfClass("Humanoid"), c:FindFirstChild("HumanoidRootPart")
 end
 
-local function getLocalHRP()
-    local c = getLocalChar()
-    return c and c:FindFirstChild("HumanoidRootPart")
-end
-
-local function getLocalHumanoid()
-    local c = getLocalChar()
-    return c and c:FindFirstChildOfClass("Humanoid")
-end
-
--- ─────────────────────────────────────────────────
---  HELPERS — MAPA
--- ─────────────────────────────────────────────────
-
---- Zwraca aktualną mapę (model z CoinContainer + Spawns).
 local function getMap()
     for _, obj in ipairs(workspace:GetChildren()) do
         if obj:FindFirstChild("CoinContainer") and obj:FindFirstChild("Spawns") then
             return obj
         end
     end
-    return nil
 end
 
---- Zwraca najbliższy model z listy do podanego gracza.
----@param player Player
----@param models table  tablica Instance
----@return Instance|nil, number
-local function getClosestModel(player, models)
-    local char = player.Character
-    if not char then return nil, math.huge end
-    local root = char:FindFirstChild("HumanoidRootPart")
-    if not root then return nil, math.huge end
-
-    local closest, minDist = nil, math.huge
-    for _, model in ipairs(models) do
-        local pivot = model:IsA("Model") and model:GetPivot().Position
-                      or (model:IsA("BasePart") and model.Position)
-        if pivot then
-            local d = (pivot - root.Position).Magnitude
-            if d < minDist then
-                minDist = d
-                closest = model
-            end
-        end
-    end
-    return closest, minDist
-end
-
--- ─────────────────────────────────────────────────
---  HELPERS — ROLE
--- ─────────────────────────────────────────────────
-
---- Zwraca gracza-mordercę (sprawdza Backpack, Character, playerData).
-function MM2:FindMurderer()
-    -- 1) Knife w Backpack
+-- ════════════════════════════════════════════════════════════
+-- ROLE DETECTION
+-- ════════════════════════════════════════════════════════════
+local function FindMurderer()
     for _, p in ipairs(Players:GetPlayers()) do
         if p.Backpack:FindFirstChild("Knife") then return p end
     end
-    -- 2) Knife w Character
     for _, p in ipairs(Players:GetPlayers()) do
         if p.Character and p.Character:FindFirstChild("Knife") then return p end
     end
-    -- 3) Dane ról
     for name, data in pairs(State.playerData) do
         if data.Role == "Murderer" then
-            local p = Players:FindFirstChild(name)
-            if p then return p end
+            return Players:FindFirstChild(name)
         end
     end
-    return nil
 end
 
---- Zwraca gracza-szeryfa.
-function MM2:FindSheriff()
+local function FindSheriff()
     for _, p in ipairs(Players:GetPlayers()) do
         if p.Backpack:FindFirstChild("Gun") then return p end
     end
@@ -149,470 +83,288 @@ function MM2:FindSheriff()
     end
     for name, data in pairs(State.playerData) do
         if data.Role == "Sheriff" then
-            local p = Players:FindFirstChild(name)
-            if p then return p end
+            return Players:FindFirstChild(name)
         end
     end
-    return nil
 end
 
---- Zwraca szeryfa innego niż localPlayer.
-function MM2:FindSheriffNotMe()
+local function FindSheriffNotMe()
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Backpack:FindFirstChild("Gun") then return p end
+        if p ~= LP then
+            if p.Backpack:FindFirstChild("Gun") then return p end
+            if p.Character and p.Character:FindFirstChild("Gun") then return p end
+        end
     end
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character and p.Character:FindFirstChild("Gun") then return p end
-    end
-    return nil
 end
 
---- Zwraca gracza najbliższego localPlayer (wyklucza samego siebie).
-function MM2:FindNearestPlayer()
-    local root = getLocalHRP()
-    if not root then return nil end
-
-    local nearest, minDist = nil, math.huge
+local function FindNearest()
+    local char, _, root = getChar()
+    if not root then return end
+    local best, minD = nil, math.huge
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
+        if p ~= LP and p.Character then
             local hrp = p.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
                 local d = (hrp.Position - root.Position).Magnitude
-                if d < minDist then
-                    minDist = d
-                    nearest  = p
-                end
+                if d < minD then minD = d; best = p end
             end
         end
     end
-    return nearest
+    return best
 end
 
--- ─────────────────────────────────────────────────
---  PREDYKCJA POZYCJI
--- ─────────────────────────────────────────────────
-
---- Przewiduje pozycję gracza na podstawie prędkości + MoveDirection.
----@param targetPlayer Player
----@param offset number   mnożnik przesunięcia (domyślnie State.shootOffset)
----@return Vector3
-function MM2:GetPredictedPosition(targetPlayer, offset)
+-- ════════════════════════════════════════════════════════════
+-- PREDYKCJA
+-- ════════════════════════════════════════════════════════════
+local function GetPredicted(target, offset)
     offset = offset or State.shootOffset
-    local char = targetPlayer.Character
-    if not char then return Vector3.zero end
-
-    local torso = char:FindFirstChild("UpperTorso") or char:FindFirstChild("HumanoidRootPart")
-    local hum   = char:FindFirstChildOfClass("Humanoid")
+    local c = target.Character
+    if not c then return Vector3.zero end
+    local torso = c:FindFirstChild("UpperTorso") or c:FindFirstChild("HumanoidRootPart")
+    local hum   = c:FindFirstChildOfClass("Humanoid")
     if not torso or not hum then return Vector3.zero end
-
-    local vel      = torso.AssemblyLinearVelocity
-    local moveDir  = hum.MoveDirection
-    local pingMult = ((LocalPlayer:GetNetworkPing() * 1000) * ((State.offsetToPingMult - 1) * 0.01)) + 1
-
-    local predicted = torso.Position
-        + (vel * Vector3.new(0.75, 0.5, 0.75)) * (offset / 15)
-        + moveDir * offset
-
-    return predicted * pingMult
+    local pingM = ((LP:GetNetworkPing() * 1000) * ((State.offsetToPingMult - 1) * 0.01)) + 1
+    return (torso.Position
+        + (torso.AssemblyLinearVelocity * Vector3.new(0.75, 0.5, 0.75)) * (offset / 15)
+        + hum.MoveDirection * offset) * pingM
 end
 
--- ─────────────────────────────────────────────────
---  SHOOT (SHERIFF → MURDERER)
--- ─────────────────────────────────────────────────
-
---- Strzela do celu (wymaga narzędzia Gun w Character).
----@param target Player
----@param instantKill boolean  (opcjonalne) — strzał bezpośrednio w HRP
-function MM2:ShootAt(target, instantKill)
-    if self:FindSheriff() ~= LocalPlayer then
-        HubNotify("Nie jesteś szeryfem!", Color3.fromRGB(255,80,80))
-        return
+-- ════════════════════════════════════════════════════════════
+-- EQUIP HELPER
+-- ════════════════════════════════════════════════════════════
+local function equipTool(name)
+    local char, hum = getChar()
+    if not char then return false end
+    if char:FindFirstChild(name) then return true end
+    local tool = LP.Backpack:FindFirstChild(name)
+    if hum and tool then
+        hum:EquipTool(tool)
+        task.wait(0.1)
+        return true
     end
-    if not target then
-        HubNotify("Brak celu do strzału.")
-        return
-    end
+    return false
+end
 
-    local char = getLocalChar()
-    if not char:FindFirstChild("Gun") then
-        local hum = getLocalHumanoid()
-        if hum and LocalPlayer.Backpack:FindFirstChild("Gun") then
-            hum:EquipTool(LocalPlayer.Backpack:FindFirstChild("Gun"))
-            task.wait(0.1)
-        else
-            HubNotify("Nie masz pistoletu!")
-            return
-        end
-    end
-
+-- ════════════════════════════════════════════════════════════
+-- SHOOT
+-- ════════════════════════════════════════════════════════════
+local function ShootAt(target, instant)
+    if FindSheriff() ~= LP then Notify("MM2", "Nie jesteś szeryfem!", "Warning") return end
+    if not target then Notify("MM2", "Brak celu.", "Warning") return end
+    if not equipTool("Gun") then Notify("MM2", "Nie masz pistoletu!", "Error") return end
+    local char = LP.Character
     local tHRP = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-    if not tHRP then
-        HubNotify("Nie znaleziono HRP celu.")
-        return
-    end
-
+    if not tHRP then return end
     local origin = CFrame.new(char.RightHand.Position)
-    local aimPos
-
-    if instantKill then
-        -- Strzał bezpośrednio w HRP (wykrywalny)
-        aimPos = CFrame.new(tHRP.Position)
-    else
-        aimPos = CFrame.new(self:GetPredictedPosition(target))
-    end
-
+    local aimPos = instant and CFrame.new(tHRP.Position) or CFrame.new(GetPredicted(target))
     char:WaitForChild("Gun"):WaitForChild("Shoot"):FireServer(origin, aimPos)
 end
 
--- ─────────────────────────────────────────────────
---  KNIFE THROW (MURDERER → NEAREST)
--- ─────────────────────────────────────────────────
-
---- Rzuca nożem w kierunku najbliższego gracza.
----@param silent boolean  jeśli true — brak powiadomień o błędach
-function MM2:KnifeThrow(silent)
-    if self:FindMurderer() ~= LocalPlayer then
-        if not silent then HubNotify("Nie jesteś mordercą!") end
+-- ════════════════════════════════════════════════════════════
+-- KNIFE THROW
+-- ════════════════════════════════════════════════════════════
+local function KnifeThrow(silent)
+    if FindMurderer() ~= LP then
+        if not silent then Notify("MM2", "Nie jesteś mordercą!", "Warning") end
         return
     end
-
-    local char = getLocalChar()
-    if not char:FindFirstChild("Knife") then
-        local hum = getLocalHumanoid()
-        if hum and LocalPlayer.Backpack:FindFirstChild("Knife") then
-            hum:EquipTool(LocalPlayer.Backpack:FindFirstChild("Knife"))
-            task.wait(0.1)
-        else
-            if not silent then HubNotify("Nie masz noża!") end
-            return
-        end
+    if not equipTool("Knife") then
+        if not silent then Notify("MM2", "Nie masz noża!", "Error") end
+        return
     end
-
-    local nearest = self:FindNearestPlayer()
+    local nearest = FindNearest()
     if not nearest or not nearest.Character then
-        if not silent then HubNotify("Brak graczy w pobliżu!") end
+        if not silent then Notify("MM2", "Brak graczy w pobliżu.", "Warning") end
         return
     end
-
     local tHRP = nearest.Character:FindFirstChild("HumanoidRootPart")
     if not tHRP then return end
-
-    local knife    = char:WaitForChild("Knife")
-    local origin   = CFrame.new(char.RightHand.Position)
-    local aimPos   = self:GetPredictedPosition(nearest, State.shootOffset + 1)
-
-    knife:WaitForChild("Events"):WaitForChild("KnifeThrown"):FireServer(origin, CFrame.new(aimPos))
+    local char = LP.Character
+    local knife = char:WaitForChild("Knife")
+    knife:WaitForChild("Events"):WaitForChild("KnifeThrown"):FireServer(
+        CFrame.new(char.RightHand.Position),
+        CFrame.new(GetPredicted(nearest, State.shootOffset + 1))
+    )
 end
 
--- ─────────────────────────────────────────────────
---  KILL CLOSEST (MURDERER SLASH)
--- ─────────────────────────────────────────────────
-
---- Teleportuje cel obok gracza i uderza (Stab).
-function MM2:KillNearest()
-    if self:FindMurderer() ~= LocalPlayer then
-        HubNotify("Nie jesteś mordercą!")
-        return
-    end
-
-    local char = getLocalChar()
-    if not char:FindFirstChild("Knife") then
-        local hum = getLocalHumanoid()
-        if hum and LocalPlayer.Backpack:FindFirstChild("Knife") then
-            hum:EquipTool(LocalPlayer.Backpack:FindFirstChild("Knife"))
-            task.wait(0.1)
-        else
-            HubNotify("Nie masz noża!")
-            return
-        end
-    end
-
-    local nearest = self:FindNearestPlayer()
-    if not nearest or not nearest.Character then
-        HubNotify("Brak gracza w pobliżu!")
-        return
-    end
-
-    local root = getLocalHRP()
+-- ════════════════════════════════════════════════════════════
+-- KILL NEAREST
+-- ════════════════════════════════════════════════════════════
+local function KillNearest()
+    if FindMurderer() ~= LP then Notify("MM2", "Nie jesteś mordercą!", "Warning") return end
+    if not equipTool("Knife") then Notify("MM2", "Nie masz noża!", "Error") return end
+    local nearest = FindNearest()
+    if not nearest or not nearest.Character then Notify("MM2", "Brak gracza w pobliżu.", "Warning") return end
+    local char, _, root = getChar()
     local tHRP = nearest.Character:FindFirstChild("HumanoidRootPart")
     if not root or not tHRP then return end
-
     tHRP.Anchored = true
     tHRP.CFrame = root.CFrame + root.CFrame.LookVector * 2
     task.wait(0.05)
-
     char.Knife.Stab:FireServer("Slash")
-
-    task.delay(0.3, function()
-        pcall(function() tHRP.Anchored = false end)
-    end)
+    task.delay(0.3, function() pcall(function() tHRP.Anchored = false end) end)
 end
 
--- ─────────────────────────────────────────────────
---  KILL ALL (MURDERER)
--- ─────────────────────────────────────────────────
-
---- Skupia wszystkich graczy przed localPlayem i uderza raz.
-function MM2:KillAll()
-    if self:FindMurderer() ~= LocalPlayer then
-        HubNotify("Nie jesteś mordercą!")
-        return
-    end
-
-    local char = getLocalChar()
-    local root = getLocalHRP()
-    if not char or not root then return end
-
-    if not char:FindFirstChild("Knife") then
-        local hum = getLocalHumanoid()
-        if hum and LocalPlayer.Backpack:FindFirstChild("Knife") then
-            hum:EquipTool(LocalPlayer.Backpack:FindFirstChild("Knife"))
-            task.wait(0.1)
-        end
-    end
-
+-- ════════════════════════════════════════════════════════════
+-- KILL ALL
+-- ════════════════════════════════════════════════════════════
+local function KillAll()
+    if FindMurderer() ~= LP then Notify("MM2", "Nie jesteś mordercą!", "Warning") return end
+    if not equipTool("Knife") then Notify("MM2", "Nie masz noża!", "Error") return end
+    local char, _, root = getChar()
+    if not root then return end
     local anchored = {}
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
+        if p ~= LP and p.Character then
             local hrp = p.Character:FindFirstChild("HumanoidRootPart")
             if hrp then
                 hrp.Anchored = true
-                hrp.CFrame = root.CFrame + root.CFrame.LookVector * 1.5
+                hrp.CFrame   = root.CFrame + root.CFrame.LookVector * 1.5
                 table.insert(anchored, hrp)
             end
         end
     end
-
     task.wait(0.05)
     char.Knife.Stab:FireServer("Slash")
-
     task.delay(0.5, function()
-        for _, hrp in ipairs(anchored) do
-            pcall(function() hrp.Anchored = false end)
-        end
+        for _, hrp in ipairs(anchored) do pcall(function() hrp.Anchored = false end) end
     end)
-
-    HubNotify("Zaatakowano wszystkich graczy.")
+    Notify("MM2", "Zaatakowano wszystkich.", "Success")
 end
 
--- ─────────────────────────────────────────────────
---  MINI FLING
--- ─────────────────────────────────────────────────
-
---- Flinguje wybranego gracza (klasyczna metoda BodyVelocity).
----@param targetPlayer Player
-function MM2:Fling(targetPlayer)
+-- ════════════════════════════════════════════════════════════
+-- FLING
+-- ════════════════════════════════════════════════════════════
+local function Fling(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then
-        HubNotify("Nieprawidłowy cel flinga.")
-        return
+        Notify("MM2", "Nieprawidłowy cel.", "Warning") return
     end
-
-    local lChar = getLocalChar()
-    local lHRP  = getLocalHRP()
-    local lHum  = getLocalHumanoid()
-    if not lChar or not lHRP or not lHum then return end
-
+    local lChar, lHum, lHRP = getChar()
+    if not lChar then return end
     local tChar = targetPlayer.Character
     local tHum  = tChar:FindFirstChildOfClass("Humanoid")
     local tHRP  = tHum and tHum.RootPart
     local tHead = tChar:FindFirstChild("Head")
-
-    if not tChar:FindFirstChildWhichIsA("BasePart") then
-        HubNotify("Cel nie ma BasePart.")
-        return
-    end
-
-    -- Zapisz pozycję powrotu
-    local oldPos = lHRP.CFrame
-
-    -- Ustaw kamerę na celu
+    local oldCF = lHRP.CFrame
     Camera.CameraSubject = tHead or tHum
-
     local bv = Instance.new("BodyVelocity")
-    bv.Velocity  = Vector3.new(9e8, 9e8, 9e8)
-    bv.MaxForce  = Vector3.new(1/0, 1/0, 1/0)
-    bv.Parent    = lHRP
-
+    bv.Velocity = Vector3.new(9e8, 9e8, 9e8)
+    bv.MaxForce = Vector3.new(1/0, 1/0, 1/0)
+    bv.Parent   = lHRP
     lHum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-
-    local basePart = tHRP or tHead
-    if not basePart then
-        bv:Destroy()
-        HubNotify("Nie znaleziono BasePart celu.")
-        return
-    end
-
     workspace.FallenPartsDestroyHeight = 0/0
-
     local deadline = tick() + 2
-    local angle    = 0
-
+    local basePart = tHRP or tHead
+    if not basePart then bv:Destroy() return end
+    local angle = 0
     repeat
-        if not lHRP or not tHum then break end
         angle = angle + 100
-        local offsets = {
-            CFrame.new(0, 1.5, 0),  CFrame.new(0,-1.5, 0),
+        for _, off in ipairs({
+            CFrame.new(0,1.5,0), CFrame.new(0,-1.5,0),
             CFrame.new(2.25,1.5,-2.25), CFrame.new(-2.25,-1.5,2.25),
-        }
-        for _, off in ipairs(offsets) do
+        }) do
             lHRP.CFrame = CFrame.new(basePart.Position) * off * CFrame.Angles(math.rad(angle),0,0)
             lChar:SetPrimaryPartCFrame(lHRP.CFrame)
             lHRP.Velocity    = Vector3.new(9e7, 9e7*10, 9e7)
             lHRP.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
             task.wait()
         end
-    until basePart.Velocity.Magnitude > 500
-       or basePart.Parent ~= tChar
-       or targetPlayer.Parent ~= Players
-       or tHum.Sit
-       or lHum.Health <= 0
-       or tick() > deadline
-
+    until (basePart.Velocity.Magnitude > 500)
+       or (basePart.Parent ~= tChar)
+       or (targetPlayer.Parent ~= Players)
+       or (lHum.Health <= 0)
+       or (tick() > deadline)
     bv:Destroy()
     lHum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
     Camera.CameraSubject = lHum
-
-    -- Powrót na poprzednią pozycję
+    workspace.FallenPartsDestroyHeight = -500
     local t0 = tick()
     repeat
-        lHRP.CFrame = oldPos * CFrame.new(0, 0.5, 0)
+        lHRP.CFrame = oldCF * CFrame.new(0,0.5,0)
         lChar:SetPrimaryPartCFrame(lHRP.CFrame)
         lHum:ChangeState(Enum.HumanoidStateType.GettingUp)
         for _, part in ipairs(lChar:GetChildren()) do
             if part:IsA("BasePart") then
-                part.Velocity, part.RotVelocity = Vector3.zero, Vector3.zero
+                part.Velocity = Vector3.zero
+                part.RotVelocity = Vector3.zero
             end
         end
         task.wait()
-    until (lHRP.Position - oldPos.p).Magnitude < 25 or tick() - t0 > 3
-
-    workspace.FallenPartsDestroyHeight = -500
-    HubNotify("Fling zakończony.")
+    until (lHRP.Position - oldCF.p).Magnitude < 25 or tick() - t0 > 3
+    Notify("MM2", "Fling zakończony.", "Success")
 end
 
--- ─────────────────────────────────────────────────
---  NOCLIP
--- ─────────────────────────────────────────────────
-local noclipConn = nil
+-- ════════════════════════════════════════════════════════════
+-- PĘTLE / TOGGLES
+-- ════════════════════════════════════════════════════════════
+local Loops = {}
 
-function MM2:EnableNoClip()
-    if noclipConn then return end
-    noclipConn = RunService.Stepped:Connect(function()
-        local c = getLocalChar()
+-- NoClip
+local function startNoClip()
+    if Loops.noClip then return end
+    Loops.noClip = RunService.Stepped:Connect(function()
+        local c = LP.Character
         if not c then return end
-        for _, part in ipairs(c:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = false
+        for _, p in ipairs(c:GetDescendants()) do
+            if p:IsA("BasePart") and p.CanCollide then
+                p.CanCollide = false
             end
         end
     end)
-    State.noClip = true
-    HubNotify("NoClip włączony.")
+end
+local function stopNoClip()
+    if Loops.noClip then Loops.noClip:Disconnect() Loops.noClip = nil end
 end
 
-function MM2:DisableNoClip()
-    if noclipConn then
-        noclipConn:Disconnect()
-        noclipConn = nil
-    end
-    State.noClip = false
-    HubNotify("NoClip wyłączony. Zresetuj postać jeśli utkąłeś.")
-end
-
--- ─────────────────────────────────────────────────
---  AUTO SHOOT (pętla)
--- ─────────────────────────────────────────────────
-local autoShootConn = nil
-
-function MM2:StartAutoShoot()
-    if autoShootConn then return end
-    State.autoShoot = true
-
-    autoShootConn = RunService.Heartbeat:Connect(function()
-        if self:FindSheriff() ~= LocalPlayer then return end
-
-        local murderer = self:FindMurderer() or self:FindSheriffNotMe()
-        if not murderer or not murderer.Character then return end
-
-        local root = getLocalHRP()
-        local tHRP = murderer.Character:FindFirstChild("HumanoidRootPart")
+-- Auto Shoot
+local function startAutoShoot()
+    if Loops.autoShoot then return end
+    Loops.autoShoot = RunService.Heartbeat:Connect(function()
+        if FindSheriff() ~= LP then return end
+        local target = FindMurderer() or FindSheriffNotMe()
+        if not target or not target.Character then return end
+        local _, _, root = getChar()
+        local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
         if not root or not tHRP then return end
-
-        -- Sprawdź LOS (line of sight)
-        local dir    = (tHRP.Position - root.Position).Unit * 60
         local params = RaycastParams.new()
         params.FilterType = Enum.RaycastFilterType.Exclude
-        params.FilterDescendantsInstances = { getLocalChar() }
-
-        local hit = workspace:Raycast(root.Position, dir, params)
-        if hit and hit.Instance.Parent ~= murderer.Character then return end
-
-        self:ShootAt(murderer)
+        params.FilterDescendantsInstances = {LP.Character}
+        local hit = workspace:Raycast(root.Position, (tHRP.Position - root.Position).Unit * 60, params)
+        if hit and hit.Instance.Parent ~= target.Character then return end
+        ShootAt(target)
     end)
-
-    HubNotify("Auto-shoot włączony.")
+end
+local function stopAutoShoot()
+    if Loops.autoShoot then Loops.autoShoot:Disconnect() Loops.autoShoot = nil end
 end
 
-function MM2:StopAutoShoot()
-    if autoShootConn then
-        autoShootConn:Disconnect()
-        autoShootConn = nil
-    end
-    State.autoShoot = false
-    HubNotify("Auto-shoot wyłączony.")
-end
-
--- ─────────────────────────────────────────────────
---  AUTO KNIFE THROW (pętla)
--- ─────────────────────────────────────────────────
-local knifeThrowTask = nil
-
-function MM2:StartAutoKnifeThrow(interval)
-    interval = interval or 1.5
-    State.autoKnifeThrow = true
-
+-- Auto Knife Throw
+local function startAutoKnife(interval)
+    if Loops.autoKnife then return end
+    Loops.autoKnife = true
     task.spawn(function()
-        while State.autoKnifeThrow do
-            self:KnifeThrow(true)
-            task.wait(interval)
+        while Loops.autoKnife do
+            KnifeThrow(true)
+            task.wait(interval or 1.5)
         end
     end)
-
-    HubNotify("Auto knife throw włączony (co " .. interval .. "s).")
+end
+local function stopAutoKnife()
+    Loops.autoKnife = false
 end
 
-function MM2:StopAutoKnifeThrow()
-    State.autoKnifeThrow = false
-    HubNotify("Auto knife throw wyłączony.")
-end
-
--- ─────────────────────────────────────────────────
---  KILL AURA (pętla)
--- ─────────────────────────────────────────────────
-local killAuraConn = nil
-
-function MM2:StartKillAura(radius)
-    radius = radius or 7
-    if killAuraConn then return end
-
-    killAuraConn = RunService.Heartbeat:Connect(function()
-        if self:FindMurderer() ~= LocalPlayer then return end
-        local root = getLocalHRP()
+-- Kill Aura
+local function startKillAura()
+    if Loops.killAura then return end
+    Loops.killAura = RunService.Heartbeat:Connect(function()
+        if FindMurderer() ~= LP then return end
+        local char, _, root = getChar()
         if not root then return end
-
-        local char = getLocalChar()
-        if not char:FindFirstChild("Knife") then
-            local hum = getLocalHumanoid()
-            if hum and LocalPlayer.Backpack:FindFirstChild("Knife") then
-                hum:EquipTool(LocalPlayer.Backpack:FindFirstChild("Knife"))
-            end
-            return
-        end
-
+        if not equipTool("Knife") then return end
         for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LocalPlayer and p.Character then
+            if p ~= LP and p.Character then
                 local tHRP = p.Character:FindFirstChild("HumanoidRootPart")
-                if tHRP and (tHRP.Position - root.Position).Magnitude < radius then
+                if tHRP and (tHRP.Position - root.Position).Magnitude < State.killAuraRadius then
                     tHRP.Anchored = true
                     tHRP.CFrame   = root.CFrame + root.CFrame.LookVector * 2
                     task.wait(0.05)
@@ -623,33 +375,18 @@ function MM2:StartKillAura(radius)
             end
         end
     end)
-
-    State.killAura = true
-    HubNotify("Kill aura włączona (zasięg: " .. radius .. " studs).")
+end
+local function stopKillAura()
+    if Loops.killAura then Loops.killAura:Disconnect() Loops.killAura = nil end
 end
 
-function MM2:StopKillAura()
-    if killAuraConn then
-        killAuraConn:Disconnect()
-        killAuraConn = nil
-    end
-    State.killAura = false
-    HubNotify("Kill aura wyłączona.")
-end
-
--- ─────────────────────────────────────────────────
---  ANTI-FLING
--- ─────────────────────────────────────────────────
-local antiFlingConn  = nil
+-- Anti-Fling
 local antiFlingLastPos = Vector3.zero
-
-function MM2:StartAntiFling()
-    if antiFlingConn then return end
-
-    antiFlingConn = RunService.Heartbeat:Connect(function()
-        local root = getLocalHRP()
+local function startAntiFling()
+    if Loops.antiFling then return end
+    Loops.antiFling = RunService.Heartbeat:Connect(function()
+        local _, _, root = getChar()
         if not root then return end
-
         if root.AssemblyLinearVelocity.Magnitude > 250
         or root.AssemblyAngularVelocity.Magnitude > 250 then
             root.AssemblyLinearVelocity  = Vector3.zero
@@ -657,43 +394,27 @@ function MM2:StartAntiFling()
             if antiFlingLastPos ~= Vector3.zero then
                 root.CFrame = CFrame.new(antiFlingLastPos)
             end
-            HubNotify("Anti-fling: zablokowano wylot!", Color3.fromRGB(255,200,0))
         else
             antiFlingLastPos = root.Position
         end
     end)
-
-    State.antiFling = true
-    HubNotify("Anti-fling włączony.")
+end
+local function stopAntiFling()
+    if Loops.antiFling then Loops.antiFling:Disconnect() Loops.antiFling = nil end
 end
 
-function MM2:StopAntiFling()
-    if antiFlingConn then
-        antiFlingConn:Disconnect()
-        antiFlingConn = nil
-    end
-    State.antiFling = false
-    HubNotify("Anti-fling wyłączony.")
-end
+-- ════════════════════════════════════════════════════════════
+-- ROUND TIMER
+-- ════════════════════════════════════════════════════════════
+local timerLabel = nil
+local timerTask  = nil
 
--- ─────────────────────────────────────────────────
---  ROUND TIMER
--- ─────────────────────────────────────────────────
-local timerLabel    = nil
-local timerTask     = nil
-
-local function secondsToTime(s)
-    if s <= 0 then return "0:00" end
-    return string.format("%d:%02d", math.floor(s/60), s % 60)
-end
-
-function MM2:ShowRoundTimer(screenGui)
+local function showTimer()
     if timerLabel then return end
-
     timerLabel = Instance.new("TextLabel")
     timerLabel.BackgroundTransparency = 0.45
-    timerLabel.BackgroundColor3  = Color3.fromRGB(15, 15, 15)
-    timerLabel.TextColor3        = Color3.fromRGB(255, 255, 255)
+    timerLabel.BackgroundColor3  = Color3.fromRGB(15,15,15)
+    timerLabel.TextColor3        = Color3.fromRGB(255,255,255)
     timerLabel.Font              = Enum.Font.GothamBold
     timerLabel.TextScaled        = true
     timerLabel.AnchorPoint       = Vector2.new(0.5, 0)
@@ -701,291 +422,324 @@ function MM2:ShowRoundTimer(screenGui)
     timerLabel.Size              = UDim2.fromOffset(130, 40)
     timerLabel.Text              = "⏱ --:--"
     timerLabel.ZIndex            = 10
-    Instance.new("UICorner", timerLabel).CornerRadius = UDim.new(0, 8)
-    timerLabel.Parent = screenGui or game:GetService("CoreGui")
-
+    Instance.new("UICorner", timerLabel).CornerRadius = UDim.new(0,8)
+    timerLabel.Parent = game:GetService("CoreGui")
     timerTask = task.spawn(function()
         while timerLabel and timerLabel.Parent do
             local ok, t = pcall(function()
                 return game.ReplicatedStorage
-                    :WaitForChild("Remotes", 2)
-                    :WaitForChild("Extras", 2)
-                    :WaitForChild("GetTimer", 2)
+                    :WaitForChild("Remotes",2)
+                    :WaitForChild("Extras",2)
+                    :WaitForChild("GetTimer",2)
                     :InvokeServer()
             end)
-            timerLabel.Text = ok and ("⏱ " .. secondsToTime(t or 0)) or "⏱ --:--"
+            local s = ok and (t or 0) or 0
+            timerLabel.Text = ok and string.format("⏱ %d:%02d", math.floor(s/60), s%60) or "⏱ --:--"
             task.wait(0.5)
         end
     end)
-
-    HubNotify("Timer rundy aktywny.")
 end
-
-function MM2:HideRoundTimer()
+local function hideTimer()
     if timerLabel then timerLabel:Destroy() timerLabel = nil end
     if timerTask  then task.cancel(timerTask) timerTask = nil end
 end
 
--- ─────────────────────────────────────────────────
---  TELEPORTACJE
--- ─────────────────────────────────────────────────
-
---- Teleportuje do losowego spawna na mapie.
-function MM2:TeleportToMap()
+-- ════════════════════════════════════════════════════════════
+-- TELEPORTY
+-- ════════════════════════════════════════════════════════════
+local function TeleportToMap()
     local map = getMap()
-    if not map then HubNotify("Brak mapy.") return end
+    if not map then Notify("MM2", "Brak mapy.", "Warning") return end
     local spawns = map:FindFirstChild("Spawns")
-    if not spawns then HubNotify("Brak spawna na mapie.") return end
+    if not spawns then return end
     local list = spawns:GetChildren()
-    local target = list[math.random(#list)]
-    local char = getLocalChar()
-    if char then char:MoveTo(target.Position) end
+    local char = LP.Character
+    if char and #list > 0 then
+        char:MoveTo(list[math.random(#list)].Position)
+        Notify("MM2", "Teleportowano na spawnpoint.", "Success")
+    end
 end
 
---- Teleportuje do upuszczonego pistoletu i wraca.
-function MM2:TeleportToDroppedGun()
+local function TeleportToGun()
     local map = getMap()
-    if not map then HubNotify("Brak mapy.") return end
+    if not map then Notify("MM2", "Brak mapy.", "Warning") return end
     local gun = map:FindFirstChild("GunDrop")
-    if not gun then HubNotify("Brak upuszczonego pistoletu.") return end
-    local char = getLocalChar()
+    if not gun then Notify("MM2", "Brak upuszczonego pistoletu.", "Warning") return end
+    local char = LP.Character
     if not char then return end
     local prevCF = char:GetPivot()
     char:PivotTo(gun:GetPivot())
-    LocalPlayer.Backpack.ChildAdded:Wait()
+    LP.Backpack.ChildAdded:Wait()
     task.wait(0.1)
     char:PivotTo(prevCF)
-    HubNotify("Podniesiono pistolet i powrócono.")
+    Notify("MM2", "Podniesiono pistolet i powrócono.", "Success")
 end
 
---- Teleportuje do innego gracza.
----@param targetPlayer Player
-function MM2:TeleportToPlayer(targetPlayer)
-    if not targetPlayer or not targetPlayer.Character then
-        HubNotify("Gracz niedostępny.")
-        return
-    end
-    local tHRP = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
-    if not tHRP then HubNotify("Brak HRP celu.") return end
-    local char = getLocalChar()
+local function TeleportToPlayer(target)
+    if not target or not target.Character then Notify("MM2", "Gracz niedostępny.", "Warning") return end
+    local tHRP = target.Character:FindFirstChild("HumanoidRootPart")
+    if not tHRP then return end
+    local char = LP.Character
     if char then
         char:PivotTo(tHRP.CFrame + tHRP.CFrame.LookVector * 3)
-        HubNotify("Teleportowano do " .. targetPlayer.Name)
+        Notify("MM2", "Teleportowano do " .. target.Name, "Success")
     end
 end
 
--- ─────────────────────────────────────────────────
---  SEND ROLES TO CHAT
--- ─────────────────────────────────────────────────
-
---- Wysyła do chatu imiona mordercy i szeryfa.
-function MM2:SendRolesToChat()
-    local murderer = self:FindMurderer()
-    local sheriff  = self:FindSheriff()
-    local msg = string.format(
-        "🔪 Morderca: %s | 🔫 Szeryf: %s",
-        murderer and murderer.Name or "?",
-        sheriff  and sheriff.Name  or "?"
-    )
+-- ════════════════════════════════════════════════════════════
+-- SEND ROLES
+-- ════════════════════════════════════════════════════════════
+local function SendRoles()
+    local m = FindMurderer()
+    local s = FindSheriff()
+    local msg = string.format("🔪 Morderca: %s | 🔫 Szeryf: %s",
+        m and m.Name or "?", s and s.Name or "?")
     local channels = TextChatService:WaitForChild("TextChannels"):GetChildren()
     for _, ch in ipairs(channels) do
-        if ch.Name ~= "RBXSystem" then
-            pcall(function() ch:SendAsync(msg) end)
-        end
+        if ch.Name ~= "RBXSystem" then pcall(function() ch:SendAsync(msg) end) end
     end
-    HubNotify("Role wysłane do chatu.")
+    Notify("MM2", "Role wysłane do chatu.", "Success")
 end
 
--- ─────────────────────────────────────────────────
---  ESP (wymaga zewnętrznego ESPIndicator)
--- ─────────────────────────────────────────────────
-
---- Buduje konfigurację ESP na podstawie roli gracza.
----@param player Player
----@param espModule table  instancja ESPIndicator.new(...)
-function MM2:AddPlayerToESP(player, espModule)
-    if not player.Character then return end
-    local char = player.Character
-
-    if player == self:FindMurderer() then
-        espModule:Add(char, {
-            AccentColor      = Color3.fromRGB(255, 30, 30),
-            ArrowShow        = true,
-            ArrowMinDistance = 999999,
-            ArrowSize        = UDim2.new(0, 42, 0, 42),
-            LabelText        = "🔪 Morderca",
-            ShowLabel        = true,
-            GroupName        = "players",
-        })
-    elseif player == self:FindSheriff() then
-        espModule:Add(char, {
-            AccentColor = Color3.fromRGB(30, 170, 255),
-            ArrowShow   = false,
-            ShowLabel   = false,
-            GroupName   = "players",
-        })
-    else
-        espModule:Add(char, {
-            AccentColor = Color3.fromRGB(50, 255, 80),
-            ArrowShow   = false,
-            ShowLabel   = false,
-            GroupName   = "players",
-        })
+-- ════════════════════════════════════════════════════════════
+-- EVENTY GAMY
+-- ════════════════════════════════════════════════════════════
+local remotes = game.ReplicatedStorage:FindFirstChild("Remotes")
+if remotes then
+    local pdc = remotes:FindFirstChild("Gameplay")
+                and remotes.Gameplay:FindFirstChild("PlayerDataChanged")
+    if pdc then
+        local c = pdc.OnClientEvent:Connect(function(data)
+            State.playerData = data
+        end)
+        table.insert(Connections, c)
     end
 end
 
---- Przeładowuje ESP wszystkich graczy.
----@param espModule table
-function MM2:ReloadPlayerESP(espModule)
-    espModule:RemoveGroup("players")
+-- ════════════════════════════════════════════════════════════
+-- HELPER — lista graczy do dropdowna
+-- ════════════════════════════════════════════════════════════
+local function getPlayerNames()
+    local names = {}
     for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer and p.Character then
-            self:AddPlayerToESP(p, espModule)
-        end
+        if p ~= LP then table.insert(names, p.Name) end
     end
+    return names
 end
 
---- Dodaje ESP na upuszczony pistolet.
----@param espModule table
-function MM2:EnableGunDropESP(espModule)
-    local map = getMap()
-    if map and map:FindFirstChild("GunDrop") then
-        espModule:Add(map:FindFirstChild("GunDrop"), {
-            AccentColor      = Color3.fromRGB(255, 255, 40),
-            ArrowShow        = true,
-            ArrowMinDistance = 999999,
-            ArrowSize        = UDim2.new(0, 38, 0, 38),
-            LabelText        = "🔫 Pistolet",
-            ShowLabel        = true,
-            GroupName        = "gun",
-        })
-        HubNotify("Pistolet leży — żółty highlight!")
-    end
-end
+-- ════════════════════════════════════════════════════════════
+-- ████████ UI — TABS ████████
+-- ════════════════════════════════════════════════════════════
 
---- Dodaje ESP na pułapki.
----@param espModule table
-function MM2:EnableTrapESP(espModule)
-    for _, v in ipairs(workspace:GetDescendants()) do
-        if v.Name == "Trap" and v.Parent:IsA("Folder") then
-            pcall(function() v.Transparency = 0 end)
-            espModule:Add(v, {
-                AccentColor = Color3.fromRGB(255, 100, 10),
-                ArrowShow   = false,
-                ShowLabel   = true,
-                LabelText   = "⚠ Pułapka",
-                GroupName   = "trap",
-            })
-        end
-    end
-    HubNotify("Trap ESP włączony.")
-end
+-- ─── TAB: COMBAT ────────────────────────────────────────────
+local TabCombat = Window:CreateTab({ Name = "Combat", Icon = "rbxassetid://17714855134" })
 
--- ─────────────────────────────────────────────────
---  PODŁĄCZENIE EVENTÓW MM2
--- ─────────────────────────────────────────────────
+-- MURDER
+local S_Murd = TabCombat:CreateSection("🔪 Morderca")
 
---- Subskrybuje eventy MM2 (PlayerDataChanged, GunDrop, Trap, mapa).
----@param espModule table|nil  opcjonalny — jeśli podany, auto-odświeża ESP
-function MM2:SubscribeGameEvents(espModule)
-    -- PlayerDataChanged → aktualizacja ról
-    local remotes = game.ReplicatedStorage:FindFirstChild("Remotes")
-    if remotes then
-        local pdc = remotes:FindFirstChild("Gameplay")
-                 and remotes.Gameplay:FindFirstChild("PlayerDataChanged")
-        if pdc then
-            local c = pdc.OnClientEvent:Connect(function(data)
-                State.playerData = data
-                if espModule and State.playerESP then
-                    self:ReloadPlayerESP(espModule)
-                end
-            end)
-            table.insert(Connections, c)
-        end
-    end
+S_Murd:CreateButton({
+    Name     = "Rzut nożem (najbliższy)",
+    Callback = function() KnifeThrow(false) end,
+})
 
-    -- GunDrop pojawia się w workspace
-    local c2 = workspace.DescendantAdded:Connect(function(obj)
-        if obj.Name == "GunDrop" and State.gunDropESP and espModule then
-            self:EnableGunDropESP(espModule)
-            HubNotify("Pistolet upuszczony!")
-        end
-        if obj.Name == "Trap" and obj.Parent:IsA("Folder") and State.trapESP and espModule then
-            pcall(function() obj.Transparency = 0 end)
-            espModule:Add(obj, {
-                AccentColor = Color3.fromRGB(255,100,10),
-                ArrowShow   = false, ShowLabel = true,
-                LabelText   = "⚠ Pułapka", GroupName = "trap",
-            })
-            HubNotify("Morderca postawił pułapkę!")
-        end
-    end)
-    table.insert(Connections, c2)
+S_Murd:CreateButton({
+    Name     = "Zabij najbliższego",
+    Callback = KillNearest,
+})
 
-    -- GunDrop znika
-    local c3 = workspace.DescendantRemoving:Connect(function(obj)
-        if obj.Name == "GunDrop" and espModule then
-            espModule:RemoveGroup("gun")
-            HubNotify("Pistolet podniesiony.")
-        end
-    end)
-    table.insert(Connections, c3)
+S_Murd:CreateButton({
+    Name     = "Zabij WSZYSTKICH",
+    Callback = KillAll,
+})
 
-    HubNotify("MM2 nasłuchuje eventów gry.")
-end
+S_Murd:CreateToggle({
+    Name         = "Auto Knife Throw",
+    CurrentValue = false,
+    Flag         = "MM2_AutoKnife",
+    Callback     = function(v)
+        if v then startAutoKnife(1.5) else stopAutoKnife() end
+    end,
+})
 
--- ─────────────────────────────────────────────────
---  GETTERY STANU (przydatne do UI)
--- ─────────────────────────────────────────────────
+S_Murd:CreateToggle({
+    Name         = "Kill Aura",
+    CurrentValue = false,
+    Flag         = "MM2_KillAura",
+    Callback     = function(v)
+        if v then startKillAura() else stopKillAura() end
+    end,
+})
 
-function MM2:GetState()
-    return State
-end
+S_Murd:CreateSlider({
+    Name         = "Kill Aura Zasięg",
+    Range        = {3, 20},
+    Increment    = 0.5,
+    CurrentValue = 7,
+    Suffix       = " st",
+    Flag         = "MM2_KillAuraRadius",
+    Callback     = function(v) State.killAuraRadius = v end,
+})
 
-function MM2:SetShootOffset(v)
-    State.shootOffset = tonumber(v) or 2.8
-    HubNotify("Offset strzału: " .. State.shootOffset)
-end
+-- SHERIFF
+local S_Sher = TabCombat:CreateSection("🔫 Szeryf")
 
-function MM2:SetPingMultiplier(v)
-    State.offsetToPingMult = tonumber(v) or 1.0
-    HubNotify("Ping multiplier: " .. State.offsetToPingMult)
-end
+S_Sher:CreateButton({
+    Name     = "Strzel do mordercy",
+    Callback = function() ShootAt(FindMurderer()) end,
+})
 
--- ─────────────────────────────────────────────────
---  CZYSZCZENIE
--- ─────────────────────────────────────────────────
+S_Sher:CreateButton({
+    Name     = "Strzel do mordercy (instant kill)",
+    Callback = function() ShootAt(FindMurderer(), true) end,
+})
 
-function MM2:Destroy()
-    -- Rozłącz wszystkie połączenia
-    for _, c in ipairs(Connections) do
-        pcall(function() c:Disconnect() end)
-    end
-    table.clear(Connections)
+S_Sher:CreateToggle({
+    Name         = "Auto-Shoot (Murderer)",
+    CurrentValue = false,
+    Flag         = "MM2_AutoShoot",
+    Callback     = function(v)
+        if v then startAutoShoot() else stopAutoShoot() end
+    end,
+})
 
-    self:StopAutoShoot()
-    self:StopAutoKnifeThrow()
-    self:StopKillAura()
-    self:StopAntiFling()
-    self:DisableNoClip()
-    self:HideRoundTimer()
+S_Sher:CreateSlider({
+    Name         = "Shoot Offset (predykcja)",
+    Range        = {0, 8},
+    Increment    = 0.1,
+    CurrentValue = 2.8,
+    Flag         = "MM2_ShootOffset",
+    Callback     = function(v) State.shootOffset = v end,
+})
 
-    HubNotify("MM2 moduł wyczyszczony.")
-end
+S_Sher:CreateSlider({
+    Name         = "Ping Multiplier",
+    Range        = {0.5, 3.0},
+    Increment    = 0.05,
+    CurrentValue = 1.0,
+    Flag         = "MM2_PingMult",
+    Callback     = function(v) State.offsetToPingMult = v end,
+})
 
--- ─────────────────────────────────────────────────
---  INIT (podpięcie do SentenceHub)
--- ─────────────────────────────────────────────────
+-- ─── TAB: GRACZE ────────────────────────────────────────────
+local TabPlayers = Window:CreateTab({ Name = "Players", Icon = "rbxassetid://17714848175" })
 
----Inicjalizuje moduł z SentenceHub.
----@param hub table  { notify: function, dialog: function }
-function MM2:Init(hub)
-    if hub then
-        if hub.notify then HubNotify = hub.notify end
-        if hub.dialog  then HubDialog = hub.dialog  end
-    end
-    HubNotify("Murder Mystery 2 załadowany ✓")
-    return self
-end
+local S_Roles = TabPlayers:CreateSection("🎭 Role")
 
-return MM2
+S_Roles:CreateButton({
+    Name     = "Ogłoś role w chacie",
+    Callback = SendRoles,
+})
+
+S_Roles:CreateButton({
+    Name     = "Wyświetl role (notify)",
+    Callback = function()
+        local m = FindMurderer()
+        local s = FindSheriff()
+        Notify("Role",
+            string.format("🔪 %s  |  🔫 %s",
+                m and m.Name or "?",
+                s and s.Name or "?"
+            ), "Info", 5)
+    end,
+})
+
+local S_TP = TabPlayers:CreateSection("⚡ Teleport")
+
+local tpTargetName = nil
+
+S_TP:CreateDropdown({
+    Name           = "Wybierz gracza",
+    Options        = getPlayerNames(),
+    CurrentOption  = nil,
+    Flag           = "MM2_TPTarget",
+    Callback       = function(v) tpTargetName = v end,
+})
+
+S_TP:CreateButton({
+    Name     = "Teleportuj do wybranego",
+    Callback = function()
+        if not tpTargetName then Notify("MM2", "Wybierz gracza z listy.", "Warning") return end
+        TeleportToPlayer(Players:FindFirstChild(tpTargetName))
+    end,
+})
+
+S_TP:CreateButton({
+    Name     = "Teleportuj do spawnpointu",
+    Callback = TeleportToMap,
+})
+
+S_TP:CreateButton({
+    Name     = "Teleportuj do pistoletu (pickup)",
+    Callback = TeleportToGun,
+})
+
+local S_Fling = TabPlayers:CreateSection("💥 Fling")
+
+local flingTargetName = nil
+
+S_Fling:CreateDropdown({
+    Name          = "Wybierz cel flinga",
+    Options       = getPlayerNames(),
+    CurrentOption = nil,
+    Flag          = "MM2_FlingTarget",
+    Callback      = function(v) flingTargetName = v end,
+})
+
+S_Fling:CreateButton({
+    Name     = "Fling wybranego",
+    Callback = function()
+        if not flingTargetName then Notify("MM2", "Wybierz cel.", "Warning") return end
+        Fling(Players:FindFirstChild(flingTargetName))
+    end,
+})
+
+S_Fling:CreateButton({
+    Name     = "Fling najbliższego",
+    Callback = function() Fling(FindNearest()) end,
+})
+
+-- ─── TAB: MISC ──────────────────────────────────────────────
+local TabMisc = Window:CreateTab({ Name = "Misc", Icon = "rbxassetid://17714831196" })
+
+local S_Move = TabMisc:CreateSection("🏃 Ruch")
+
+S_Move:CreateToggle({
+    Name         = "NoClip",
+    CurrentValue = false,
+    Flag         = "MM2_NoClip",
+    Callback     = function(v)
+        if v then startNoClip() else stopNoClip() end
+    end,
+})
+
+S_Move:CreateToggle({
+    Name         = "Anti-Fling",
+    CurrentValue = false,
+    Flag         = "MM2_AntiFling",
+    Callback     = function(v)
+        if v then startAntiFling() else stopAntiFling() end
+    end,
+})
+
+local S_Round = TabMisc:CreateSection("⏱ Runda")
+
+S_Round:CreateToggle({
+    Name         = "Pokaż timer rundy",
+    CurrentValue = false,
+    Flag         = "MM2_Timer",
+    Callback     = function(v)
+        if v then showTimer() else hideTimer() end
+    end,
+})
+
+S_Round:CreateButton({
+    Name     = "Odśwież listę graczy (dropdowny)",
+    Callback = function()
+        Notify("MM2", "Otwórz dropdown ponownie — lista jest dynamiczna.", "Info")
+    end,
+})
+
+-- ════════════════════════════════════════════════════════════
+-- GOTOWE
+-- ════════════════════════════════════════════════════════════
+Notify("Murder Mystery 2", "Skrypt załadowany! 🔪", "Success", 4)
