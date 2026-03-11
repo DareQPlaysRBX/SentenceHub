@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════
--- SENTENCE Hub  -  Murder Mystery 2  v2.4
+-- SENTENCE Hub  -  Murder Mystery 2  v2.5
 -- Autor: DareQPlaysRBX
 -- ════════════════════════════════════════════════════════════
 
@@ -67,17 +67,19 @@ local function getMap()
 end
 
 -- ════════════════════════════════════════════════════════════
--- COIN FARM  (Tween teleport to Coin_Server)
+-- COIN FARM  (walk + simultaneous tween toward nearest coin)
 -- ════════════════════════════════════════════════════════════
 local CoinFarmCfg = {
-    TweenTime  = 0.12,   -- seconds per coin tween
-    TouchDelay = 0.05,   -- wait after arriving before next coin
-    Enabled    = false,
+    WalkSpeed    = 8,     -- humanoid WalkSpeed while farming
+    TweenTime    = 0.35,  -- tween duration per coin (seconds)
+    ScanRadius   = 60,    -- only consider coins within this range
+    TouchDelay   = 0.04,  -- delay between firetouchinterest calls
+    Enabled      = false,
 }
 
--- Collects every Coin_Server part from all known containers in the map
 local COIN_CONTAINERS = { "CoinContainer", "CoinAreas" }
 
+-- Returns all Coin_Server parts currently in the workspace
 local function getAllCoins()
     local coins = {}
     for _, mapObj in ipairs(workspace:GetChildren()) do
@@ -95,18 +97,30 @@ local function getAllCoins()
     return coins
 end
 
-local function tweenToPos(root, pos)
-    local ti = TweenInfo.new(
-        CoinFarmCfg.TweenTime,
-        Enum.EasingStyle.Linear,
-        Enum.EasingDirection.Out
-    )
-    local tween = TweenService:Create(root, ti, {
-        CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
-    })
-    tween:Play()
-    tween.Completed:Wait()
+-- Returns the nearest Coin_Server within ScanRadius of `origin`
+local function getNearestCoin(origin)
+    local best, bestDist = nil, math.huge
+    for _, mapObj in ipairs(workspace:GetChildren()) do
+        for _, containerName in ipairs(COIN_CONTAINERS) do
+            local container = mapObj:FindFirstChild(containerName, true)
+            if container then
+                for _, desc in ipairs(container:GetDescendants()) do
+                    if desc:IsA("BasePart") and desc.Name == "Coin_Server" and desc.Parent then
+                        local d = (desc.Position - origin).Magnitude
+                        if d < bestDist and d <= CoinFarmCfg.ScanRadius then
+                            bestDist = d
+                            best     = desc
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return best, bestDist
 end
+
+-- Active tween handle so we can cancel it on stop
+local coinTween = nil
 
 local function startCoinFarm()
     if Loops.coinFarm then return end
@@ -114,53 +128,72 @@ local function startCoinFarm()
     Loops.coinFarm = true
 
     task.spawn(function()
+        -- Save original WalkSpeed
+        local _, hum0 = getChar()
+        local originalSpeed = hum0 and hum0.WalkSpeed or 16
+
         while CoinFarmCfg.Enabled do
             local char, hum, root = getChar()
-            if not char or not root then task.wait(1); continue end
+            if not char or not hum or not root then task.wait(0.5); continue end
 
-            local coins = getAllCoins()
-            if #coins == 0 then
-                Notify("Coin Farm", "No coins found — waiting...", "Warning", 3)
-                task.wait(3); continue
+            -- Apply slow walk speed
+            pcall(function() hum.WalkSpeed = CoinFarmCfg.WalkSpeed end)
+
+            local coin, dist = getNearestCoin(root.Position)
+
+            if not coin or not coin.Parent then
+                -- No coin nearby — idle walk in place, scan again shortly
+                task.wait(0.5)
+                continue
             end
 
-            Notify("Coin Farm", string.format("Farming %d coins...", #coins), "Info", 2)
+            -- ── TWEEN + WALK simultaneously ──────────────────
+            -- Tween glides the HRP toward the coin position
+            local targetCF = CFrame.new(
+                Vector3.new(coin.Position.X, root.Position.Y, coin.Position.Z)
+            )
+            local tweenTime = math.clamp(dist / 60, 0.1, CoinFarmCfg.TweenTime)
+            local ti = TweenInfo.new(tweenTime, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 
-            for _, coin in ipairs(coins) do
-                if not CoinFarmCfg.Enabled then break end
-                if not coin or not coin.Parent then continue end
+            if coinTween then coinTween:Cancel(); coinTween = nil end
+            coinTween = TweenService:Create(root, ti, { CFrame = targetCF })
+            coinTween:Play()
 
-                local char2, _, root2 = getChar()
-                if not root2 then break end
+            -- Humanoid also walks toward coin simultaneously
+            -- (MoveToFinished fires when humanoid reaches target or times out)
+            hum:MoveTo(coin.Position)
 
-                -- Unanchor root temporarily to allow tween
-                local wasAnchored = root2.Anchored
-                root2.Anchored = true
+            -- Wait for tween to finish (shorter of tween or humanoid arrival)
+            coinTween.Completed:Wait()
+            coinTween = nil
 
-                tweenToPos(root2, coin.Position)
-
-                -- Touch the coin via firetouchinterest
+            -- Touch the coin
+            if coin and coin.Parent then
                 pcall(function()
-                    firetouchinterest(root2, coin, 0)
+                    firetouchinterest(root, coin, 0)
                     task.wait(CoinFarmCfg.TouchDelay)
-                    firetouchinterest(root2, coin, 1)
+                    firetouchinterest(root, coin, 1)
                 end)
-
-                root2.Anchored = wasAnchored
-                task.wait(CoinFarmCfg.TouchDelay)
             end
 
-            -- Short pause between full sweeps
-            task.wait(1)
+            task.wait(CoinFarmCfg.TouchDelay)
         end
+
+        -- Restore original WalkSpeed on stop
+        local _, humEnd = getChar()
+        if humEnd then pcall(function() humEnd.WalkSpeed = originalSpeed end) end
     end)
 
-    Notify("Coin Farm", "Started — tweening to coins.", "Success")
+    Notify("Coin Farm", "Started — walking to nearest coins.", "Success")
 end
 
 local function stopCoinFarm()
     CoinFarmCfg.Enabled = false
     Loops.coinFarm      = false
+    if coinTween then coinTween:Cancel(); coinTween = nil end
+    -- Restore WalkSpeed immediately
+    local _, hum = getChar()
+    if hum then pcall(function() hum.WalkSpeed = State.walkSpeed end) end
     Notify("Coin Farm", "Stopped.", "Info")
 end
 
@@ -1194,15 +1227,33 @@ sCoin:CreateToggle({
     Callback = function(v) if v then startCoinFarm() else stopCoinFarm() end end,
 })
 sCoin:CreateSlider({
-    Name = "Tween Speed", Range = {1, 20}, Increment = 1,
-    CurrentValue = 12, Suffix = " (×0.01s)", Flag = "MM2_CoinTweenTime",
+    Name = "Walk Speed", Range = {2, 20}, Increment = 1,
+    CurrentValue = 8, Suffix = " st/s", Flag = "MM2_CoinWalkSpeed",
+    Callback = function(v) CoinFarmCfg.WalkSpeed = v end,
+})
+sCoin:CreateSlider({
+    Name = "Tween Duration", Range = {10, 100}, Increment = 5,
+    CurrentValue = 35, Suffix = " ×0.01s", Flag = "MM2_CoinTweenTime",
     Callback = function(v) CoinFarmCfg.TweenTime = v * 0.01 end,
+})
+sCoin:CreateSlider({
+    Name = "Scan Radius", Range = {10, 200}, Increment = 5,
+    CurrentValue = 60, Suffix = " st", Flag = "MM2_CoinScanRadius",
+    Callback = function(v) CoinFarmCfg.ScanRadius = v end,
 })
 sCoin:CreateButton({
     Name = "Scan Coins Now",
     Callback = function()
-        local coins = getAllCoins()
-        Notify("Coin Farm", string.format("Found %d Coin_Server parts.", #coins), "Info", 4)
+        local _, _, root = getChar()
+        if not root then Notify("Coin Farm", "No character found.", "Warning") return end
+        local coin, dist = getNearestCoin(root.Position)
+        local total = #getAllCoins()
+        Notify("Coin Farm",
+            string.format("Total: %d coins\nNearest: %s (%.0f st)",
+                total,
+                coin and coin.Name or "none",
+                coin and dist or 0),
+            "Info", 5)
     end,
 })
 
@@ -1440,4 +1491,4 @@ sPlayer:CreateToggle({
 -- ════════════════════════════════════════════════════════════
 -- READY
 -- ════════════════════════════════════════════════════════════
-Notify("Murder Mystery 2", "v2.4 — ready.", "Success", 4)
+Notify("Murder Mystery 2", "v2.5 — ready.", "Success", 4)
