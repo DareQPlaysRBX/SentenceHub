@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════
--- SENTENCE Hub  -  Murder Mystery 2  v2.1
+-- SENTENCE Hub  -  Murder Mystery 2  v2.2
 -- Autor: DareQPlaysRBX
 -- ════════════════════════════════════════════════════════════
 
@@ -156,7 +156,9 @@ end
 -- COMBAT FUNCTIONS
 -- ════════════════════════════════════════════════════════════
 
-local function ShootAt(target, instant)
+local shootBind = Enum.KeyCode.E  -- default, changed via UI keybind
+
+local function ShootAt(target)
     if FindSheriff() ~= LP then Notify("MM2", "You are not the Sheriff.", "Warning") return end
     if not target then Notify("MM2", "No target detected.", "Warning") return end
     if not equipTool("Gun") then Notify("MM2", "Gun not found in backpack.", "Error") return end
@@ -164,9 +166,34 @@ local function ShootAt(target, instant)
     local tHRP = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
     if not tHRP then return end
     local origin = CFrame.new(char.RightHand.Position)
-    local aimPos = instant and CFrame.new(tHRP.Position) or CFrame.new(GetPredicted(target))
+    local aimPos = CFrame.new(GetPredicted(target))
     char:WaitForChild("Gun"):WaitForChild("Shoot"):FireServer(origin, aimPos)
 end
+
+-- Teleports next to murderer, then fires a point-blank instant shot
+local function ShootAtInstant(target)
+    if FindSheriff() ~= LP then Notify("MM2", "You are not the Sheriff.", "Warning") return end
+    if not target then Notify("MM2", "No target detected.", "Warning") return end
+    if not equipTool("Gun") then Notify("MM2", "Gun not found in backpack.", "Error") return end
+    local char = LP.Character
+    local tHRP = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    if not tHRP then return end
+    char:PivotTo(tHRP.CFrame * CFrame.new(0, 0, 3))
+    task.wait(0.06)
+    tHRP = target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    if not tHRP then return end
+    local origin = CFrame.new(char.RightHand.Position)
+    char:WaitForChild("Gun"):WaitForChild("Shoot"):FireServer(origin, CFrame.new(tHRP.Position))
+    Notify("MM2", "Instant shot fired at " .. target.Name .. ".", "Success", 2)
+end
+
+-- Global keybind listener for Shoot Murderer
+UIS.InputBegan:Connect(function(input, gp)
+    if gp then return end
+    if input.KeyCode == shootBind then
+        ShootAt(FindMurderer())
+    end
+end)
 
 local function KnifeThrow(silent)
     if FindMurderer() ~= LP then
@@ -302,41 +329,7 @@ local function SendRoles()
     Notify("MM2", "Roles broadcast to chat.", "Success")
 end
 
--- ════════════════════════════════════════════════════════════
--- COIN FARM
--- ════════════════════════════════════════════════════════════
-local function startCoinFarm()
-    if Loops.coinFarm then return end
-    Loops.coinFarm = true
-    task.spawn(function()
-        while Loops.coinFarm do
-            local map = getMap()
-            if map then
-                local cc = map:FindFirstChild("CoinContainer")
-                if cc then
-                    for _, coin in ipairs(cc:GetDescendants()) do
-                        if coin:IsA("BasePart") and Loops.coinFarm then
-                            local root = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
-                            if root then
-                                pcall(function()
-                                    firetouchinterest(root, coin, 0)
-                                    task.wait(0.02)
-                                    firetouchinterest(root, coin, 1)
-                                end)
-                            end
-                        end
-                    end
-                end
-            end
-            task.wait(3)
-        end
-    end)
-    Notify("MM2", "Coin Farm started.", "Success")
-end
-local function stopCoinFarm()
-    Loops.coinFarm = false
-    Notify("MM2", "Coin Farm stopped.", "Info")
-end
+
 
 -- ════════════════════════════════════════════════════════════
 -- TOGGLEABLE LOOPS
@@ -566,14 +559,13 @@ end
 -- ════════════════════════════════════════════════════════════
 -- ██████████████  ENHANCED ESP SYSTEM  ██████████████████████
 -- ════════════════════════════════════════════════════════════
--- Hybrid: Highlight chams + Drawing-based overlay
--- (names, distance, health bar, role tag, tracer)
+-- Chams  : Highlight instances (original working approach)
+-- Overlay: Drawing-based names / role / distance / HP / box / tracer
 -- ════════════════════════════════════════════════════════════
 
 local ESPCfg = {
-    -- master
     Enabled          = false,
-    -- highlight
+    -- highlight (chams)
     Chams            = true,
     MurdFill         = Color3.fromRGB(220, 40,  40),
     MurdOutline      = Color3.fromRGB(255, 100, 100),
@@ -581,9 +573,9 @@ local ESPCfg = {
     SherOutline      = Color3.fromRGB(120, 180, 255),
     InnFill          = Color3.fromRGB(40,  200, 80),
     InnOutline       = Color3.fromRGB(100, 255, 140),
-    FillTransparency = 0.55,
+    FillTransparency    = 0.55,
     OutlineTransparency = 0.0,
-    -- drawing layers
+    -- drawing overlays
     ShowNames        = true,
     ShowRole         = true,
     ShowDistance     = true,
@@ -594,13 +586,55 @@ local ESPCfg = {
     -- params
     MaxDistance      = 500,
     TextSize         = 13,
-    TracerOrigin     = "Bottom",   -- "Bottom" | "Center" | "Mouse"
+    TracerOrigin     = "Bottom",
     BoxPadding       = 4,
 }
 
-local espHighlights  = {}
-local espDrawings    = {}   -- [playerName] = { name, role, dist, hpBg, hpBar, hpTxt, box={}, tracer }
-local espCharConns   = {}
+-- ── Chams (Highlights) ────────────────────────────────────────
+local espHighlights = {}
+
+local function removeAllHighlights()
+    for _, h in pairs(espHighlights) do pcall(function() h:Destroy() end) end
+    espHighlights = {}
+end
+
+local function applyESP(player)
+    if not player.Character then return end
+    if espHighlights[player.Name] then
+        espHighlights[player.Name]:Destroy()
+        espHighlights[player.Name] = nil
+    end
+    if not ESPCfg.Chams then return end
+    local h = Instance.new("Highlight")
+    h.Adornee             = player.Character
+    h.DepthMode           = Enum.HighlightDepthMode.AlwaysOnTop
+    h.FillTransparency    = ESPCfg.FillTransparency
+    h.OutlineTransparency = ESPCfg.OutlineTransparency
+    if FindMurderer() == player then
+        h.FillColor    = ESPCfg.MurdFill
+        h.OutlineColor = ESPCfg.MurdOutline
+    elseif FindSheriff() == player then
+        h.FillColor    = ESPCfg.SherFill
+        h.OutlineColor = ESPCfg.SherOutline
+    else
+        h.FillColor    = ESPCfg.InnFill
+        h.OutlineColor = ESPCfg.InnOutline
+    end
+    h.Parent = game:GetService("CoreGui")
+    espHighlights[player.Name] = h
+end
+
+local function reloadHighlights()
+    removeAllHighlights()
+    if not ESPCfg.Chams then return end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP then applyESP(p) end
+    end
+end
+
+-- ── Drawing overlay ───────────────────────────────────────────
+local espDrawings  = {}
+local espCharConns = {}
 
 local function getRole(p)
     if FindMurderer() == p then return "Murderer" end
@@ -635,123 +669,79 @@ local function newDrawing(dtype, props)
     return obj
 end
 
-local function removePlayerESP(name)
-    local h = espHighlights[name]
-    if h then pcall(function() h:Destroy() end); espHighlights[name] = nil end
+local function removeDrawings(name)
     local d = espDrawings[name]
-    if d then
-        for _, obj in pairs(d) do
-            if type(obj) == "table" then
-                for _, line in pairs(obj) do pcall(function() line:Remove() end) end
-            else
-                pcall(function() obj:Remove() end)
-            end
+    if not d then return end
+    for _, obj in pairs(d) do
+        if type(obj) == "table" then
+            for _, line in pairs(obj) do pcall(function() line:Remove() end) end
+        else
+            pcall(function() obj:Remove() end)
         end
-        espDrawings[name] = nil
     end
+    espDrawings[name] = nil
 end
 
-local function removeAllESP()
-    for name in pairs(espHighlights) do removePlayerESP(name) end
-    for name in pairs(espDrawings)   do removePlayerESP(name) end
-end
-
-local function applyHighlight(p)
-    if espHighlights[p.Name] then espHighlights[p.Name]:Destroy() end
-    if not ESPCfg.Chams or not p.Character then return end
-    local h = Instance.new("Highlight")
-    h.Adornee            = p.Character
-    h.DepthMode          = Enum.HighlightDepthMode.AlwaysOnTop
-    local fill, outline  = roleColors(p)
-    h.FillColor          = fill
-    h.OutlineColor       = outline
-    h.FillTransparency   = ESPCfg.FillTransparency
-    h.OutlineTransparency = ESPCfg.OutlineTransparency
-    h.Parent             = game:GetService("CoreGui")
-    espHighlights[p.Name] = h
+local function removeAllDrawings()
+    for name in pairs(espDrawings) do removeDrawings(name) end
 end
 
 local function initDrawings(p)
-    removePlayerESP(p.Name)
+    removeDrawings(p.Name)
     local fill, outline = roleColors(p)
     local d = {}
 
     d.name = newDrawing("Text", {
-        Font     = Drawing.Fonts.GothamBold,
-        Size     = ESPCfg.TextSize,
-        Color    = Color3.new(1,1,1),
-        Outline  = true,
-        OutlineColor = Color3.new(0,0,0),
-        Center   = true,
+        Font = Drawing.Fonts.GothamBold, Size = ESPCfg.TextSize,
+        Color = Color3.new(1,1,1), Outline = true,
+        OutlineColor = Color3.new(0,0,0), Center = true,
     })
-
     d.role = newDrawing("Text", {
-        Font     = Drawing.Fonts.Gotham,
-        Size     = ESPCfg.TextSize - 1,
-        Color    = fill,
-        Outline  = true,
-        OutlineColor = Color3.new(0,0,0),
-        Center   = true,
+        Font = Drawing.Fonts.Gotham, Size = ESPCfg.TextSize - 1,
+        Color = fill, Outline = true,
+        OutlineColor = Color3.new(0,0,0), Center = true,
     })
-
     d.dist = newDrawing("Text", {
-        Font     = Drawing.Fonts.Gotham,
-        Size     = ESPCfg.TextSize - 2,
-        Color    = Color3.fromRGB(200,200,200),
-        Outline  = true,
-        OutlineColor = Color3.new(0,0,0),
-        Center   = true,
+        Font = Drawing.Fonts.Gotham, Size = ESPCfg.TextSize - 2,
+        Color = Color3.fromRGB(200,200,200), Outline = true,
+        OutlineColor = Color3.new(0,0,0), Center = true,
     })
-
-    d.hpBg = newDrawing("Line", {
-        Thickness = 4,
-        Color     = Color3.fromRGB(30,30,30),
-        Transparency = 0.4,
-    })
-    d.hpBar = newDrawing("Line", {
-        Thickness = 4,
-        Color     = Color3.fromRGB(80,220,80),
-    })
+    d.hpBg  = newDrawing("Line", { Thickness = 4, Color = Color3.fromRGB(30,30,30), Transparency = 0.4 })
+    d.hpBar = newDrawing("Line", { Thickness = 4, Color = Color3.fromRGB(80,220,80) })
     d.hpTxt = newDrawing("Text", {
-        Font     = Drawing.Fonts.Gotham,
-        Size     = ESPCfg.TextSize - 2,
-        Color    = Color3.fromRGB(180,255,180),
-        Outline  = true,
-        OutlineColor = Color3.new(0,0,0),
-        Center   = true,
+        Font = Drawing.Fonts.Gotham, Size = ESPCfg.TextSize - 2,
+        Color = Color3.fromRGB(180,255,180), Outline = true,
+        OutlineColor = Color3.new(0,0,0), Center = true,
     })
-
-    -- box: 4 lines (top, bottom, left, right)
     d.box = {}
     for i = 1, 4 do
-        d.box[i] = newDrawing("Line", {
-            Thickness = 1.2,
-            Color     = outline,
-            Transparency = 0.1,
-        })
+        d.box[i] = newDrawing("Line", { Thickness = 1.2, Color = outline, Transparency = 0.1 })
     end
-
-    d.tracer = newDrawing("Line", {
-        Thickness = 1,
-        Color     = fill,
-        Transparency = 0.25,
-    })
+    d.tracer = newDrawing("Line", { Thickness = 1, Color = fill, Transparency = 0.25 })
 
     espDrawings[p.Name] = d
 end
 
+local function hideAllDrawings(d)
+    for _, obj in pairs(d) do
+        if type(obj) == "table" then
+            for _, l in pairs(obj) do pcall(function() l.Visible = false end) end
+        else
+            pcall(function() obj.Visible = false end)
+        end
+    end
+end
+
 local function updateESPFrame()
     if not ESPCfg.Enabled then return end
-    local vp    = Camera.ViewportSize
+    local vp     = Camera.ViewportSize
     local myRoot = LP.Character and LP.Character:FindFirstChild("HumanoidRootPart")
 
-    -- tracer origin
     local tracerFrom
     if ESPCfg.TracerOrigin == "Center" then
         tracerFrom = Vector2.new(vp.X / 2, vp.Y / 2)
     elseif ESPCfg.TracerOrigin == "Mouse" then
-        local m = LP:GetMouse()
-        tracerFrom = Vector2.new(m.X, m.Y)
+        local m = LP:GetMouse(); tracerFrom = Vector2.new(m.X, m.Y)
     else
         tracerFrom = Vector2.new(vp.X / 2, vp.Y)
     end
@@ -766,91 +756,59 @@ local function updateESPFrame()
         local hum  = char and char:FindFirstChildOfClass("Humanoid")
         local head = char and char:FindFirstChild("Head")
 
-        -- hide all if not visible
-        if not hrp or not head then
-            for _, obj in pairs(d) do
-                if type(obj) == "table" then
-                    for _, l in pairs(obj) do pcall(function() l.Visible = false end) end
-                else
-                    pcall(function() obj.Visible = false end)
-                end
-            end
-            continue
-        end
+        if not hrp or not head then hideAllDrawings(d); continue end
 
         local dist = myRoot and (hrp.Position - myRoot.Position).Magnitude or 0
-        if dist > ESPCfg.MaxDistance then
-            for _, obj in pairs(d) do
-                if type(obj) == "table" then
-                    for _, l in pairs(obj) do pcall(function() l.Visible = false end) end
-                else
-                    pcall(function() obj.Visible = false end)
-                end
-            end
-            continue
-        end
+        if dist > ESPCfg.MaxDistance then hideAllDrawings(d); continue end
 
         local fill, outline = roleColors(p)
 
-        -- head + foot screen positions
         local headPos, headVis = W2S(head.Position + Vector3.new(0, 0.7, 0))
         local footPos, footVis = W2S(hrp.Position  - Vector3.new(0, 3.0, 0))
-        local corePos          = W2S(hrp.Position)
+        if not headVis and not footVis then hideAllDrawings(d); continue end
 
-        if not headVis and not footVis then
-            for _, obj in pairs(d) do
-                if type(obj) == "table" then
-                    for _, l in pairs(obj) do pcall(function() l.Visible = false end) end
-                else
-                    pcall(function() obj.Visible = false end)
-                end
-            end
-            continue
-        end
-
-        local boxH    = math.abs(headPos.Y - footPos.Y)
-        local boxW    = boxH * 0.5
-        local topLeft = Vector2.new(headPos.X - boxW / 2 - ESPCfg.BoxPadding, headPos.Y - ESPCfg.BoxPadding)
-        local botRight = Vector2.new(footPos.X + boxW / 2 + ESPCfg.BoxPadding, footPos.Y + ESPCfg.BoxPadding)
+        local boxH   = math.abs(headPos.Y - footPos.Y)
+        local boxW   = boxH * 0.5
+        local pad    = ESPCfg.BoxPadding
+        local topLeft  = Vector2.new(headPos.X - boxW/2 - pad, headPos.Y - pad)
+        local botRight = Vector2.new(footPos.X + boxW/2 + pad, footPos.Y + pad)
         local topRight = Vector2.new(botRight.X, topLeft.Y)
         local botLeft  = Vector2.new(topLeft.X,  botRight.Y)
 
-        -- ── NAME ──────────────────────────────────────────────
+        -- Name
         d.name.Visible  = ESPCfg.ShowNames
         d.name.Text     = p.Name
         d.name.Color    = Color3.new(1,1,1)
         d.name.Size     = ESPCfg.TextSize
         d.name.Position = Vector2.new(headPos.X, topLeft.Y - ESPCfg.TextSize - 2)
 
-        -- ── ROLE TAG ──────────────────────────────────────────
+        -- Role tag
         d.role.Visible  = ESPCfg.ShowRole
         d.role.Text     = roleTag(p)
         d.role.Color    = fill
         d.role.Size     = ESPCfg.TextSize - 1
         d.role.Position = Vector2.new(headPos.X, topLeft.Y - ESPCfg.TextSize * 2 - 4)
 
-        -- ── DISTANCE ──────────────────────────────────────────
+        -- Distance
         d.dist.Visible  = ESPCfg.ShowDistance
         d.dist.Text     = string.format("[%.0f st]", dist)
         d.dist.Position = Vector2.new(headPos.X, botRight.Y + 2)
 
-        -- ── HEALTH BAR ────────────────────────────────────────
+        -- Health bar
         local hp    = hum and hum.Health    or 0
         local maxHp = hum and hum.MaxHealth or 100
         local hpPct = math.clamp(hp / math.max(maxHp, 1), 0, 1)
         local hpColor = Color3.fromRGB(
             math.floor(255 * (1 - hpPct)),
-            math.floor(255 * hpPct),
-            60
-        )
+            math.floor(255 * hpPct), 60)
         local barX   = botRight.X + 4
         local barTop = Vector2.new(barX, topLeft.Y)
         local barBot = Vector2.new(barX, botRight.Y)
         local barFill = Vector2.new(barX, topLeft.Y + boxH * (1 - hpPct))
 
-        d.hpBg.Visible  = ESPCfg.ShowHealthBar
-        d.hpBg.From     = barTop
-        d.hpBg.To       = barBot
+        d.hpBg.Visible   = ESPCfg.ShowHealthBar
+        d.hpBg.From      = barTop
+        d.hpBg.To        = barBot
 
         d.hpBar.Visible  = ESPCfg.ShowHealthBar
         d.hpBar.From     = barFill
@@ -861,99 +819,86 @@ local function updateESPFrame()
         d.hpTxt.Text     = string.format("HP: %d/%d", math.floor(hp), math.floor(maxHp))
         d.hpTxt.Position = Vector2.new(barX + 6, (barTop.Y + barBot.Y) / 2 - ESPCfg.TextSize / 2)
 
-        -- ── BOX ───────────────────────────────────────────────
+        -- Box
         local boxLines = {
-            {topLeft, topRight},
-            {botLeft, botRight},
-            {topLeft, botLeft},
-            {topRight, botRight},
+            {topLeft, topRight}, {botLeft, botRight},
+            {topLeft, botLeft},  {topRight, botRight},
         }
         for i = 1, 4 do
-            d.box[i].Visible     = ESPCfg.ShowBox
-            d.box[i].Color       = outline
+            d.box[i].Visible = ESPCfg.ShowBox
+            d.box[i].Color   = outline
             if ESPCfg.ShowBox then
                 d.box[i].From = boxLines[i][1]
                 d.box[i].To   = boxLines[i][2]
             end
         end
 
-        -- ── TRACER ────────────────────────────────────────────
-        d.tracer.Visible     = ESPCfg.ShowTracers
-        d.tracer.Color       = fill
+        -- Tracer
+        d.tracer.Visible = ESPCfg.ShowTracers
+        d.tracer.Color   = fill
         if ESPCfg.ShowTracers then
             d.tracer.From = tracerFrom
             d.tracer.To   = Vector2.new(footPos.X, footPos.Y)
-        end
-
-        -- sync highlight colors if chams changed
-        local hl = espHighlights[p.Name]
-        if hl then
-            hl.FillColor          = fill
-            hl.OutlineColor       = outline
-            hl.FillTransparency   = ESPCfg.FillTransparency
-            hl.OutlineTransparency = ESPCfg.OutlineTransparency
         end
     end
 end
 
 local function startESP()
     if Loops.esp then return end
-    -- apply highlights + init drawings for all current players
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LP then
-            applyHighlight(p)
-            initDrawings(p)
-        end
-    end
-    -- watch for respawns
+
+    -- chams
+    reloadHighlights()
+
+    -- drawings
     espCharConns = {}
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LP then
+            initDrawings(p)
             espCharConns[p.Name] = p.CharacterAdded:Connect(function()
-                task.wait(0.2)
-                applyHighlight(p)
-                initDrawings(p)
+                task.wait(0.2); applyESP(p); initDrawings(p)
             end)
         end
     end
-    -- new players
     espCharConns["_added"] = Players.PlayerAdded:Connect(function(p)
-        task.wait(0.5)
-        applyHighlight(p)
-        initDrawings(p)
+        task.wait(0.5); applyESP(p); initDrawings(p)
         espCharConns[p.Name] = p.CharacterAdded:Connect(function()
-            task.wait(0.2)
-            applyHighlight(p)
-            initDrawings(p)
+            task.wait(0.2); applyESP(p); initDrawings(p)
         end)
     end)
     espCharConns["_removing"] = Players.PlayerRemoving:Connect(function(p)
-        removePlayerESP(p.Name)
-        if espCharConns[p.Name] then
-            espCharConns[p.Name]:Disconnect()
-            espCharConns[p.Name] = nil
+        removeDrawings(p.Name)
+        if espHighlights[p.Name] then
+            pcall(function() espHighlights[p.Name]:Destroy() end)
+            espHighlights[p.Name] = nil
         end
+        if espCharConns[p.Name] then espCharConns[p.Name]:Disconnect(); espCharConns[p.Name] = nil end
     end)
-    -- render loop
+
+    -- chams refresh on role change (Heartbeat, same as original)
+    Loops.espChams = RunService.Heartbeat:Connect(reloadHighlights)
+    -- overlay render
     Loops.esp = RunService.RenderStepped:Connect(updateESPFrame)
+
     Notify("MM2", "ESP enabled.", "Success")
 end
 
 local function stopESP()
     stopLoop("esp")
-    removeAllESP()
+    stopLoop("espChams")
+    removeAllHighlights()
+    removeAllDrawings()
     for k, c in pairs(espCharConns) do
-        pcall(function() c:Disconnect() end)
-        espCharConns[k] = nil
+        pcall(function() c:Disconnect() end); espCharConns[k] = nil
     end
     Notify("MM2", "ESP disabled.", "Info")
 end
 
 local function reloadESP()
     if not ESPCfg.Enabled then return end
-    stopESP()
-    startESP()
+    stopESP(); startESP()
 end
+
+
 
 -- ════════════════════════════════════════════════════════════
 -- DROPDOWN AUTO-REFRESH
@@ -1030,8 +975,15 @@ sMurd:CreateSlider({
 -- ── Sheriff ──────────────────────────────────────────────────
 local sSher = TabCombat:CreateSection("Sheriff")
 
-sSher:CreateButton({ Name = "Shoot Murderer",            Callback = function() ShootAt(FindMurderer())       end })
-sSher:CreateButton({ Name = "Shoot Murderer  [Instant]", Callback = function() ShootAt(FindMurderer(), true) end })
+sSher:CreateBind({
+    Name = "Shoot Murderer", CurrentBind = Enum.KeyCode.E, Flag = "MM2_ShootBind",
+    Callback = function(key) shootBind = key end,
+    OnChangedCallback = function(key) shootBind = key end,
+})
+sSher:CreateButton({
+    Name = "Shoot Murderer  [Instant — TP]",
+    Callback = function() ShootAtInstant(FindMurderer()) end,
+})
 
 sSher:CreateToggle({
     Name = "Auto-Shoot", CurrentValue = false, Flag = "MM2_AutoShoot",
@@ -1073,10 +1025,6 @@ sInfo:CreateButton({
 sInfo:CreateToggle({
     Name = "Show Timer", CurrentValue = false, Flag = "MM2_Timer",
     Callback = function(v) if v then showTimer() else hideTimer() end end,
-})
-sInfo:CreateToggle({
-    Name = "Coin Farm", CurrentValue = false, Flag = "MM2_CoinFarm",
-    Callback = function(v) if v then startCoinFarm() else stopCoinFarm() end end,
 })
 
 -- ── Teleport ─────────────────────────────────────────────────
@@ -1226,7 +1174,7 @@ local sESPChams = TabESP:CreateSection("Chams (Highlight)")
 
 sESPChams:CreateToggle({
     Name = "Enable Chams", CurrentValue = true, Flag = "MM2_ESPChams",
-    Callback = function(v) ESPCfg.Chams = v; reloadESP() end,
+    Callback = function(v) ESPCfg.Chams = v; reloadHighlights() end,
 })
 sESPChams:CreateSlider({
     Name = "Fill Transparency", Range = {0, 100}, Increment = 5,
@@ -1313,4 +1261,4 @@ sPlayer:CreateToggle({
 -- ════════════════════════════════════════════════════════════
 -- READY
 -- ════════════════════════════════════════════════════════════
-Notify("Murder Mystery 2", "v2.1 — ready.", "Success", 4)
+Notify("Murder Mystery 2", "v2.2 — ready.", "Success", 4)
