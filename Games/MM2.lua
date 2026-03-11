@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════
--- SENTENCE Hub  -  Murder Mystery 2  v2.3
+-- SENTENCE Hub  -  Murder Mystery 2  v2.7
 -- Autor: DareQPlaysRBX
 -- ════════════════════════════════════════════════════════════
 
@@ -67,16 +67,15 @@ local function getMap()
 end
 
 -- ════════════════════════════════════════════════════════════
--- COIN FARM  (Tween teleport to Coin_Server)
+-- COIN FARM  (greedy nearest-coin-first, walk-style tween)
 -- ════════════════════════════════════════════════════════════
-local CoinFarmCfg = {
-    TweenTime  = 0.12,   -- seconds per coin tween
-    TouchDelay = 0.05,   -- wait after arriving before next coin
-    Enabled    = false,
-}
-
--- Collects every Coin_Server part from all known containers in the map
 local COIN_CONTAINERS = { "CoinContainer", "CoinAreas" }
+local COIN_SPEED      = 28     -- studs/s tween speed (faster than walk but not instant)
+local COIN_MIN_TWEEN  = 0.2   -- floor so nearby coins still look like movement
+local COIN_PAUSE_MIN  = 0.4   -- pause after collecting a coin (min)
+local COIN_PAUSE_MAX  = 0.8   -- pause after collecting a coin (max, randomised)
+local coinFarmEnabled = false
+local coinTween       = nil
 
 local function getAllCoins()
     local coins = {}
@@ -95,72 +94,113 @@ local function getAllCoins()
     return coins
 end
 
-local function tweenToPos(root, pos)
-    local ti = TweenInfo.new(
-        CoinFarmCfg.TweenTime,
-        Enum.EasingStyle.Linear,
-        Enum.EasingDirection.Out
-    )
-    local tween = TweenService:Create(root, ti, {
-        CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
-    })
-    tween:Play()
-    tween.Completed:Wait()
+-- Returns the single nearest valid coin to `origin`
+local function getNearestCoin(origin)
+    local best, bestDist = nil, math.huge
+    for _, mapObj in ipairs(workspace:GetChildren()) do
+        for _, containerName in ipairs(COIN_CONTAINERS) do
+            local container = mapObj:FindFirstChild(containerName, true)
+            if container then
+                for _, desc in ipairs(container:GetDescendants()) do
+                    if desc:IsA("BasePart") and desc.Name == "Coin_Server" and desc.Parent then
+                        local d = (desc.Position - origin).Magnitude
+                        if d < bestDist then bestDist = d; best = desc end
+                    end
+                end
+            end
+        end
+    end
+    return best, bestDist
+end
+
+local function cancelCoinTween()
+    if coinTween then coinTween:Cancel(); coinTween = nil end
 end
 
 local function startCoinFarm()
     if Loops.coinFarm then return end
-    CoinFarmCfg.Enabled = true
-    Loops.coinFarm = true
+    coinFarmEnabled = true
+    Loops.coinFarm  = true
+
+    -- Noclip via anonymous wrapper so forward ref is not an issue
+    task.spawn(function() startNoClip() end)
 
     task.spawn(function()
-        while CoinFarmCfg.Enabled do
-            local char, hum, root = getChar()
-            if not char or not root then task.wait(1); continue end
+        -- Wait for map to load (CoinContainer or CoinAreas must exist)
+        Notify("Coin Farm", "Waiting for map to load...", "Info", 3)
+        repeat task.wait(1) until (function()
+            for _, obj in ipairs(workspace:GetChildren()) do
+                for _, name in ipairs(COIN_CONTAINERS) do
+                    if obj:FindFirstChild(name, true) then return true end
+                end
+            end
+            return false
+        end)() or not coinFarmEnabled
+        if not coinFarmEnabled then return end
+        Notify("Coin Farm", "Map loaded — farming coins.", "Success", 3)
 
-            local coins = getAllCoins()
-            if #coins == 0 then
-                Notify("Coin Farm", "No coins found — waiting...", "Warning", 3)
-                task.wait(3); continue
+        local waitingForCoins = false
+
+        while coinFarmEnabled do
+            local _, _, root = getChar()
+            if not root then task.wait(0.5); continue end
+
+            -- Always pick the nearest coin at this moment
+            local coin, dist = getNearestCoin(root.Position)
+
+            if not coin then
+                -- No coins available — pause and wait until they spawn
+                if not waitingForCoins then
+                    waitingForCoins = true
+                    Notify("Coin Farm", "No coins available — waiting...", "Info", 4)
+                end
+                task.wait(1)
+                continue
             end
 
-            Notify("Coin Farm", string.format("Farming %d coins...", #coins), "Info", 2)
+            -- Coins are back
+            if waitingForCoins then
+                waitingForCoins = false
+                Notify("Coin Farm", "Coins found — resuming.", "Success", 3)
+            end
 
-            for _, coin in ipairs(coins) do
-                if not CoinFarmCfg.Enabled then break end
-                if not coin or not coin.Parent then continue end
+            -- Duration scales with distance; floor at COIN_MIN_TWEEN
+            local duration = math.max(dist / COIN_SPEED, COIN_MIN_TWEEN)
 
-                local char2, _, root2 = getChar()
-                if not root2 then break end
+            -- Walk-style tween: stay at player's current Y, glide horizontally
+            local _, _, root2 = getChar()
+            if not root2 then break end
 
-                -- Unanchor root temporarily to allow tween
-                local wasAnchored = root2.Anchored
-                root2.Anchored = true
+            local targetCF = CFrame.new(coin.Position.X, root2.Position.Y, coin.Position.Z)
 
-                tweenToPos(root2, coin.Position)
+            cancelCoinTween()
+            local ti = TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+            coinTween = TweenService:Create(root2, ti, { CFrame = targetCF })
+            coinTween:Play()
+            coinTween.Completed:Wait()  -- wait until arrival before touching coin
+            coinTween = nil
 
-                -- Touch the coin via firetouchinterest
+            if not coinFarmEnabled then break end
+
+            -- Arrived — collect the coin
+            local _, _, root3 = getChar()
+            if root3 and coin.Parent then
                 pcall(function()
-                    firetouchinterest(root2, coin, 0)
-                    task.wait(CoinFarmCfg.TouchDelay)
-                    firetouchinterest(root2, coin, 1)
+                    firetouchinterest(root3, coin, 0)
+                    firetouchinterest(root3, coin, 1)
                 end)
-
-                root2.Anchored = wasAnchored
-                task.wait(CoinFarmCfg.TouchDelay)
             end
-
-            -- Short pause between full sweeps
-            task.wait(1)
         end
     end)
 
-    Notify("Coin Farm", "Started — tweening to coins.", "Success")
+    Notify("Coin Farm", "Started.", "Success")
 end
 
 local function stopCoinFarm()
-    CoinFarmCfg.Enabled = false
-    Loops.coinFarm      = false
+    coinFarmEnabled = false
+    Loops.coinFarm  = false
+    cancelCoinTween()
+    task.spawn(function() stopNoClip() end)
     Notify("Coin Farm", "Stopped.", "Info")
 end
 
@@ -398,10 +438,24 @@ local function TeleportToGun()
     if not char then return end
     local prevCF = char:GetPivot()
     char:PivotTo(gun:GetPivot())
-    LP.Backpack.ChildAdded:Wait()
-    task.wait(0.1)
+    -- Wait for gun with a 3-second timeout to avoid hanging
+    local picked = false
+    local conn; conn = LP.Backpack.ChildAdded:Connect(function(child)
+        if child:IsA("Tool") and child.Name == "Gun" then
+            picked = true
+            conn:Disconnect()
+        end
+    end)
+    local deadline = tick() + 3
+    while not picked and tick() < deadline do task.wait(0.05) end
+    pcall(function() conn:Disconnect() end)
+    task.wait(0.05)
     char:PivotTo(prevCF)
-    Notify("MM2", "Gun picked up — returned.", "Success")
+    if picked then
+        Notify("MM2", "Gun picked up — returned.", "Success")
+    else
+        Notify("MM2", "Gun not picked up (timeout).", "Warning")
+    end
 end
 
 local function TeleportToPlayer(target)
@@ -446,7 +500,16 @@ local function startNoClip()
         end
     end)
 end
-local function stopNoClip() stopLoop("noClip") end
+local function stopNoClip()
+    stopLoop("noClip")
+    -- Restore collision on all parts
+    local c = LP.Character
+    if c then
+        for _, p in ipairs(c:GetDescendants()) do
+            if p:IsA("BasePart") then pcall(function() p.CanCollide = true end) end
+        end
+    end
+end
 
 -- Fly
 local flyBV, flyBG
@@ -496,6 +559,15 @@ local function applyJump(v)
     State.jumpPower = v
 end
 
+-- Re-apply speed/jump after respawn so sliders persist across deaths
+LP.CharacterAdded:Connect(function(char)
+    local hum = char:WaitForChild("Humanoid", 5)
+    if not hum then return end
+    task.wait(0.2)
+    if State.walkSpeed ~= 16 then pcall(function() hum.WalkSpeed = State.walkSpeed end) end
+    if State.jumpPower ~= 50 then pcall(function() hum.JumpPower = State.jumpPower end) end
+end)
+
 -- Infinite Jump
 local function startInfiniteJump()
     if Loops.infJump then return end
@@ -507,10 +579,15 @@ end
 local function stopInfiniteJump() stopLoop("infJump") end
 
 -- Auto Shoot
+local autoShootLastFire = 0
+local AUTO_SHOOT_COOLDOWN = 0.35  -- seconds between shots
+
 local function startAutoShoot()
     if Loops.autoShoot then return end
     Loops.autoShoot = RunService.Heartbeat:Connect(function()
         if FindSheriff() ~= LP then return end
+        local now = tick()
+        if now - autoShootLastFire < AUTO_SHOOT_COOLDOWN then return end
         local target = FindMurderer() or FindSheriffNotMe()
         if not target or not target.Character then return end
         local _, _, root = getChar()
@@ -521,10 +598,14 @@ local function startAutoShoot()
         params.FilterDescendantsInstances = {LP.Character}
         local hit = workspace:Raycast(root.Position, (tHRP.Position - root.Position).Unit * 60, params)
         if hit and hit.Instance.Parent ~= target.Character then return end
+        autoShootLastFire = now
         ShootAt(target)
     end)
 end
-local function stopAutoShoot() stopLoop("autoShoot") end
+local function stopAutoShoot()
+    stopLoop("autoShoot")
+    autoShootLastFire = 0
+end
 
 -- Auto Knife
 local function startAutoKnife()
@@ -946,7 +1027,7 @@ end
 local function startESP()
     if Loops.esp then return end
 
-    -- chams
+    -- chams initial apply
     reloadHighlights()
 
     -- drawings
@@ -974,8 +1055,15 @@ local function startESP()
         if espCharConns[p.Name] then espCharConns[p.Name]:Disconnect(); espCharConns[p.Name] = nil end
     end)
 
-    -- chams refresh on role change (Heartbeat, same as original)
-    Loops.espChams = RunService.Heartbeat:Connect(reloadHighlights)
+    -- Throttled chams refresh: only poll every 0.5s instead of every Heartbeat frame
+    Loops.espChams = true
+    task.spawn(function()
+        while Loops.espChams do
+            if ESPCfg.Enabled then reloadHighlights() end
+            task.wait(0.5)
+        end
+    end)
+
     -- overlay render
     Loops.esp = RunService.RenderStepped:Connect(updateESPFrame)
 
@@ -984,7 +1072,7 @@ end
 
 local function stopESP()
     stopLoop("esp")
-    stopLoop("espChams")
+    Loops.espChams = false   -- stops the task.spawn loop
     removeAllHighlights()
     removeAllDrawings()
     for k, c in pairs(espCharConns) do
@@ -995,7 +1083,15 @@ end
 
 local function reloadESP()
     if not ESPCfg.Enabled then return end
-    stopESP(); startESP()
+    -- full stop (clears espChams flag too), then restart
+    stopLoop("esp")
+    Loops.espChams = false
+    removeAllHighlights()
+    removeAllDrawings()
+    for k, c in pairs(espCharConns) do
+        pcall(function() c:Disconnect() end); espCharConns[k] = nil
+    end
+    startESP()
 end
 
 
@@ -1136,18 +1232,6 @@ local sCoin = TabPlayers:CreateSection("Coin Farm")
 sCoin:CreateToggle({
     Name = "Enable Coin Farm", CurrentValue = false, Flag = "MM2_CoinFarm",
     Callback = function(v) if v then startCoinFarm() else stopCoinFarm() end end,
-})
-sCoin:CreateSlider({
-    Name = "Tween Speed", Range = {1, 20}, Increment = 1,
-    CurrentValue = 12, Suffix = " (×0.01s)", Flag = "MM2_CoinTweenTime",
-    Callback = function(v) CoinFarmCfg.TweenTime = v * 0.01 end,
-})
-sCoin:CreateButton({
-    Name = "Scan Coins Now",
-    Callback = function()
-        local coins = getAllCoins()
-        Notify("Coin Farm", string.format("Found %d Coin_Server parts.", #coins), "Info", 4)
-    end,
 })
 
 -- ── Teleport ─────────────────────────────────────────────────
@@ -1384,4 +1468,58 @@ sPlayer:CreateToggle({
 -- ════════════════════════════════════════════════════════════
 -- READY
 -- ════════════════════════════════════════════════════════════
-Notify("Murder Mystery 2", "v2.3 — ready.", "Success", 4)
+Notify("Murder Mystery 2", "v2.7 — ready.", "Success", 4)
+
+-- ════════════════════════════════════════════════════════════
+-- CLEANUP  —  fires when the GUI is closed / destroyed
+-- ════════════════════════════════════════════════════════════
+local function Unload()
+    -- ── Coin Farm ────────────────────────────────────────────
+    if coinFarmEnabled then stopCoinFarm() end
+
+    -- ── ESP ──────────────────────────────────────────────────
+    if ESPCfg.Enabled then
+        ESPCfg.Enabled = false
+        stopESP()
+    end
+
+    -- ── Loops (RBXScriptConnection based) ───────────────────
+    for key in pairs(Loops) do stopLoop(key) end
+
+    -- ── Fly — destroy BodyMovers ─────────────────────────────
+    if flyBV then pcall(function() flyBV:Destroy() end); flyBV = nil end
+    if flyBG then pcall(function() flyBG:Destroy() end); flyBG = nil end
+
+    -- ── Timer overlay ────────────────────────────────────────
+    hideTimer()
+
+    -- ── NoClip — restore collision ───────────────────────────
+    local c = LP.Character
+    if c then
+        for _, p in ipairs(c:GetDescendants()) do
+            if p:IsA("BasePart") then pcall(function() p.CanCollide = true end) end
+        end
+    end
+
+    -- ── WalkSpeed / JumpPower — restore defaults ─────────────
+    local _, hum = getChar()
+    if hum then
+        pcall(function() hum.WalkSpeed = 16 end)
+        pcall(function() hum.JumpPower = 50 end)
+    end
+
+    -- ── Disconnect all stored connections ────────────────────
+    for _, conn in ipairs(Conn) do pcall(function() conn:Disconnect() end) end
+    Conn = {}
+end
+
+-- Hook into the GUI container's Destroying event
+local guiRoot = Window:GetMainFrame and Window:GetMainFrame()
+if guiRoot then
+    guiRoot.Destroying:Connect(Unload)
+else
+    -- Fallback: watch CoreGui for the hub ScreenGui being removed
+    game:GetService("CoreGui").ChildRemoved:Connect(function(child)
+        if child.Name == "SENTENCE Hub" then Unload() end
+    end)
+end
