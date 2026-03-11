@@ -176,7 +176,7 @@ local function startCoinFarm()
                 end)
             end
 
-            task.wait(CoinFarmCfg.TouchDelay)
+            task.wait(1)  -- 1 coin per second
         end
 
         -- Restore original WalkSpeed on stop
