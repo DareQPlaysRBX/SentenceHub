@@ -156,7 +156,8 @@ end
 -- COMBAT FUNCTIONS
 -- ════════════════════════════════════════════════════════════
 
-local shootBind = Enum.KeyCode.E  -- default, changed via UI keybind
+local shootBind = Enum.KeyCode.E  -- default, updated via UI keybind (stored as KeyCode)
+local shootBindName = "E"         -- string representation for CreateBind
 
 local function ShootAt(target)
     if FindSheriff() ~= LP then Notify("MM2", "You are not the Sheriff.", "Warning") return end
@@ -976,9 +977,12 @@ sMurd:CreateSlider({
 local sSher = TabCombat:CreateSection("Sheriff")
 
 sSher:CreateBind({
-    Name = "Shoot Murderer", CurrentBind = Enum.KeyCode.E, Flag = "MM2_ShootBind",
-    Callback = function(key) shootBind = key end,
-    OnChangedCallback = function(key) shootBind = key end,
+    Name = "Shoot Murderer", CurrentBind = shootBindName, Flag = "MM2_ShootBind",
+    Callback = function(key)
+        -- key arrives as a string (e.g. "E", "F", "T")
+        local kc = Enum.KeyCode[tostring(key)]
+        if kc then shootBind = kc end
+    end,
 })
 sSher:CreateButton({
     Name = "Shoot Murderer  [Instant — TP]",
