@@ -60,7 +60,7 @@ local Window = Lib:CreateWindow({
 -- ════════════════════════════════════════════════════════════
 -- HOME TAB
 -- ════════════════════════════════════════════════════════════
-local Home = Window:CreateHomeTab({ Icon = "rbxassetid://117810891565979" })
+local Home = Window:CreateHomeTab()
 
 local S_Welcome = Home:CreateSection("Welcome")
 S_Welcome:CreateLabel({ Name = "SENTENCE Hub  ·  " .. GAME_NAME .. " Script", Style = 2 })
