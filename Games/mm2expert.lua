@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════
--- SENTENCE Hub  -  Murder Mystery 2  v2.8
+-- SENTENCE Hub  -  Murder Mystery 2  v2.9
 -- Autor: DareQPlaysRBX
 -- ════════════════════════════════════════════════════════════
 
@@ -126,6 +126,19 @@ local function startCoinFarm()
     task.spawn(function() startNoClip() end)
 
     task.spawn(function()
+        -- Wait for map to load (CoinContainer or CoinAreas must exist)
+        Notify("Coin Farm", "Waiting for map to load...", "Info", 3)
+        repeat task.wait(1) until (function()
+            for _, obj in ipairs(workspace:GetChildren()) do
+                for _, name in ipairs(COIN_CONTAINERS) do
+                    if obj:FindFirstChild(name, true) then return true end
+                end
+            end
+            return false
+        end)() or not coinFarmEnabled
+        if not coinFarmEnabled then return end
+        Notify("Coin Farm", "Map loaded — farming coins.", "Success", 3)
+
         while coinFarmEnabled do
             local _, _, root = getChar()
             if not root then task.wait(0.5); continue end
@@ -166,9 +179,6 @@ local function startCoinFarm()
                     firetouchinterest(root3, coin, 1)
                 end)
             end
-
-            -- Short random pause before heading to next coin
-            task.wait(COIN_PAUSE_MIN + math.random() * (COIN_PAUSE_MAX - COIN_PAUSE_MIN))
         end
     end)
 
