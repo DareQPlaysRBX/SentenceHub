@@ -1,8 +1,3 @@
--- ════════════════════════════════════════════════════════════
--- SENTENCE Hub  ·  Murder Mystery 2  v2.0
--- Author: DareQPlaysRBX
--- ════════════════════════════════════════════════════════════
-
 local Lib    = _G.Lib    or error("[ SENTENCE ] Lib not found in _G")
 local Window = _G.Window or error("[ SENTENCE ] Window not found in _G")
 
@@ -17,12 +12,14 @@ local UIS             = game:GetService("UserInputService")
 local LP     = Players.LocalPlayer
 local Camera = workspace.CurrentCamera
 
+local Icons = loadstring(game:HttpGet('https://raw.githubusercontent.com/Footagesus/Icons/refs/heads/main/lucide/dist/Icons.lua'))()
+
 -- ════════════════════════════════════════════════════════════
 -- NOTIFY HELPER
 -- ════════════════════════════════════════════════════════════
 local function Notify(title, content, ntype, duration)
     Lib:Notify({
-        Title    = title    or "MM2",
+        Title    = title    or "SentenceHub: MM2",
         Content  = content  or "",
         Type     = ntype    or "Info",
         Duration = duration or 3,
@@ -229,16 +226,6 @@ local function KillAll()
     Notify("MM2", "All players attacked.", "Success")
 end
 
--- ════════════════════════════════════════════════════════════
--- IMPROVED FLING
--- Uses BodyVelocity + BodyGyro on local root to orbit the target
--- at increasing speed, then launches a final burst
--- ════════════════════════════════════════════════════════════
--- ════════════════════════════════════════════════════════════
--- FLING — overlap method (most reliable, works on majority of executors)
--- Rapidly teleports local HRP into target causing physics overlap,
--- transfers massive velocity, then snaps local back to saved position.
--- ════════════════════════════════════════════════════════════
 local function Fling(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then
         Notify("MM2", "Invalid target.", "Warning") return
@@ -255,7 +242,6 @@ local function Fling(targetPlayer)
     local oldFPDH = workspace.FallenPartsDestroyHeight
     workspace.FallenPartsDestroyHeight = -1e9
 
-    -- disable humanoid interference
     for _, state in ipairs({
         Enum.HumanoidStateType.Seated,
         Enum.HumanoidStateType.FallingDown,
@@ -264,7 +250,6 @@ local function Fling(targetPlayer)
         pcall(function() lHum:SetStateEnabled(state, false) end)
     end
 
-    -- add BodyVelocity so our own character doesn't fight physics
     local bv = Instance.new("BodyVelocity")
     bv.MaxForce = Vector3.new(1/0, 1/0, 1/0)
     bv.Velocity = Vector3.zero
@@ -273,8 +258,6 @@ local function Fling(targetPlayer)
     local deadline = tick() + 2.5
     local frame    = 0
 
-    -- Core loop: overlap our HRP with target's HRP every frame,
-    -- slam velocity into ourselves — the engine pushes the target.
     repeat
         frame += 1
         if not tHRP.Parent or targetPlayer.Parent ~= Players then break end
@@ -803,10 +786,6 @@ end
 Players.PlayerAdded:Connect(function()   task.wait(0.5); refreshDropdowns() end)
 Players.PlayerRemoving:Connect(function() task.wait(0.2); refreshDropdowns() end)
 
--- ════════════════════════════════════════════════════════════
--- ████████████  UI — TABS  ████████████████████████████████
--- ════════════════════════════════════════════════════════════
-
 -- ─────────────────────────────────────────────────────────────
 --  TAB  ·  COMBAT
 -- ─────────────────────────────────────────────────────────────
@@ -815,8 +794,8 @@ local TabCombat = Window:CreateTab({ Name = "Combat", Icon = "rbxassetid://17714
 local sMurd = TabCombat:CreateSection("Murderer")
 
 sMurd:CreateButton({ Name = "Knife Throw",  Callback = function() KnifeThrow(false) end })
-sMurd:CreateButton({ Name = "Kill Nearest", Callback = KillNearest })
-sMurd:CreateButton({ Name = "Kill All",     Callback = KillAll     })
+sMurd:CreateButton({ Name = "Kill Nearest Player", Callback = KillNearest })
+sMurd:CreateButton({ Name = "Kill All Players",     Callback = KillAll     })
 
 sMurd:CreateToggle({
     Name = "Auto Knife Throw", CurrentValue = false, Flag = "MM2_AutoKnife",
@@ -860,7 +839,7 @@ sSher:CreateSlider({
 -- ─────────────────────────────────────────────────────────────
 --  TAB  ·  PLAYERS
 -- ─────────────────────────────────────────────────────────────
-local TabPlayers = Window:CreateTab({ Name = "Players", Icon = "rbxassetid://17714848175" })
+local TabPlayers = Window:CreateTab({ Name = "Players", Icon = Icons['circle-user-round'] })
 
 local sInfo = TabPlayers:CreateSection("Intelligence")
 
@@ -1000,25 +979,6 @@ sPlayer:CreateToggle({
 sPlayer:CreateToggle({
     Name = "Anti-Fling", CurrentValue = false, Flag = "UNI_AntiFling",
     Callback = function(v) if v then startAntiFling() else stopAntiFling() end end,
-})
-
--- ─────────────────────────────────────────────────────────────
---  TAB  ·  MISC
--- ─────────────────────────────────────────────────────────────
-local TabMisc = Window:CreateTab({ Name = "Misc", Icon = "rbxassetid://17714848959" })
-
-local sRound = TabMisc:CreateSection("Round")
-
-sRound:CreateToggle({
-    Name = "Round Timer", CurrentValue = false, Flag = "MM2_Timer",
-    Callback = function(v) if v then showTimer() else hideTimer() end end,
-})
-
-local sEcon = TabMisc:CreateSection("Economy")
-
-sEcon:CreateToggle({
-    Name = "Coin Farm", CurrentValue = false, Flag = "MM2_CoinFarm",
-    Callback = function(v) if v then startCoinFarm() else stopCoinFarm() end end,
 })
 
 -- ════════════════════════════════════════════════════════════
