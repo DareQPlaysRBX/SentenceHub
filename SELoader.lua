@@ -17,7 +17,11 @@ local SUPPORTED_GAMES = {
         url    = "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/Games/Bubblegumsimulatorinfinity.lua",
         config = "bgs-infinity",
     },
-    -- [PLACE_ID] = { name = "...", url = "...url.../Games/....lua", config = "..." },
+    [142823291] = {
+        name   = "Murder Mystery 2",
+        url    = "https://raw.githubusercontent.com/DareQPlaysRBX/SentenceHub/refs/heads/main/Games/MurderMystery2.lua",
+        config = "bgs-infinity",
+    },
 }
 
 -- ════════════════════════════════════════════════════════════
