@@ -15,6 +15,7 @@ local Sentence = {
 }
 
 -- ── Services ──────────────────────────────────────────────────────────────────
+local Icons = loadstring(game:HttpGet('https://raw.githubusercontent.com/Footagesus/Icons/refs/heads/main/lucide/dist/Icons.lua'))()
 local TS   = game:GetService("TweenService")
 local UIS  = game:GetService("UserInputService")
 local RS   = game:GetService("RunService")
@@ -127,18 +128,18 @@ local ICONS = {
     close   = "rbxassetid://6031094678",
     minimize= "rbxassetid://6031094687",
     hide    = "rbxassetid://6031075929",
-    home    = "rbxassetid://6031079158",
-    info    = "rbxassetid://6026568227",
-    warn    = "rbxassetid://6031071053",
-    ok      = "rbxassetid://6031094667",
-    arrow   = "rbxassetid://6031090995",
-    unknown = "rbxassetid://6031079152",
-    notif   = "rbxassetid://6034308946",
-    chevD   = "rbxassetid://6031094687",
-    chevU   = "rbxassetid://6031094679",
-    settings= "rbxassetid://6031079152",
-    search  = "rbxassetid://6031079152",
-    key     = "rbxassetid://6026568227",
+    home    = Icons['id-card'],
+    info    = Icons['info'],
+    warn    = Icons['alert-triangle'],
+    ok      = Icons['check-circle'],
+    arrow   = Icons['arrow-right'],
+    unknown = Icons['help-circle'],
+    notif   = Icons['bell'],
+    chevD   = Icons['chevron-down'],
+    chevU   = Icons['chevron-up'],
+    settings= Icons['settings'],
+    search  = Icons['search'],
+    key     = Icons['key'],
 }
 local LOGO_ID = "rbxassetid://117810891565979"
 
