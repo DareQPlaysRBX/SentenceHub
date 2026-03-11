@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════
--- SENTENCE Hub  -  Murder Mystery 2  v2.2
+-- SENTENCE Hub  -  Murder Mystery 2  v2.3
 -- Autor: DareQPlaysRBX
 -- ════════════════════════════════════════════════════════════
 
@@ -11,6 +11,7 @@ local Window = _G.Window or error("[ SENTENCE ] Window not found in _G")
 -- ════════════════════════════════════════════════════════════
 local Players         = game:GetService("Players")
 local RunService      = game:GetService("RunService")
+local TweenService    = game:GetService("TweenService")
 local TextChatService = game:GetService("TextChatService")
 local UIS             = game:GetService("UserInputService")
 
@@ -63,6 +64,104 @@ local function getMap()
             return obj
         end
     end
+end
+
+-- ════════════════════════════════════════════════════════════
+-- COIN FARM  (Tween teleport to Coin_Server)
+-- ════════════════════════════════════════════════════════════
+local CoinFarmCfg = {
+    TweenTime  = 0.12,   -- seconds per coin tween
+    TouchDelay = 0.05,   -- wait after arriving before next coin
+    Enabled    = false,
+}
+
+-- Collects every Coin_Server part from all known containers in the map
+local COIN_CONTAINERS = { "CoinContainer", "CoinAreas" }
+
+local function getAllCoins()
+    local coins = {}
+    for _, mapObj in ipairs(workspace:GetChildren()) do
+        for _, containerName in ipairs(COIN_CONTAINERS) do
+            local container = mapObj:FindFirstChild(containerName, true)
+            if container then
+                for _, desc in ipairs(container:GetDescendants()) do
+                    if desc:IsA("BasePart") and desc.Name == "Coin_Server" then
+                        table.insert(coins, desc)
+                    end
+                end
+            end
+        end
+    end
+    return coins
+end
+
+local function tweenToPos(root, pos)
+    local ti = TweenInfo.new(
+        CoinFarmCfg.TweenTime,
+        Enum.EasingStyle.Linear,
+        Enum.EasingDirection.Out
+    )
+    local tween = TweenService:Create(root, ti, {
+        CFrame = CFrame.new(pos + Vector3.new(0, 3, 0))
+    })
+    tween:Play()
+    tween.Completed:Wait()
+end
+
+local function startCoinFarm()
+    if Loops.coinFarm then return end
+    CoinFarmCfg.Enabled = true
+    Loops.coinFarm = true
+
+    task.spawn(function()
+        while CoinFarmCfg.Enabled do
+            local char, hum, root = getChar()
+            if not char or not root then task.wait(1); continue end
+
+            local coins = getAllCoins()
+            if #coins == 0 then
+                Notify("Coin Farm", "No coins found — waiting...", "Warning", 3)
+                task.wait(3); continue
+            end
+
+            Notify("Coin Farm", string.format("Farming %d coins...", #coins), "Info", 2)
+
+            for _, coin in ipairs(coins) do
+                if not CoinFarmCfg.Enabled then break end
+                if not coin or not coin.Parent then continue end
+
+                local char2, _, root2 = getChar()
+                if not root2 then break end
+
+                -- Unanchor root temporarily to allow tween
+                local wasAnchored = root2.Anchored
+                root2.Anchored = true
+
+                tweenToPos(root2, coin.Position)
+
+                -- Touch the coin via firetouchinterest
+                pcall(function()
+                    firetouchinterest(root2, coin, 0)
+                    task.wait(CoinFarmCfg.TouchDelay)
+                    firetouchinterest(root2, coin, 1)
+                end)
+
+                root2.Anchored = wasAnchored
+                task.wait(CoinFarmCfg.TouchDelay)
+            end
+
+            -- Short pause between full sweeps
+            task.wait(1)
+        end
+    end)
+
+    Notify("Coin Farm", "Started — tweening to coins.", "Success")
+end
+
+local function stopCoinFarm()
+    CoinFarmCfg.Enabled = false
+    Loops.coinFarm      = false
+    Notify("Coin Farm", "Stopped.", "Info")
 end
 
 local function stopLoop(key)
@@ -1031,6 +1130,26 @@ sInfo:CreateToggle({
     Callback = function(v) if v then showTimer() else hideTimer() end end,
 })
 
+-- ── Coin Farm ─────────────────────────────────────────────────
+local sCoin = TabPlayers:CreateSection("Coin Farm")
+
+sCoin:CreateToggle({
+    Name = "Enable Coin Farm", CurrentValue = false, Flag = "MM2_CoinFarm",
+    Callback = function(v) if v then startCoinFarm() else stopCoinFarm() end end,
+})
+sCoin:CreateSlider({
+    Name = "Tween Speed", Range = {1, 20}, Increment = 1,
+    CurrentValue = 12, Suffix = " (×0.01s)", Flag = "MM2_CoinTweenTime",
+    Callback = function(v) CoinFarmCfg.TweenTime = v * 0.01 end,
+})
+sCoin:CreateButton({
+    Name = "Scan Coins Now",
+    Callback = function()
+        local coins = getAllCoins()
+        Notify("Coin Farm", string.format("Found %d Coin_Server parts.", #coins), "Info", 4)
+    end,
+})
+
 -- ── Teleport ─────────────────────────────────────────────────
 local sTP      = TabPlayers:CreateSection("Teleport")
 local tpTarget = nil
@@ -1265,4 +1384,4 @@ sPlayer:CreateToggle({
 -- ════════════════════════════════════════════════════════════
 -- READY
 -- ════════════════════════════════════════════════════════════
-Notify("Murder Mystery 2", "v2.2 — ready.", "Success", 4)
+Notify("Murder Mystery 2", "v2.3 — ready.", "Success", 4)
