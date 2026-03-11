@@ -234,96 +234,96 @@ end
 -- Uses BodyVelocity + BodyGyro on local root to orbit the target
 -- at increasing speed, then launches a final burst
 -- ════════════════════════════════════════════════════════════
+-- ════════════════════════════════════════════════════════════
+-- FLING — overlap method (most reliable, works on majority of executors)
+-- Rapidly teleports local HRP into target causing physics overlap,
+-- transfers massive velocity, then snaps local back to saved position.
+-- ════════════════════════════════════════════════════════════
 local function Fling(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then
         Notify("MM2", "Invalid target.", "Warning") return
     end
+
     local lChar, lHum, lHRP = getChar()
     if not lChar or not lHum or not lHRP then return end
 
-    local tChar   = targetPlayer.Character
-    local tHum    = tChar:FindFirstChildOfClass("Humanoid")
-    local tRoot   = tHum and tHum.RootPart
-    local tHead   = tChar:FindFirstChild("Head")
-    local basePart = tRoot or tHead
-    if not basePart then Notify("MM2", "Target has no root part.", "Error") return end
+    local tChar = targetPlayer.Character
+    local tHRP  = tChar:FindFirstChild("HumanoidRootPart")
+    if not tHRP then Notify("MM2", "Target has no HumanoidRootPart.", "Error") return end
 
-    local oldCF   = lHRP.CFrame
+    local savedCF = lHRP.CFrame
     local oldFPDH = workspace.FallenPartsDestroyHeight
-    Camera.CameraSubject = tHead or tHum
+    workspace.FallenPartsDestroyHeight = -1e9
 
+    -- disable humanoid interference
+    for _, state in ipairs({
+        Enum.HumanoidStateType.Seated,
+        Enum.HumanoidStateType.FallingDown,
+        Enum.HumanoidStateType.Ragdoll,
+    }) do
+        pcall(function() lHum:SetStateEnabled(state, false) end)
+    end
+
+    -- add BodyVelocity so our own character doesn't fight physics
     local bv = Instance.new("BodyVelocity")
-    bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+    bv.MaxForce = Vector3.new(1/0, 1/0, 1/0)
     bv.Velocity = Vector3.zero
     bv.Parent   = lHRP
 
-    local bg = Instance.new("BodyGyro")
-    bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-    bg.P         = 1e6
-    bg.CFrame    = lHRP.CFrame
-    bg.Parent    = lHRP
+    local deadline = tick() + 2.5
+    local frame    = 0
 
-    lHum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
-    lHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, false)
-    workspace.FallenPartsDestroyHeight = -math.huge
-
-    local deadline  = tick() + 3
-    local spinAngle = 0
-
-    -- Orbit + spin: build kinetic energy on target
+    -- Core loop: overlap our HRP with target's HRP every frame,
+    -- slam velocity into ourselves — the engine pushes the target.
     repeat
-        spinAngle = spinAngle + 80
-        local offsets = {
-            Vector3.new( 2.0,  1.5,  0.0),
-            Vector3.new(-2.0,  1.5,  0.0),
-            Vector3.new( 0.0,  1.5,  2.0),
-            Vector3.new( 0.0, -1.5,  0.0),
-            Vector3.new( 1.5,  0.0, -1.5),
-        }
-        for _, offset in ipairs(offsets) do
-            if not basePart or not basePart.Parent then break end
-            local rot      = CFrame.Angles(0, math.rad(spinAngle), 0)
-            local targetCF = CFrame.new(basePart.Position) * rot * CFrame.new(offset)
-            lHRP.CFrame      = targetCF
-            lHRP.Velocity    = Vector3.new( 9e7,  9e7 * 8,  9e7)
-            lHRP.RotVelocity = Vector3.new( 9e8,  9e8,      9e8)
-            bv.Velocity      = Vector3.new( 9e8,  9e8 * 12, 9e8)
-            bg.CFrame        = targetCF
-            if tRoot then
-                tRoot.Velocity    = Vector3.new(9e7, 9e7 * 15, 9e7)
-                tRoot.RotVelocity = Vector3.new(9e8, 9e8,      9e8)
-            end
-            task.wait()
-        end
-    until (tRoot and tRoot.Velocity.Magnitude > 1e4)
-       or (basePart.Parent ~= tChar)
-       or (targetPlayer.Parent ~= Players)
-       or (tHum and tHum.Health <= 0)
-       or (tick() > deadline)
+        frame += 1
+        if not tHRP.Parent or targetPlayer.Parent ~= Players then break end
 
-    -- Final burst
-    if tRoot then
-        tRoot.Velocity    = Vector3.new(9e9, 9e9 * 25, 9e9)
-        tRoot.RotVelocity = Vector3.new(9e9, 9e9,      9e9)
-    end
-    lHRP.Velocity = Vector3.new(9e9, 9e9 * 25, 9e9)
+        -- alternate slight Y offset so overlap isn't perfectly static
+        local yOff = (frame % 2 == 0) and 0.3 or -0.3
+        lHRP.CFrame = tHRP.CFrame * CFrame.new(0, yOff, 0)
+
+        -- massive upward + outward velocity on us (transfers to target)
+        local dir = (frame % 3 == 0)
+            and Vector3.new( 9e5,  9e6 * 3,  9e5)
+            or  Vector3.new(-9e5,  9e6 * 3, -9e5)
+
+        lHRP.Velocity      = dir
+        lHRP.RotVelocity   = Vector3.new(9e6, 9e6, 9e6)
+        bv.Velocity        = dir
+
+        -- also stamp velocity directly onto target each frame
+        tHRP.AssemblyLinearVelocity  = dir * 1.5
+        tHRP.AssemblyAngularVelocity = Vector3.new(9e6, 9e6, 9e6)
+
+        task.wait()
+    until tHRP.AssemblyLinearVelocity.Magnitude > 8e4
+       or tick() > deadline
+       or targetPlayer.Parent ~= Players
+
+    -- final slam burst
+    pcall(function()
+        tHRP.AssemblyLinearVelocity  = Vector3.new(9e8, 9e8 * 20, 9e8)
+        tHRP.AssemblyAngularVelocity = Vector3.new(9e8, 9e8,      9e8)
+    end)
     task.wait(0.05)
 
-    bv:Destroy(); bg:Destroy()
-    lHum:SetStateEnabled(Enum.HumanoidStateType.Seated,      true)
-    lHum:SetStateEnabled(Enum.HumanoidStateType.FallingDown, true)
-    Camera.CameraSubject = lHum
+    -- cleanup
+    bv:Destroy()
+    for _, state in ipairs({
+        Enum.HumanoidStateType.Seated,
+        Enum.HumanoidStateType.FallingDown,
+        Enum.HumanoidStateType.Ragdoll,
+    }) do
+        pcall(function() lHum:SetStateEnabled(state, true) end)
+    end
     workspace.FallenPartsDestroyHeight = oldFPDH
 
-    -- Return to position
-    local t0 = tick()
-    repeat
-        lHRP.CFrame      = oldCF * CFrame.new(0, 1, 0)
-        lHRP.Velocity    = Vector3.zero
-        lHRP.RotVelocity = Vector3.zero
-        lHum:ChangeState(Enum.HumanoidStateType.GettingUp)
-        task.wait()
-    until (lHRP.Position - oldCF.p).Magnitude < 10 or tick() - t0 > 3
+    -- snap back
+    lHRP.CFrame      = savedCF
+    lHRP.Velocity    = Vector3.zero
+    lHRP.RotVelocity = Vector3.zero
+    lHum:ChangeState(Enum.HumanoidStateType.GettingUp)
 
     Notify("MM2", targetPlayer.Name .. " launched.", "Success")
 end
@@ -935,6 +935,17 @@ local flingDrop = sFling:CreateDropdown({
     Callback = function(v) flingTarget = v end,
 })
 table.insert(playerDropdowns, flingDrop)
+
+sFling:CreateButton({ Name = "Fling Murderer", Callback = function()
+    local m = FindMurderer()
+    if not m then Notify("MM2", "Murderer not found.", "Warning") return end
+    Fling(m)
+end })
+sFling:CreateButton({ Name = "Fling Sheriff", Callback = function()
+    local s = FindSheriff()
+    if not s then Notify("MM2", "Sheriff not found.", "Warning") return end
+    Fling(s)
+end })
 
 sFling:CreateButton({
     Name = "Fling Selected",
