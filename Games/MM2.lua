@@ -514,7 +514,7 @@ local function KillAll()
 end
 
 -- ════════════════════════════════════════════════════════════
--- FLING  
+-- FLING  (SkidFling — ported from YARHM)
 -- ════════════════════════════════════════════════════════════
 local function Fling(targetPlayer)
     if not targetPlayer or not targetPlayer.Character then
@@ -522,113 +522,79 @@ local function Fling(targetPlayer)
     end
     local lChar, lHum, lHRP = getChar()
     if not lChar or not lHum or not lHRP then return end
- 
+
     local tChar     = targetPlayer.Character
     local THum      = tChar:FindFirstChildOfClass("Humanoid")
     local TRootPart = THum and THum.RootPart
     local THead     = tChar:FindFirstChild("Head")
     local Acc       = tChar:FindFirstChildOfClass("Accessory")
     local Handle    = Acc and Acc:FindFirstChild("Handle")
- 
+
     if not tChar:FindFirstChildWhichIsA("BasePart") then
         Notify("MM2", "No valid parts on target.", "Warning") return
     end
- 
+
     -- Zapisz pozycję powrotu i FPDH
     local savedFPDH = workspace.FallenPartsDestroyHeight
     if lHRP.Velocity.Magnitude < 50 then
         getgenv().OldPos = lHRP.CFrame
     end
- 
-    -- Sprawdź czy cel siedzi (opcjonalnie — usuń blok if/return jeśli nie chcesz)
-    if THum and THum.Sit then
-        Notify("MM2", "Target is sitting.", "Warning") return
-    end
- 
-    -- Ustaw kamerę na cel
+
     if THead            then workspace.CurrentCamera.CameraSubject = THead
     elseif Handle       then workspace.CurrentCamera.CameraSubject = Handle
     elseif THum         then workspace.CurrentCamera.CameraSubject = THum end
- 
-    -- Przesuń + wystrzel lokalnego gracza w pozycję BasePart
+
     local FPos = function(BasePart, Pos, Ang)
         lHRP.CFrame = CFrame.new(BasePart.Position) * Pos * Ang
         lChar:SetPrimaryPartCFrame(CFrame.new(BasePart.Position) * Pos * Ang)
         lHRP.Velocity    = Vector3.new(9e7, 9e7 * 10, 9e7)
         lHRP.RotVelocity = Vector3.new(9e8, 9e8, 9e8)
     end
- 
-    -- Główna pętla fling-u dla danego BasePart
+
     local SFBasePart = function(BasePart)
-        local TimeToWait = 2          -- czas maksymalny pętli (sekundy)
         local Time  = tick()
         local Angle = 0
- 
         repeat
             if lHRP and THum then
                 if BasePart.Velocity.Magnitude < 50 then
-                    -- CEL STOI / WOLNO SIĘ PORUSZA
                     Angle = Angle + 100
- 
-                    FPos(BasePart, CFrame.new(0,  1.5,  0)      + THum.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(0, -1.5,  0)      + THum.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new( 2.25, 1.5, -2.25) + THum.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(-2.25,-1.5,  2.25) + THum.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(0,  1.5,  0)      + THum.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(0, -1.5,  0)      + THum.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0))
-                    task.wait()
+                    FPos(BasePart, CFrame.new(0, 1.5, 0)    + THum.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0)) task.wait()
+                    FPos(BasePart, CFrame.new(0,-1.5, 0)    + THum.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0)) task.wait()
+                    FPos(BasePart, CFrame.new(2.25, 1.5,-2.25) + THum.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0)) task.wait()
+                    FPos(BasePart, CFrame.new(-2.25,-1.5, 2.25) + THum.MoveDirection * BasePart.Velocity.Magnitude / 1.25, CFrame.Angles(math.rad(Angle), 0, 0)) task.wait()
+                    FPos(BasePart, CFrame.new(0, 1.5, 0) + THum.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0)) task.wait()
+                    FPos(BasePart, CFrame.new(0,-1.5, 0) + THum.MoveDirection, CFrame.Angles(math.rad(Angle), 0, 0)) task.wait()
                 else
-                    -- CEL SIĘ PORUSZA / BIEGNIE
-                    FPos(BasePart, CFrame.new(0,  1.5,  THum.WalkSpeed),                        CFrame.Angles(math.rad(90), 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(0, -1.5, -THum.WalkSpeed),                        CFrame.Angles(0, 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(0,  1.5,  THum.WalkSpeed),                        CFrame.Angles(math.rad(90), 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(0,  1.5,  TRootPart.Velocity.Magnitude / 1.25),   CFrame.Angles(math.rad(90), 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(0, -1.5, -TRootPart.Velocity.Magnitude / 1.25),   CFrame.Angles(0, 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(0,  1.5,  TRootPart.Velocity.Magnitude / 1.25),   CFrame.Angles(math.rad(90), 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(0, -1.5,  0),  CFrame.Angles(math.rad(90),  0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(0, -1.5,  0),  CFrame.Angles(0, 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(0, -1.5,  0),  CFrame.Angles(math.rad(-90), 0, 0))
-                    task.wait()
-                    FPos(BasePart, CFrame.new(0, -1.5,  0),  CFrame.Angles(0, 0, 0))
-                    task.wait()
+                    FPos(BasePart, CFrame.new(0, 1.5,  THum.WalkSpeed),                     CFrame.Angles(math.rad(90), 0, 0)) task.wait()
+                    FPos(BasePart, CFrame.new(0,-1.5, -THum.WalkSpeed),                     CFrame.Angles(0, 0, 0))            task.wait()
+                    FPos(BasePart, CFrame.new(0, 1.5,  THum.WalkSpeed),                     CFrame.Angles(math.rad(90), 0, 0)) task.wait()
+                    FPos(BasePart, CFrame.new(0, 1.5,  TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0)) task.wait()
+                    FPos(BasePart, CFrame.new(0,-1.5, -TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(0, 0, 0))            task.wait()
+                    FPos(BasePart, CFrame.new(0, 1.5,  TRootPart.Velocity.Magnitude / 1.25), CFrame.Angles(math.rad(90), 0, 0)) task.wait()
+                    FPos(BasePart, CFrame.new(0,-1.5, 0), CFrame.Angles(math.rad(90),  0, 0)) task.wait()
+                    FPos(BasePart, CFrame.new(0,-1.5, 0), CFrame.Angles(0, 0, 0))             task.wait()
+                    FPos(BasePart, CFrame.new(0,-1.5, 0), CFrame.Angles(math.rad(-90), 0, 0)) task.wait()
+                    FPos(BasePart, CFrame.new(0,-1.5, 0), CFrame.Angles(0, 0, 0))             task.wait()
                 end
-            else
-                break
-            end
+            else break end
         until BasePart.Velocity.Magnitude > 500
             or BasePart.Parent ~= tChar
             or targetPlayer.Parent ~= Players
             or targetPlayer.Character ~= tChar
             or THum.Sit
             or lHum.Health <= 0
-            or tick() > Time + TimeToWait
+            or tick() > Time + 2
     end
- 
+
     workspace.FallenPartsDestroyHeight = 0/0
- 
-    -- BodyVelocity na lokalnym graczu — inicjuje wystrzelenie
+
     local BV = Instance.new("BodyVelocity")
     BV.Name     = "FlingVel"
     BV.Parent   = lHRP
     BV.Velocity = Vector3.new(9e8, 9e8, 9e8)
     BV.MaxForce = Vector3.new(1/0, 1/0, 1/0)
- 
     lHum:SetStateEnabled(Enum.HumanoidStateType.Seated, false)
- 
-    -- Wybierz najlepszy BasePart celu
+
     if TRootPart and THead then
         if (TRootPart.CFrame.p - THead.CFrame.p).Magnitude > 5 then
             SFBasePart(THead)
@@ -636,7 +602,7 @@ local function Fling(targetPlayer)
             SFBasePart(TRootPart)
         end
     elseif TRootPart then
-        SFBasePart(TRootPart)
+        SFBasePart(TRootPart)   -- POPRAWKA: oryginał błędnie używał THead tutaj
     elseif THead then
         SFBasePart(THead)
     elseif Handle then
@@ -644,13 +610,11 @@ local function Fling(targetPlayer)
     else
         Notify("MM2", "Can't find target parts to fling.", "Warning")
     end
- 
-    -- Sprzątanie po flingu
+
     BV:Destroy()
     lHum:SetStateEnabled(Enum.HumanoidStateType.Seated, true)
     workspace.CurrentCamera.CameraSubject = lHum
- 
-    -- Wróć na starą pozycję
+
     repeat
         lHRP.CFrame = getgenv().OldPos * CFrame.new(0, .5, 0)
         lChar:SetPrimaryPartCFrame(getgenv().OldPos * CFrame.new(0, .5, 0))
@@ -662,9 +626,10 @@ local function Fling(targetPlayer)
         end
         task.wait()
     until (lHRP.Position - getgenv().OldPos.p).Magnitude < 25
- 
+
+    -- Przywróć zapisany FPDH zamiast polegać na getgenv().FPDH
     workspace.FallenPartsDestroyHeight = savedFPDH
- 
+
     Notify("MM2", "Fling sent to " .. targetPlayer.Name, "Success")
 end
 
@@ -934,7 +899,7 @@ local function stopFollowPlayer()
 end
 
 -- ════════════════════════════════════════════════════════════
--- ESP SYSTEM
+-- ██████████████  ENHANCED ESP SYSTEM  ██████████████████████
 -- ════════════════════════════════════════════════════════════
 
 local ESPCfg = {
@@ -1432,26 +1397,7 @@ sFling:CreateButton({
         Fling(Players:FindFirstChild(flingTarget))
     end,
 })
-sFling:CreateButton({
-    Name = "Fling All Players",
-    Callback = function()
-        local count = 0
-        for _, p in ipairs(Players:GetPlayers()) do
-            if p ~= LP then
-                count = count + 1
-                task.spawn(function()
-                    Fling(p)
-                end)
-                task.wait(0.1) -- krótka przerwa między kolejnymi flingami
-            end
-        end
-        if count == 0 then
-            Notify("MM2", "No other players in server.", "Warning")
-        else
-            Notify("MM2", "Flinging " .. count .. " player(s)...", "Info")
-        end
-    end,
-})
+sFling:CreateButton({ Name = "Fling Nearest", Callback = function() Fling(FindNearest()) end })
 
 -- ─────────────────────────────────────────────────────────────
 --  TAB  ·  ESP
