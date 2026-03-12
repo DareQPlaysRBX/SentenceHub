@@ -121,8 +121,16 @@ end
 -- ════════════════════════════════════════════════════════════
 -- COIN FARM  (teleport to each coin — map-validated — noclip)
 -- ════════════════════════════════════════════════════════════
-local COIN_CONTAINERS = { "CoinContainer", "CoinAreas" }
-local coinFarmEnabled = false
+local COIN_CONTAINERS  = { "CoinContainer", "CoinAreas" }
+local COIN_SPEED       = 28   -- studs/s — prędkość tweena (wygląda jak chód)
+local COIN_MIN_TWEEN   = 0.15 -- minimalny czas tweena nawet dla bliskich coinów
+local COIN_COOLDOWN    = 1.5  -- sekund pauzy po zebraniu coina
+local coinFarmEnabled  = false
+local coinTween        = nil
+
+local function cancelCoinTween()
+    if coinTween then coinTween:Cancel(); coinTween = nil end
+end
 
 local function getAllCoins(mapObj)
     local coins = {}
@@ -147,8 +155,9 @@ local function startCoinFarm()
     task.spawn(function()
         while coinFarmEnabled do
 
+            -- Czekaj na mapę jeśli w lobby
             if not isInGame() then
-                Notify("Coin Farm", "W lobby — czekam na następną rundę...", "Info", 4)
+                Notify("Coin Farm", "W lobby — czekam na rundę...", "Info", 4)
                 repeat task.wait(1) until isInGame() or not coinFarmEnabled
                 if not coinFarmEnabled then break end
             end
@@ -162,21 +171,22 @@ local function startCoinFarm()
             local index = 1
 
             while coinFarmEnabled do
-                -- Sprawdź czy mapa nadal istnieje
+
+                -- Sprawdź czy runda nadal trwa
                 if not getMap() then
+                    cancelCoinTween()
                     stopNoClip()
                     Notify("Coin Farm", "Runda zakończona — pauza.", "Info", 4)
                     break
                 end
 
-                -- Przeskocz zebrany/nieistniejący coin
+                -- Pomiń coiny które już zniknęły
                 while index <= #coins and (not coins[index] or not coins[index].Parent) do
                     index = index + 1
                 end
 
-                -- Wszystkie coiny zebrane — czekaj na nowe (respawn) lub koniec rundy
+                -- Lista wyczerpana — odśwież
                 if index > #coins then
-                    -- Odśwież listę (mogły się pojawić nowe coiny)
                     local fresh = getAllCoins(map)
                     if #fresh == 0 then
                         task.wait(1)
@@ -190,25 +200,38 @@ local function startCoinFarm()
                 local coin = coins[index]
                 index = index + 1
 
+                if not coin or not coin.Parent then continue end
+
                 local _, _, root = getChar()
                 if not root then task.wait(0.3); continue end
 
-                -- Teleport bezpośrednio na coina
-                root.CFrame = CFrame.new(coin.Position.X, root.Position.Y, coin.Position.Z)
-                task.wait(0.05)
+                -- Oblicz czas tweena na podstawie dystansu
+                local dist     = (Vector3.new(coin.Position.X, root.Position.Y, coin.Position.Z) - root.Position).Magnitude
+                local duration = math.max(dist / COIN_SPEED, COIN_MIN_TWEEN)
+                local targetCF = CFrame.new(coin.Position.X, root.Position.Y, coin.Position.Z)
+
+                -- Tween walk do coina
+                cancelCoinTween()
+                local ti = TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+                coinTween = TweenService:Create(root, ti, { CFrame = targetCF })
+                coinTween:Play()
+                coinTween.Completed:Wait()
+                coinTween = nil
 
                 if not coinFarmEnabled then break end
 
                 -- Zbierz przez touch event
-                if coin.Parent then
+                local _, _, root2 = getChar()
+                if root2 and coin.Parent then
                     pcall(function()
-                        firetouchinterest(root, coin, 0)
+                        firetouchinterest(root2, coin, 0)
                         task.wait(0.04)
-                        firetouchinterest(root, coin, 1)
+                        firetouchinterest(root2, coin, 1)
                     end)
                 end
 
-                task.wait(0.05)
+                -- Cooldown przed następnym coiniem
+                task.wait(COIN_COOLDOWN)
             end
         end
     end)
@@ -219,11 +242,10 @@ end
 local function stopCoinFarm()
     coinFarmEnabled = false
     Loops.coinFarm  = false
+    cancelCoinTween()
     stopNoClip()
     Notify("Coin Farm", "Zatrzymana.", "Info")
 end
-
-
 
 -- ════════════════════════════════════════════════════════════
 -- ROLE DETECTION
