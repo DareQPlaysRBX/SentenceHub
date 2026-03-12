@@ -75,6 +75,7 @@ else
 end
 
 local S_CL = Home:CreateSection("Changelog")
+S_CL:CreateLabel({ Name = "v3.1 — SentenceUI v1.0.23, resizable window, UI overhaul." })
 S_CL:CreateLabel({ Name = "v3.0 — Universal script is now a separate file, auto-loaded." })
 S_CL:CreateLabel({ Name = "v2.3 — OG Sentence theme, Corner boxes default, scaled fonts." })
 S_CL:CreateLabel({ Name = "v2.2 — ESP rewrite: Highlight chams, modern boxes." })
@@ -82,8 +83,7 @@ S_CL:CreateLabel({ Name = "v2.1 — Universal ESP (Visuals tab) added." })
 S_CL:CreateLabel({ Name = "v2.0 — Auto game-detection, per-game config saving." })
 
 local S_Cred = Home:CreateSection("Credits")
-S_Cred:CreateLabel({ Name = "Developer: DareQPlaysRBX",         Style = 2 })
-S_Cred:CreateLabel({ Name = "Library: SentenceLib  v2.6"               })
+S_Cred:CreateLabel({ Name = "Developer: DAREQPLAYSRBX",         Style = 2 })
 S_Cred:CreateLabel({ Name = "GitHub: DareQPlaysRBX/SentenceHub"        })
 S_Cred:CreateLabel({ Name = "Discord: discord.gg/gQt5WeS5kn"           })
 
