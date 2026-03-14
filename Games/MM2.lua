@@ -121,7 +121,6 @@ end
 -- ════════════════════════════════════════════════════════════
 -- COIN FARM  (teleport to each coin — map-validated — noclip)
 -- ════════════════════════════════════════════════════════════
-local COIN_CONTAINERS  = { "CoinContainer", "CoinAreas" }
 local COIN_SPEED       = 28   -- studs/s — prędkość tweena (wygląda jak chód)
 local COIN_MIN_TWEEN   = 0.15 -- minimalny czas tweena nawet dla bliskich coinów
 local COIN_COOLDOWN    = 1.5  -- sekund pauzy po zebraniu coina
@@ -132,16 +131,12 @@ local function cancelCoinTween()
     if coinTween then coinTween:Cancel(); coinTween = nil end
 end
 
-local function getAllCoins(mapObj)
+-- Szuka wszystkich istniejących Coin_Server w workspace
+local function getAllCoins()
     local coins = {}
-    for _, containerName in ipairs(COIN_CONTAINERS) do
-        local container = mapObj:FindFirstChild(containerName, true)
-        if container then
-            for _, desc in ipairs(container:GetDescendants()) do
-                if desc:IsA("BasePart") and desc.Name == "Coin_Server" and desc.Parent then
-                    table.insert(coins, desc)
-                end
-            end
+    for _, desc in ipairs(workspace:GetDescendants()) do
+        if desc:IsA("BasePart") and desc.Name == "Coin_Server" and desc.Parent then
+            table.insert(coins, desc)
         end
     end
     return coins
@@ -166,10 +161,6 @@ local function startCoinFarm()
             Notify("Coin Farm", "Mapa: " .. map.Name .. " — zbieram coiny.", "Success", 4)
             startNoClip()
 
-            -- Pobierz listę wszystkich coinów na starcie rundy
-            local coins = getAllCoins(map)
-            local index = 1
-
             while coinFarmEnabled do
 
                 -- Sprawdź czy runda nadal trwa
@@ -180,27 +171,20 @@ local function startCoinFarm()
                     break
                 end
 
-                -- Pomiń coiny które już zniknęły
-                while index <= #coins and (not coins[index] or not coins[index].Parent) do
-                    index = index + 1
-                end
+                -- Odśwież listę coinów przy każdej iteracji
+                local coins = getAllCoins()
 
-                -- Lista wyczerpana — odśwież
-                if index > #coins then
-                    local fresh = getAllCoins(map)
-                    if #fresh == 0 then
-                        task.wait(1)
-                        continue
-                    end
-                    coins = fresh
-                    index = 1
+                if #coins == 0 then
+                    task.wait(1)
                     continue
                 end
 
-                local coin = coins[index]
-                index = index + 1
+                local coin = coins[1]
 
-                if not coin or not coin.Parent then continue end
+                if not coin or not coin.Parent then
+                    task.wait(0.1)
+                    continue
+                end
 
                 local _, _, root = getChar()
                 if not root then task.wait(0.3); continue end
@@ -246,7 +230,6 @@ local function stopCoinFarm()
     stopNoClip()
     Notify("Coin Farm", "Zatrzymana.", "Info")
 end
-
 -- ════════════════════════════════════════════════════════════
 -- ROLE DETECTION
 -- ════════════════════════════════════════════════════════════
