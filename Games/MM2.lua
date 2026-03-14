@@ -1,5 +1,5 @@
 -- ════════════════════════════════════════════════════════════
--- SENTENCE Hub  -  Murder Mystery 2  v3.0
+-- SENTENCE Hub  -  Murder Mystery 2  v3.1
 -- Autor: DareQPlaysRBX
 -- ════════════════════════════════════════════════════════════
 
@@ -121,25 +121,14 @@ end
 -- ════════════════════════════════════════════════════════════
 -- COIN FARM  (teleport to each coin — map-validated — noclip)
 -- ════════════════════════════════════════════════════════════
-local COIN_SPEED       = 28   -- studs/s — prędkość tweena (wygląda jak chód)
-local COIN_MIN_TWEEN   = 0.15 -- minimalny czas tweena nawet dla bliskich coinów
-local COIN_COOLDOWN    = 1.5  -- sekund pauzy po zebraniu coina
+local COIN_SPEED       = 28
+local COIN_MIN_TWEEN   = 0.15
+local COIN_COOLDOWN    = 1.5
 local coinFarmEnabled  = false
 local coinTween        = nil
 
 local function cancelCoinTween()
     if coinTween then coinTween:Cancel(); coinTween = nil end
-end
-
--- Szuka wszystkich istniejących Coin_Server w workspace
-local function getAllCoins()
-    local coins = {}
-    for _, desc in ipairs(workspace:GetDescendants()) do
-        if desc:IsA("BasePart") and desc.Name == "Coin_Server" and desc.Parent then
-            table.insert(coins, desc)
-        end
-    end
-    return coins
 end
 
 local function startCoinFarm()
@@ -158,12 +147,32 @@ local function startCoinFarm()
             end
 
             local map = getMap()
+            local container = map and map:FindFirstChild("CoinContainer")
+            if not container then task.wait(1); continue end
+
             Notify("Coin Farm", "Mapa: " .. map.Name .. " — zbieram coiny.", "Success", 4)
             startNoClip()
 
+            -- Zbuduj live-set coinów i podepnij eventy
+            local coinSet = {}
+            for _, coin in ipairs(container:GetChildren()) do
+                if coin:IsA("BasePart") and coin.Name == "Coin_Server" then
+                    coinSet[coin] = true
+                end
+            end
+
+            local connAdded = container.ChildAdded:Connect(function(coin)
+                if coin:IsA("BasePart") and coin.Name == "Coin_Server" then
+                    coinSet[coin] = true
+                end
+            end)
+            local connRemoved = container.ChildRemoved:Connect(function(coin)
+                coinSet[coin] = nil
+            end)
+
+            -- Główna pętla zbierania
             while coinFarmEnabled do
 
-                -- Sprawdź czy runda nadal trwa
                 if not getMap() then
                     cancelCoinTween()
                     stopNoClip()
@@ -171,30 +180,21 @@ local function startCoinFarm()
                     break
                 end
 
-                -- Odśwież listę coinów przy każdej iteracji
-                local coins = getAllCoins()
+                -- Weź pierwszy dostępny coin z live-setu
+                local coin = next(coinSet)
 
-                if #coins == 0 then
+                if not coin then
                     task.wait(1)
-                    continue
-                end
-
-                local coin = coins[1]
-
-                if not coin or not coin.Parent then
-                    task.wait(0.1)
                     continue
                 end
 
                 local _, _, root = getChar()
                 if not root then task.wait(0.3); continue end
 
-                -- Oblicz czas tweena na podstawie dystansu
                 local dist     = (Vector3.new(coin.Position.X, root.Position.Y, coin.Position.Z) - root.Position).Magnitude
                 local duration = math.max(dist / COIN_SPEED, COIN_MIN_TWEEN)
                 local targetCF = CFrame.new(coin.Position.X, root.Position.Y, coin.Position.Z)
 
-                -- Tween walk do coina
                 cancelCoinTween()
                 local ti = TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
                 coinTween = TweenService:Create(root, ti, { CFrame = targetCF })
@@ -204,7 +204,6 @@ local function startCoinFarm()
 
                 if not coinFarmEnabled then break end
 
-                -- Zbierz przez touch event
                 local _, _, root2 = getChar()
                 if root2 and coin.Parent then
                     pcall(function()
@@ -214,13 +213,16 @@ local function startCoinFarm()
                     end)
                 end
 
-                -- Cooldown przed następnym coiniem
                 task.wait(COIN_COOLDOWN)
             end
+
+            -- Odepnij eventy po zakończeniu rundy
+            connAdded:Disconnect()
+            connRemoved:Disconnect()
         end
     end)
 
-    Notify("Coin Farm", "Uruchomiona.", "Success")
+    Notify("Coin Farm", "Running.", "Success")
 end
 
 local function stopCoinFarm()
@@ -228,8 +230,9 @@ local function stopCoinFarm()
     Loops.coinFarm  = false
     cancelCoinTween()
     stopNoClip()
-    Notify("Coin Farm", "Zatrzymana.", "Info")
+    Notify("Coin Farm", "Stopped.", "Info")
 end
+
 -- ════════════════════════════════════════════════════════════
 -- ROLE DETECTION
 -- ════════════════════════════════════════════════════════════
